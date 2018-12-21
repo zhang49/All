@@ -24,6 +24,8 @@ u8 ESP8266_Start(enum ESP8266STARTMODE mode);
 u8 ESP8266_LocalMode(u32 port);
 u8 ESP8266_CLODEMode(char *type ,char *address, int port);
 u8 GetJsonType(json_t *injson,char *type);
+u8 json_find(json_t *injson,char *key,char *ret);
+u8 json_add(json_t *injson,char *key,char *value);
 u8 getJsonData(json_t *injson,char *param,int *retInteger,char *retCharArray);
 u8 getJsonDataCharArray(json_t *injson,char *param,char *retdata);
 u8 getJsonDataInteger(json_t *injson,char *param,int retdata);

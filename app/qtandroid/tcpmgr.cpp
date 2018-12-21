@@ -15,29 +15,43 @@ TcpMgr::TcpMgr(QObject *parent)
 void TcpMgr::NewConnect()
 {
     //QHostAddress::LocalHost本地地址
-    tcpSocket->abort();
+    //tcpSocket->abort();
     m_rbuffer.clear();
     tcpSocket->connectToHost(ADDRESS,PORT);
 }
+
 void TcpMgr::SendData(QString parameter)
 {
-    char *data=parameter.toLatin1().data();
+    QByteArray data=parameter.toLocal8Bit();
     uint16_t len=strlen(data);
+    char ch[2];
 
-    char wdata[1024];
-    sprintf(wdata,"%d%s",len,data);
-    delete data;
-    len=strlen(wdata);
-    if(tcpSocket->write(wdata,len)==-1)
+    ch[0]=(uint8_t)len>>8;
+    ch[1]=(uint8_t)len&0x00ff;
+
+    if((tcpSocket->write(ch,2)==-1))
+    {
+        qDebug()<<"Write Data Error";
+    }
+    if(tcpSocket->write(data,strlen(data))==-1)
     {
         qDebug()<<"Write Data Error";
     }
     tcpSocket->flush();
 }
+
 void TcpMgr::slot_RecvData()
 {
+    qDebug()<<"get message"<<endl;
     m_rbuffer.append(tcpSocket->readAll());
-    uint16_t bodylen = m_rbuffer.mid(0,HEADSIZE).toInt();
+
+    uint16_t bodylen;
+    for(int i=0;i<HEADSIZE;i++)
+    {
+        bodylen<<=8;
+        bodylen |= (uint8_t)m_rbuffer[i];
+    }
+    qDebug()<<"body length is "<<bodylen<<endl;
     while((m_rbuffer.length())>=bodylen+HEADSIZE)
     {
         //m_rbuffer长度大于bodylength , 读取数据

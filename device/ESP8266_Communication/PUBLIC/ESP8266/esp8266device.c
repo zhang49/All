@@ -380,7 +380,7 @@ u8 ESP8266_ReadLocalCustom(u8 *id,u16 timeout)
 			{
 				break;
 			}
-			if(strstr(temp, "busy ..."))
+			if(strstr(temp, "busy s..."))
 			{
 				break;
 			}
@@ -444,7 +444,7 @@ u8 ESP8266_ReadCloudCustom(char data[],u16 timeout)
 }
 
 /*
-*
+* %d 发送的是 u32 ，转换成对应的字符发送！！！
 */
 void ESP8266_printf (char * Data, ... )
 {
@@ -485,7 +485,8 @@ void ESP8266_printf (char * Data, ... )
 				break;
 				case 'd':										//%d	十进制的整形数据
 				d = va_arg(arg_ptr, u32);
-				ESP8266_senditoa(d);
+				if(d==0)ESP8266_Sendu8('0');
+					else ESP8266_senditoa(d);
 				Data++;
 				break;
 				default:	// %s %d外的占位符，不做处理!!!

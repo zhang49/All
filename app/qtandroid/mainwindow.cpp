@@ -23,13 +23,59 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->clostbtn,SIGNAL(clicked(bool)),this,SLOT(slot_closebtn_clicked()));
     connect(tcpClient,SIGNAL(signal_tcpHasRecvData(QString)),this,SLOT(slot_readMessage(QString)));
 }
-
-MainWindow::~MainWindow()
+void MainWindow::json_test()
 {
-    delete ui;
-    delete tcpClient;
+    QJsonArray root;
+    QJsonObject obj;
+    QJsonArray dataAarray;
+    //root.push_back(QJsonObject({QPair<QString,QJsonValue>("type","REQUEST")}));
+    //root.push_back(QJsonObject({QPair<QString,QJsonValue>("type","REQUEST")}));
+    dataAarray.push_back(QJsonObject({QPair<QString,QJsonValue>("id","#1")}));
+    dataAarray.push_back(QJsonObject({QPair<QString,QJsonValue>("thing","none")}));
+
+    json_add(root,"type","REQUEST");
+    root.push_back(QJsonObject({QPair<QString,QJsonValue>("data",dataAarray)}));
+    //json_add(root,"data.id","#1");
+    //json_add(root,"data.per","cat");
+    //json_add(root,"next.id","#3");
+    //json_add(root,"next.per","dog");
+
+    QJsonDocument jdoc=QJsonDocument(root);
+    QString out(jdoc.toJson(QJsonDocument::Compact));
+    qDebug()<<out<<endl;
+    //json_find(root,"data.thing",NULL);
 }
 
+/*
+ * Json最多两层
+ */
+void MainWindow::json_add(QJsonArray &root,QString key,QString value)
+{
+        if(key.contains('.'))
+        {
+            QString frontkey=key.mid(0,key.indexOf('.'));
+            QString backdkey=key.mid(key.indexOf('.')+1);
+            QJsonObject tempobj;
+            int i=0;
+            for(;i<root.size();i++)
+            {
+                if(root[i].toObject().contains(frontkey))
+                {
+                   //qDebug()<<"found, insert backdkey:"<<backdkey<<endl;
+                   tempobj=root[i].toObject();
+                   tempobj=tempobj[frontkey].toObject();
+                   root.removeAt(i);
+                   break;
+                }
+            }
+            tempobj.insert(backdkey,value);
+            //qDebug()<<"not found, insert backdkey & frontkey:"<<backdkey<<endl;
+            root.push_back(QJsonObject({QPair<QString,QJsonValue>(frontkey,tempobj)}));
+
+            return;
+        }
+        root.push_back(QJsonObject({QPair<QString,QJsonValue>(key,value)}));
+}
 void MainWindow::slot_connectbtn_clicked()
 {
     tcpClient->NewConnect();
@@ -56,42 +102,54 @@ void makeJson(QJsonArray &root,char *type,int dataSize,...)
     root.insert(0,jsontype);
     root.insert(1,QJsonObject({QPair<QString, QJsonValue>( QString("data"),jsondataArray)}));
 }
-//get
-int json_find(QJsonValue root,QString dname)
+//find Json data
+QJsonValue MainWindow::json_find(QJsonValue root,QString key)
 {
-    if(root.isArray() && root.toArray().size()==0)return 0;
-    if(root.isObject() && root.toObject().size()!=0)
+    if(root.isArray() && root.toArray().size()==0)return NULL;
+    if(root.isObject() && root.toObject().size()==0)return NULL;
+    if(root.isObject())
     {
-        //if(root.toObject().value(dname)!=NULL)
+        QString fkey;
+        if(key.contains('.'))
+            fkey=key.mid(0,key.indexOf('.'));
+        else
+            fkey=key;
+        for(QString k : root.toObject().keys())
         {
-            return 1;
+            if(k==fkey)
+            {
+                if(fkey==key)//查找到的是，参数key的最后子键
+                {
+                    //qDebug()<<root.toObject()[k].toString()<<endl;
+                    return root.toObject()[k];
+                }
+                else
+                {
+                    return json_find(root.toObject()[k],key.mid(key.indexOf('.')+1));
+                }
+            }
         }
+        return 0;
     }
     else if(root.isArray())
     {
         for(int i=0;i<root.toArray().size();i++)
-        if(json_find(root.toArray().at(i),dname)==1)
-        {
-
-        }
-
+        return json_find(root.toArray().at(i),key);
     }
-    return 0;
+    return NULL;
 }
 
+void MainWindow::send_Json(QJsonArray root)
+{
+    QJsonDocument jdoc=QJsonDocument(root);
+    QString out(jdoc.toJson(QJsonDocument::Compact));
+    out.length();
+    tcpClient->SendData(out);
+}
 
 void MainWindow::slot_sendbtn_clicked()
 {
-    //tcpClient->SendData(ui->wdTextEdit->text());
-    //QTimer::singleShot(1,this,&MainWindow::function);
-    QJsonArray root;
-    //json_add(root,"type","Request");
-
-    //json_find(root,"type");
-    //makeJson(&root,"REQUESTID",1,"id","#1");
-
-
-    //tcpClient->SendData();
+    tcpClient->SendData("1");
 }
 void MainWindow::slot_closebtn_clicked()
 {
@@ -99,6 +157,33 @@ void MainWindow::slot_closebtn_clicked()
 }
 void MainWindow::slot_readMessage(QString recvdata)
 {
-      ui->rdTextEdit->append(recvdata);
+    QJsonDocument document=QJsonDocument::fromJson(recvdata.toLocal8Bit());
+    QJsonObject object = document.object();
+
+    QJsonDocument dd;
+    dd.setObject(object);
+    QByteArray bytea= dd.toJson(QJsonDocument::Compact);
+    qDebug()<<"Exchange is :"<<QString(bytea)<<endl;
+
+    QJsonValue findret;
+    findret=json_find(object,"type");
+    if(findret!=NULL)
+    {
+        if(findret.isString())
+                qDebug()<<"return is:"<<findret.toString()<<endl;
+    }
+    if(findret=="request")
+    {
+
+    }
+
+    //ui->rdTextEdit->append(recvdata);
+}
+
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+    delete tcpClient;
 }
 

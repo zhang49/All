@@ -31,34 +31,92 @@ void ESP8266_Init()
 	//delay_ms(500);
 }
 
+
 void ESP8266_test()
 {
-	char *out,*in;
+	char *out;
 	char rjsonbuf[255];
-	json_t *injson;
-	in="[{\"type\": \"requestdata\"},{\"data\":[{\"id\": \"thisisid\"},{\"per\": \"23\"}]}]";
-	injson=json_loads(in, JSON_DECODE_ANY,NULL);
+	json_t *outjson,*injson;
+	char ret[255];
+	u16 sdlen;
+	outjson=json_object();
+	
+	json_add(outjson,"type","request");
+	json_add(outjson,"data.id","#1");
+	json_add(outjson,"data.version","1.1.1");
+	json_add(outjson,"data.isopen","false");
+	json_add(outjson,"data2.id","#1");
+	json_add(outjson,"data2.version","1.1.1");
+	json_add(outjson,"data2.isopen","false");
+	json_add(outjson,"data3.id","#1");
+	json_add(outjson,"data3.version","1.1.1");
+	json_add(outjson,"data3.isopen","false");
+	out = json_dumps(outjson, JSON_COMPACT|JSON_INDENT(0));
+	sdlen=strlen(out);
+	
+	ESP8266_printf("AT+CIPSEND=%d,%d\r\n",0,sdlen+2);
+	delay_ms(800);
+	ESP8266_Sendu8(sdlen>>8);//先发高位
+	ESP8266_Sendu8(sdlen);
+	ESP8266_printf("%s",out);
+	
+	printf("send %d\r\n",(u8)sdlen);
+	printf("send %d\r\n",sdlen);
+	free(out);
+		
+	//创建新json_t时，引用计数为1
+	//调用json_decref()一次，参数引用计数 -1 ，当计数为0，自动释放引用
+	json_decref(outjson);
+	json_decref(injson);
+	
+	return;
+	
+	injson=json_loads(out, JSON_DECODE_ANY,NULL);
+	json_find(injson,"data.isopen",ret);
+	
+	printf("find data.isopen :%s\r\n",ret);
+
+	
+	//json_find(injson,"data.version",ret);
+	
+	//printf("------------------ret is :           %s\r\n",ret);
+	
+	//当重新赋值为另一个引用，需要释放原先的，否则会造成内存泄漏
+	//json_decref(injson);
+	//injson=json_loads(in, JSON_DECODE_ANY,NULL);
+		
 	//The return value must be freed by the caller using free().
 	//out = json_dumps(injson, JSON_DECODE_ANY);
 	//printf("Test json to string is:%s\r\n",out);
-	if(getJsonData(injson,"type",NULL,rjsonbuf))
-	{
-		printf("getJson data.id is:%s\r\n",rjsonbuf);
-	}
-	else
-	{
-		printf("data.id not found\r\n");
-	}
-	json_decref(injson);
+	//free(out);
+	
+	//json_t *injson=json_object();
+	//json_add(injson,"type","request");
+	
+	//is pass tesing
+	//json_find(injson,"data.id");
+	
+//printf("not crash.\r\n");
+//	if(getJsonData(injson,"type",NULL,rjsonbuf))
+//	{
+//		printf("getJson data.id is:%s\r\n",rjsonbuf);
+//	}
+//	else
+//	{
+//		printf("data.id not found\r\n");
+//	}
+
+
 }
+
 u8 ESP8266_Start(enum ESP8266STARTMODE mode)
 {
-	//Send_Json(1);
 //	while(1)
 //	{
 //		ESP8266_test();
-//		delay_ms(50);
+//		delay_ms(1);
 //	}
+//	return 0;
 	switch(mode)
 	{
 		case LOCAL:
@@ -189,6 +247,100 @@ u8 ESP8266_CLODEMode(char *type ,char *address, int port)
 		}
 	}
 	return 0;
+}
+
+u8 json_add(json_t *injson,char *key,char *value)
+{
+	if(strstr(key,"."))
+	{
+		json_t *tempobj;
+		char fkey[20];
+		u8 i=0;
+		for(i=0;*key!='.';i++,key++)
+		*(fkey+i)=*key;
+		*(fkey+i)=0;
+		key++;
+		tempobj=json_object_get(injson,fkey);
+		if(tempobj==NULL)
+		{
+			//printf("is NULL\r\n");
+			//new jsonobject
+			tempobj=json_object();
+			//json_string(value) 会新分配内存，不盗取则需要释放
+			//set_new 盗取value 当value时新建的，在调用后无法使用
+			json_object_set_new(tempobj, key, json_string(value));
+			json_object_set_new(injson,fkey,tempobj);
+		}
+		else
+		{
+			//printf("NOT is NULL\r\n");
+			json_object_set_new(tempobj, key, json_string(value));
+			json_object_set(injson,fkey,tempobj);
+		}
+		return 1;
+	}
+	json_object_set_new(injson,key,json_string(value));
+}
+//参数 无法返回json_t ，暂时
+u8 json_find(json_t *injson,char *key,char *ret)
+{
+		//printf("test\r\n");
+		if(json_is_array(injson) && json_array_size(injson)==0)return 0;
+		if(json_is_object(injson) && json_object_size(injson)==0)return 0;
+    if(json_is_object(injson))
+    {
+				char keytemp[20];
+				const char *k;
+				json_t *v;
+				int i=0;
+				//printf("key is:%s\r\n",key);
+        if(strstr(key,"."))
+				{
+					for(i=0;*key!='.';i++,key++)
+					*(keytemp+i)=*key;
+					*(keytemp+i)=0;
+				}
+        else
+            strcpy(keytemp,key);
+				//printf("keytemp is:%s\r\n",keytemp);
+				json_object_foreach(injson, k, v)
+				{
+					//printf("k is:%s\r\n",k);
+					if(strlen(k)==strlen(keytemp) && strstr(k,keytemp))
+					{
+							if(strlen(keytemp)==strlen(key) && strstr(keytemp,key))
+							{
+								//终于找到了
+								strcpy(ret,json_string_value(v));
+								//printf("find it,%s\r\n",ret);
+								return 1;
+							}
+							else
+							{
+								key++;//去掉'.'
+								//printf("backkey is:%s\r\n",key);
+								if(json_find(json_object_get(injson,k),key,ret))
+								{
+									//printf(" 2----------find it,%s\r\n",ret);
+									return 1;
+								}
+							}
+					}
+				}
+        return 0;
+    }
+    else if(json_is_array(injson))
+    {
+			u8 i=0;
+			for(;i<json_array_size(injson);i++)
+			if(json_find(json_array_get(injson,i),key,ret))
+			{
+					//break;
+					//printf(" 3----------find it,%s\r\n",ret);
+					return 1;
+			}
+    }
+    return 0;
 }
 
 u8 GetJsonType(json_t *injson,char *type)
@@ -338,73 +490,7 @@ u8 Send_Json(u8 cid)
 	root = json_pack("[{s:s},[s:[{s:s},{s:i}]]]", "type", "requestdata", "data"
 	, "id","thisisid","per",23);
   out = json_dumps(root, JSON_DECODE_ANY);
-	//json格式 单一键值对{}，多键值对必须使用[{},{}]否则无法解
-	//out = "[{\"type\": \"requestdata\"}, \
-	{\"data\":[{\"id\": \"1232\"}\
-	,\{\"per\": 21}\
-	]}]";
-	printf("json to string is:%s\r\n",out);
 	
-	//readjson(injson,"type","data1","data2");
-	//printf("getJsonDataCharArray retData is:%s\r\n",data);
-	return 0;
-	//key value such as
-	//json_unpack(injson, "[{s:s},[s:{s:s}]]", "type",&type,NULL,NULL,NULL);
-	//printf("0 data string is:%s\r\n",type);
-	printf("injson size is:%d\r\n",json_array_size(injson));
-	if(!json_is_array(injson))
-	{
-		printf("injson is not json arrry\r\n");
-		return 0;
-	}
-	else
-	{
-		json_t  *data , *sha , *commit , *message ;
-		
-		//取 json_t 中的数据
-		data  =  json_array_get (injson , 0 ); 
-		if (!json_is_object (data ))
-    { 
-			printf("data is error\r\n");
-			return 0;
-    }
-		sha  =  json_object_get (data ,"type");
-		if (!json_is_string (sha ))
-		{ 
-			printf("sha is error\r\n");
-			return 0;
-		}		
-		else
-		{
-			printf("0 data string is:%s\r\n",json_string_value(sha));
-		}
-		
-		if (!json_is_string (data))
-		{
-			printf("get type is not json string\r\n"); 
-			json_decref (root ); 
-		}
-		else
-		{
-			printf("0 data string is:%s\r\n",json_string_value(data));
-		}
-//		for (i=0;i<json_array_size(root);i++)
-//		{ 
-//			json_t  *data, *sha, *commit, *message ; 
-//			const  char  * message_text ;
-//			data=json_array_get(root,i);
-//			if (!json_is_object (data))
-//			{ 
-//					printf("data is not json arrry\r\n"); 
-//					json_decref (root); 
-//					return 0;
-//			} 
-//		}
-	}
-	//arr1 = json_pack("{data}", "1");
-	
-	printf("%s", out);
-	//free(root);
 	free(out);
 	json_decref(root);
 	return 0;
@@ -433,26 +519,29 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 				{
 					if(sRecvBuf[i].head!=sRecvBuf[i].rear)
 					{
+						//测试
+						ESP8266_test();
 						printf("Client %d recv:%s\r\n",i,sRecvBuf[i].rData[sRecvBuf[i].head%SCR_SLOT_MAX]);
-						injson=json_loads(sRecvBuf[i].rData[sRecvBuf[i].head%SCR_SLOT_MAX], JSON_DECODE_ANY,NULL);
-						if(GetJsonType(injson,msgtype))
-						{
-							printf("Message Type is:%s\r\n",msgtype);
-							if(getJsonData(injson,"data.id",NULL,rjsonbuf))
-							{
-								printf("getJson data.id is:%s\r\n",rjsonbuf);
-							}
-							else
-							{
-								printf("data.id not found\r\n");
-							}		
-						}
-						else
-						{
-								printf("message type not found\r\n");
-						}
+						
 						sRecvBuf[i].head++;
-						json_decref(injson);
+//						injson=json_loads(sRecvBuf[i].rData[sRecvBuf[i].head%SCR_SLOT_MAX], JSON_DECODE_ANY,NULL);
+//						if(GetJsonType(injson,msgtype))
+//						{
+//							printf("Message Type is:%s\r\n",msgtype);
+//							if(json_find(injson,"data.id",rjsonbuf))
+//							{
+//								printf("getJson data.id is:%s\r\n",rjsonbuf);
+//							}
+//							else
+//							{
+//								printf("data.id not found\r\n");
+//							}		
+//						}
+//						else
+//						{
+//								printf("message type not found\r\n");
+//						}
+//						json_decref(injson);
 					}
 				}
 				continue;

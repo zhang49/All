@@ -5,9 +5,9 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork>
 
-const QString ADDRESS="192.168.20.103";
-const int PORT=8888;
-const int HEADSIZE=4;
+const QString ADDRESS="192.168.20.104";
+const int PORT=7777;
+const int HEADSIZE=2;
 
 //继承QObject,否则无法connct
 class TcpMgr :

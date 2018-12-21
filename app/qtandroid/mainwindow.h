@@ -18,7 +18,11 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = 0);
+    void json_test();
+    void json_add(QJsonArray &root,QString key,QString value);
     void makeJson(QJsonArray &root,char *type,int dataSize,...);
+    QJsonValue json_find(QJsonValue root,QString key);
+    void send_Json(QJsonArray root);
     ~MainWindow();
 
 private:
