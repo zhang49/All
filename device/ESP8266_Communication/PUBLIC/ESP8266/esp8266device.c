@@ -11,6 +11,7 @@ extern u8 readATFlag;	//读AT指令标记
 extern u8 sAcceptCount;
 const u8 acceptmax;
 struct SERVER_CLIENT_RECVBUF sRecvBuf[SERVER_ACCEPT_MAX];
+u8 readforsend=0;
 //高2位存Cid，低14位存长度
 u16 needReadIpdLength=0;
 void ESP8266_DEVICE_Init(int baudRate)
@@ -27,19 +28,23 @@ u8 ESP8266_CloseEcho(void)
 	if(ESP8266_SendCmdWithCheck("ATE0","OK",NULL,50))
 	{
 		//未关闭回显前返回ATE0 OK,串口已屏蔽掉ATE0
-		return 1;
 	}
-	return 0;
+	else{
+		delay_ms(10);
+		
+	
+	printf("rdQueue.head:%d,rdQueue.rear:%d\r\n",rdQueue.head,rdQueue.rear);
+		ESP8266_ReadATRet(NULL,1);
+	}
+	return 1;
 }
 //重启模块
 u8 ESP8266_RST()
 {
-	USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭串口1接受中断,不接受重启后接收的乱码
-	ESP8266_printf("AT+RST\r\n");
-	delay_ms(800);
-	delay_ms(800);
-	delay_ms(800);
-	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启串口1接受中断
+	//USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭串口1接受中断,不接受重启后接收的乱码
+	ESP8266_SendCmd("AT+RST");
+	//USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启串口1接受中断
+	while(!ESP8266_CmdIsSuccess("ready",2));
 	ESP8266_CloseEcho();
 	if(ESP8266_SendCmdWithCheck("AT","OK",NULL,50))
 	{
@@ -51,8 +56,12 @@ u8 ESP8266_RST()
 //ret1,re2为预期接收到的数据，timeout为最长等待时间
 u8 ESP8266_SendCmdWithCheck(char *data,char *ret1,char *ret2,u16 tenMsTimes)
 {
-	ESP8266_printf("%s\r\n",data);
+	ESP8266_SendCmd(data);
 	return ESP8266_ExpectRet(ret1,ret2,tenMsTimes);
+}
+u8 ESP8266_SendCmd(char *data)
+{
+	ESP8266_printf("%s\r\n",data);
 }
 u8 ESP8266_ATTest(u16 tenMsTimes)
 {
@@ -71,13 +80,46 @@ u8 ESP8266_CWMODE_Choice(enum CWMODE mode)
 	}
 	return 0;
 }
+//配置AP模式下的信息
+u8 ESP8266_SetAPModeConfig(char *ssid,char *psw,int chl,int ecn)
+{
+	USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭串口1接受中断,不接受重启后接收的乱码
+	delay_ms(20);
+	readATFlag=1;
+	rdQueue.head=0;
+	rdQueue.rear=0;
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启串口1接受中断
+	ESP8266_printf("AT+CWSAP=\"%s\",\"%s\",%d,%d",ssid,psw,chl,ecn);
+	if(ESP8266_ExpectRet("OK",NULL,50))
+	{
+		readATFlag=0;
+		rdQueue.head=0;
+		rdQueue.rear=0;
+		return 1;
+	}
+	readATFlag=0;
+	rdQueue.head=0;
+	rdQueue.rear=0;
+	return 0;
+}
+//还原AP模式下的信息
+u8 ESP8266_RestoreAPConfig()
+{
+	USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭串口1接受中断,不接受重启后接收的乱码
+	delay_ms(20);
+	readATFlag=1;
+	rdQueue.head=0;
+	rdQueue.rear=0;
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启串口1接受中断
+	return 1;
+}
 //连接wifi
 u8 ESP8266_JoinAP(char *ssid,char *psw)
 {
 	char expectRet[50];
 	char recvData[100];
 	sprintf(expectRet,"+CWJAP:\"%s\"",ssid);
-	ESP8266_printf("AT+CWJAP?\r\n");
+	ESP8266_SendCmd("AT+CWJAP?");
 	if(ESP8266_ReadATRet(recvData,255))
 	{
 		if(strstr(recvData,expectRet))
@@ -136,6 +178,8 @@ u8 ESP8266_CreateTcpServer(u32 tcpServerPort)
 	if(ESP8266_ExpectRet("OK",NULL,50))
 	{
 		readATFlag=0;
+		rdQueue.head=0;
+		rdQueue.rear=0;
 		return 1;
 	}
 	else return 0;
@@ -168,6 +212,7 @@ u8 ESP8266_CmdIsSuccess(char *expect,u16 tenMsTimes)
 	printf("Expect:%s\r\n",expect);
 	if(!ESP8266_ReadATRet(recv,tenMsTimes))return 0;
 	printf("Recv:%s\r\n",recv);
+	
 	//不比较长度
 	//if(strlen(recv)==strlen(expect) && strstr(recv,expect))
 	if(strstr(recv,expect))
@@ -205,8 +250,15 @@ u8 ESP8266_ReadATRet(char data[],u16 tenMsTimes)
 		tc+=1;
 	}
 	if(rdQueue.head==rdQueue.rear)return 0;//计时溢出，没有数据
+	//数据长度超过100
+	if(rdQueue.rear>=rdQueue.head+98)
+	{
+		rdQueue.head=rdQueue.rear;
+		return 0;
+	}
 	//printf("____tc:%d,timeout:%d\r\n",tc,tenMsTimes);
 	//printf("head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
+	if(data==NULL)return 1;
 	while(ch!=0)
 	{
 		ch=rdQueue.data[(++rdQueue.head)%USART_SLOT_SIZE];
@@ -346,30 +398,38 @@ u8 ESP8266_ReadLocalCustom(u8 *id,u16 timeout)
 		{
 			if(rdQueue.data[(cursor+1) % USART_SLOT_SIZE]=='>')
 			{
+				readforsend=1;
 				cursor++;
 				break;
 			}
-			else if(rdQueue.head+5>rdQueue.rear)return 0;
+			else if(rdQueue.rear<rdQueue.head+5)return 0;
 			for (i = 1; cursor+i<rdQueue.rear && rdQueue.data[(cursor+i) % USART_SLOT_SIZE]!='\r' ; i++)
 				*(temp + i - 1) = rdQueue.data[(cursor+i) % USART_SLOT_SIZE];
 			
-			printf("AT cmd:%s\r\n",temp);
+			//printf("AT cmd:%s\r\n",temp);
 			if(rdQueue.data[(cursor+i+1) % USART_SLOT_SIZE]!='\n')
 				return 0;
 			i++;//	\r\n
 			cursor+=i;
-			if (strstr(temp, ",CONNECT"))
+			if (strstr(temp, ",CONNECT F"))
 			{
-				printf("get connect:\r\n");
+				//printf("Client Connect Fall\r\n");
 				cid = rdQueue.data[(rdQueue.head + 1) % USART_SLOT_SIZE]-'0';
-				sAcceptCount++;
+				sAcceptCount--;
 				break;
 			}
 			if (strstr(temp, ",CLOSED"))
 			{
-				printf("get close:\r\n");
+				//printf("Client Closed\r\n");
 				cid = rdQueue.data[(rdQueue.head + 1) % USART_SLOT_SIZE]-'0';
 				sAcceptCount--;
+				break;
+			}
+			if (strstr(temp, ",CONNECT"))
+			{
+				//printf("Client Connect\r\n");
+				cid = rdQueue.data[(rdQueue.head + 1) % USART_SLOT_SIZE]-'0';
+				sAcceptCount++;
 				break;
 			}
 			if(strstr(temp, "SEND OK"))
@@ -384,8 +444,7 @@ u8 ESP8266_ReadLocalCustom(u8 *id,u16 timeout)
 			{
 				break;
 			}
-			if(rdQueue.data[(cursor) % USART_SLOT_SIZE]!='\n')
-			cursor-=i;
+			if(rdQueue.data[(cursor) % USART_SLOT_SIZE]!='\n')cursor-=i;
 		}while(0);
 		rdQueue.head=cursor;
 	}
@@ -443,6 +502,16 @@ u8 ESP8266_ReadCloudCustom(char data[],u16 timeout)
 	return 0;
 }
 
+void ESP8266_SendNet_unTransparent(u8 cid,const char *ostream)
+{
+	u16 len;
+	len=strlen(ostream);
+	ESP8266_printf("AT+CIPSEND=%d,%d\r\n",cid,len+2);
+	delay_ms(50);
+	ESP8266_Sendu8(len>>8);//先发高位
+	ESP8266_Sendu8(len);
+	ESP8266_printf("%s",ostream);
+}
 /*
 * %d 发送的是 u32 ，转换成对应的字符发送！！！
 */

@@ -156,8 +156,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) 
 	{  
 		recvByte =USART_ReceiveData(USART1);
-		//if(readATFlag) //接收中断(接收到的数据必须是0x0d 0x0a(\r\n)结尾)
-		if(readATFlag)
+		if(readATFlag) //接收中断(接收到的数据必须是0x0d 0x0a(\r\n)结尾)
 		{
 			if(RX_count&0x8000)//已接收了0x0d
 			{

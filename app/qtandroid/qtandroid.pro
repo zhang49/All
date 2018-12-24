@@ -24,11 +24,17 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    tcpmgr.cpp
+    tcpmgr.cpp \
+    tcpcilent.cpp \
+    qjson.cpp
 
 HEADERS += \
         mainwindow.h \
-    tcpmgr.h
+    tcpmgr.h \
+    messagedef.h \
+    tcpcilent.h \
+    qjson.h \
+    pubdef.h
 
 FORMS += \
         mainwindow.ui

@@ -4,29 +4,37 @@
 #include <QAbstractSocket>
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork>
-
-const QString ADDRESS="192.168.20.104";
-const int PORT=7777;
-const int HEADSIZE=2;
+#include <memory>
+#include "tcpcilent.h"
+//192.168.20.105 deviceServerIP
+static const QString TCPCLIENT_ADDRESS="192.168.20.105";
+static const int TCPCLIENT_PORT=7641;
 
 //继承QObject,否则无法connct
-class TcpMgr :
+class TcpMgr:
         public QObject
 {
     Q_OBJECT
+
 public:
-    TcpMgr(QObject *parent = Q_NULLPTR);
+    static TcpMgr *getInstance();
     virtual ~TcpMgr();
-    void NewConnect();
-    void SendData(QString);
+    void tcpCilent_SendMsg(QString msg);
+    int NewTcpClientConnect(QString address,int port);
+    void CloseTcpClientConnect();
+    void Request_GetApiVersion();
+    void Request_Hearbet(uint32_t timestamp);
+    void Request_Getconfig();
+    void Request_ESP8266SetConfig(QString ssid,QString psw);
+    void Request_ESP8266SetRestore();
+    void Request_SetConfig(uint8_t RunMode,uint8_t has_lock,uint32_t open_stay_time,uint32_t lock_delay_time);
+    void Request_Command(uint8_t CommandType);
 private:
-    QTcpSocket *tcpSocket;
-    QByteArray m_rbuffer;
+    static TcpMgr *CTcpMgr;
+    TcpMgr(QObject *parent=Q_NULLPTR);
+    tcpCilent *m_tcpCilent;
 public slots:
-    void slot_RecvData();
-    void slot_displayError(QAbstractSocket::SocketError);
-signals:
-    void signal_tcpHasRecvData(QString);
+    void slot_TcpClient_ReadMessage(QString recvdata);
 };
 
 #endif // TCPMGR_H

@@ -2,11 +2,11 @@
 
 ## 0、版本记录
 
-| 版本  | 修订人 | 修订时间   | 修订内容 |
-| ----- | ------ | ---------- | -------- |
-| 1.0.0 | 周红伟 | 2018-12-17 | 初始版本 |
-|       |        |            |          |
-|       |        |            |          |
+| 版本    | 修订人  | 修订时间       | 修订内容 |
+| ----- | ---- | ---------- | ---- |
+| 1.0.0 | 周红伟  | 2018-12-17 | 初始版本 |
+|       |      |            |      |
+|       |      |            |      |
 
 ## 1、概述
 
@@ -14,9 +14,9 @@
 
 * 采用Tcp的方式通信，监听端口7641
 
-* 协议采用“4字节长度“+“2字节类型“+“数据”的格式
+* 协议采用“2字节长度“+“2字节类型“+“数据”的格式
 
-  | 0~3    | 4~5  | 6~... |
+  | 0~1    | 2~3  | 4~... |
   | ------ | ---- | ----- |
   | length | type | data  |
 
@@ -26,208 +26,230 @@
 
 * data: 二进制，消息结构体
 
-  * 格式采用protobuf，版本v2
+  * 格式采用json
 
-  * 所有的“请求“都包含一个request成员，request定义如下（具体接口不再说明）：
+  * 所有的"请求"或"回应"都包含"type","data"
     ```
-    //请求包通用子项定义
-    message Request
+    //通用子项定义
     {
-    	optional int32 serial_num = 1;    //请求序列号，用于标识请求，可以从1开始每发送一次请求就累加1
+    	"type" : ""
+    	"data" : ""
+    }
+    或者
+    {
+    	"type" : ""
+    	"data" : {
+          "key" : "value"
+    	}
     }
     ```
 
-  * 所有的“回应”都包含一个reply成员，reply定义如下（具体接口不再说明）：
-    ```
-    //回应包通用子项定义
-    message Reply
-    {
-    	optional int32 error_code = 1;    //0:成功，<0: 错误，>0: 提示或警告(1：执行中)
-    	optional string error_str = 2;    //error_code为非0时的失败详细信息
-    	optional int32 serial_num = 3;    //返回序列号，把请求包里的serial_num值传回
-    }
-    ```
 
 ## 2、获取API版本
 
 - 1）请求
-  - type: REQUEST_GET_API_VERSION_MSG，值1000
-  - data:
 
 ```
 //获取API版本信息
-message Request_GetApiVersionMsg
 {
-	optional Request request = 1;
+	"type" : "Request_GetApiVersion",
+	"data":""
 }
 ```
 - 2）回应
 
-  - type: REPLY_AC_GET_API_VERSION_MSG，值1001
-  - data:
 
 ```
 //获取API版本信息回应
-message Reply_GetApiVersionMsg
 {
-	optional Reply reply = 1;
-	optional string api_version = 2;  //为客户端API版本信息  每一次涉及到接口更新，版本号都加1，数字从0到9，9以后从0开始，比如1.0.0，1.0.1，1.0.2... 1.0.9，1.1.0等
-	optional string app_version = 3;  //为客户端版本信息，包含build序号，比如1.0.0.2349
+	"type" : "Reply_GetApiVersion",
+	"data" : {
+    	"api_version" : "2",  //为客户端API版本信息  每一次涉及到接口更新，版本号都加1，数字从0到9，9以后从0开始，比如1.0.0，1.0.1，1.0.2... 1.0.9，1.1.0等
+		"string app_version" : "3"  //为客户端版本信息，包含build序号，比如1.0.0.2349
+	}
 }
 ```
 ## 3、心跳
 
 - 1）请求
-    - type：REQUEST_HEARTBEAT_MSG，值1002
-
-    - data：
 
   ```
   //心跳请求，客户端发送
-  message Request_HeartbeatMsg
   {
-  	optional Request request = 1;
-  	optional int32 time_tick = 2;   //时间戳
+  	"type" ："Request_Hearbet"
+  	"data" : {
+     	"time_tick" : "2";   //时间戳 
+  	}
   }
   ```
 
 - 2）回应
 
-    - type: REPLY_HEARTBEAT_MSG，值1003
-    - data:
   ```
   //当前状态
   enum RunState{
-    RS_READY = 0;            //上电就绪状态
-    RS_STUDY_STEP_1 = 1;     //学习第一步（开门）
-    RS_STUDY_STEP_2 = 2;     //学习第二步（关门）
-    RS_STUDY_STEP_3 = 3;     //学习第三步（开门）
-    RS_CLOSED = 4;           //关门，没落锁
-    RS_LOCKED = 5;           //上锁
-    RS_UNLOCKING = 6;        //解锁中（解锁后会自动进入开门流程）
-    RS_OPENING = 7;          //开门中
-    RS_OPENED = 8;           //已开门
-    RS_CLOSING = 9;          //关门中
-    RS_ALWAYS_OPENED = 10;   //常开
-    RS_FREEZED = 11;         //冻结（按遥控的锁定进入冻结状态，和关门和锁定状态可以进入冻结状态）
-    RS_ERROR = 12;            //错误(比如学习失败)
+    uint8_t RS_READY = 0;            //上电就绪状态
+    uint8_t RS_STUDY_STEP_1 = 1;     //学习第一步（开门）
+    uint8_t RS_STUDY_STEP_2 = 2;     //学习第二步（关门）
+    uint8_t RS_STUDY_STEP_3 = 3;     //学习第三步（开门）
+    uint8_t RS_CLOSED = 4;           //关门，没落锁
+    uint8_t RS_LOCKED = 5;           //上锁
+    uint8_t RS_UNLOCKING = 6;        //解锁中（解锁后会自动进入开门流程）
+    uint8_t RS_OPENING = 7;          //开门中
+    uint8_t RS_OPENED = 8;           //已开门
+    uint8_t RS_CLOSING = 9;          //关门中
+    uint8_t RS_ALWAYS_OPENED = 10;   //常开
+    uint8_t RS_FREEZED = 11;         //冻结（按遥控的锁定进入冻结状态，和关门和锁定状态可以进入冻结状态）
+    uint8_t RS_ERROR = 12;            //错误(比如学习失败)
 };
   //心跳回应，服务端回应
-  message Reply_HeartbeatMsg
+  
   {
-  	optional Reply reply = 1;
-  	optional int32 time_tick = 2;   //时间戳，把请求包里的time_tick值传回
-  	optional RunState state = 3;    //硬件当前状态
+  	"type" : "Reply_Heartbeat",
+  	"data" : {
+  		"time_tick" : "2",   //时间戳，把请求包里的time_tick值传回
+  		"RunState" : "RunState Num";    //硬件当前状态
   }
   ```
 ## 4、获取配置
 
 - 1）请求
-    - type: REQUEST_GET_CONFIG_MSG，值1004
-
-    - data:
 
   ```
   //同步配置请求
-  message Request_GetConfigMsg
   {
-  	optional Request request = 1;  	
+  	"type" : "Request_Getconfig",
+  	"data" : ""
   }
   ```
 
 - 2）回应
 
-    - type: REPLY_GET_CONFIG_MSG，值1005
-
-    - data:
 
   ```
   //运行模式
   enum RunMode{
-  	RM_SINGLE = 0;     //单门
-  	RM_DOUBLE = 1;     //双门
+  	uint8_t RM_SINGLE = 0;     //单门
+  	uint8_t RM_DOUBLE = 1;     //双门
   };
 
   //同步配置回应
-  message Reply_GetConfigMsg
   {
-  	optional Reply reply = 1;  	
-  	optional RunMode mode = 2;           //运行模式
-  	optional int32 has_lock = 3;         //是否带锁：1：带锁，0：不带
-  	optional int32 open_stay_time = 4;   //开门停留时间，单位ms
-  	optional int32 lock_delay_time = 5;  //上锁前、开锁后的等待时间，单位ms  	
+  	"type" : "Reply_Getconfig"
+    "data" : {
+      "RunMode" : "0",           //运行模式
+      "has_lock" : "1",         //是否带锁：1：带锁，0：不带
+      "open_stay_time" : "3",   //开门停留时间，单位ms
+      "lock_delay_time" : "4"  //上锁前、开锁后的等待时间，单位ms  	  
+    }
   }
   ```
 
-## 5、修改配置
+## 5、修改ESP8266模块配置
 
 - 1）请求
-    - type: REQUEST_SET_CONFIG_MSG，值1006
 
-    - data:
-
-  ```
-  //同步配置请求
-  message Request_SetConfigMsg
+```
+  //修改ESP8266模块配置请求
   {
-  	optional Request request = 1;
-  	optional RunMode mode = 2;           //运行模式
-  	optional int32 has_lock = 3;         //是否带锁：1：带锁，0：不带
-  	optional int32 open_stay_time = 4;   //开门停留时间，单位ms
-  	optional int32 lock_delay_time = 5;  //上锁前、开锁后的等待时间，单位ms
+  	"type" : "Request_ESP8266SetConfig",
+  	"data" : {
+  		"mode" : "ap",				//配置某模式的信息
+  		"ssid" : "ssid",           //SSID名称
+  		"psw" : "psw",         //PSW密码
+  	}
   }
-  ```
+```
 
 - 2）回应
 
-    - type: REPLY_SET_CONFIG_MSG，值1007
-
-    - data:
-
-  ```
-  //同步配置回应
-  message Reply_SetConfigMsg
+```
+  //修改ESP8266模块配置回应
   {
-  	optional Reply reply = 1;
+  	"type" : "Reply_ESP8266SetConfig",
+  	"data" : "success"  //or failed
   }
-  ```
+```
 
-
-## 6、一般操作
+## 6、还原ESP8266模块配置
 
 - 1）请求
-    - type: REQUEST_COMMAND_MSG，值1008
 
-    - data:
+```
+  //还原ESP8266模块配置请求
+  {
+  	"type" : "Request_ESP8266SetRestore",
+  	"data" : ""
+  }
+```
+
+- 2）回应
+
+```
+  //还原ESP8266模块配置回应
+  {
+  	"type" : "Reply_ESP8266SetRestore",
+  	"data" : ""  //or failed
+  }
+```
+
+## 7、修改自动门配置
+
+- 1）请求
+
+```
+  //同步配置请求
+  {
+  	"type" : "Request_SetConfig",
+  	"data" : {
+  		"RunMode" : "0",           //运行模式
+  		"has_lock" : "1",         //是否带锁：1：带锁，0：不带
+  		"open_stay_time" : "4",   //开门停留时间，单位ms
+  		"lock_delay_time" : "5";  //上锁前、开锁后的等待时间，单位ms  
+  	}
+  }
+```
+
+- 2）回应
+
+```
+  //同步配置回应
+  {
+  	"type" : "Reply_SetConfig",
+  	"data" : ""
+  }
+```
+
+## 8、一般操作
+
+- 1）请求
 
   ```
   //一般操作类型
   enum CommandType {
-  	CT_OPEN = 0;      //开门
-  	CT_CLOSE = 1;     //关门
-  	CT_FREEZE = 2;    //冻结
-  	CT_UNFREEZE = 3;  //解冻
+  	uint8_t CT_OPEN = 0;      //开门
+  	uint8_t CT_CLOSE = 1;     //关门
+  	uint8_t CT_FREEZE = 2;    //冻结
+  	uint8_t CT_UNFREEZE = 3;  //解冻
   };
 
   //平台一般操作
-  message Request_CommandMsg
   {
-  	optional Request request = 1;
-  	optional CommandType command = 2;   //操作类型  	
+  	"type" : "Request_Command",
+  	"data" : {
+    	"CommandType" : "2";   //操作类型  	  
+  	}
   }
   ```
 
 - 2）回应
 
-    - type: REPLY_COMMAND_MSG，值1009
-
-    - data:
 
   ```
   //平台一般操作
-  message Reply_CommandMsg
   {
-  	optional Reply reply = 1;
+  	"type" : "Reply_Command",
+  	"data" : ""
   }
   ```
 
