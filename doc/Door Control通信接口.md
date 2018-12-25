@@ -101,9 +101,9 @@
     uint8_t RS_ALWAYS_OPENED = 10;   //常开
     uint8_t RS_FREEZED = 11;         //冻结（按遥控的锁定进入冻结状态，和关门和锁定状态可以进入冻结状态）
     uint8_t RS_ERROR = 12;            //错误(比如学习失败)
-};
+  };
   //心跳回应，服务端回应
-  
+
   {
   	"type" : "Reply_Heartbeat",
   	"data" : {
@@ -167,7 +167,7 @@
   //修改ESP8266模块配置回应
   {
   	"type" : "Reply_ESP8266SetConfig",
-  	"data" : "success"  //or failed
+  	"data" : ""  
   }
 ```
 

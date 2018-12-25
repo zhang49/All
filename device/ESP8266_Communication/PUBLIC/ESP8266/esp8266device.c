@@ -17,26 +17,15 @@ u16 needReadIpdLength=0;
 void ESP8266_DEVICE_Init(int baudRate)
 {
 	USART1_Init(baudRate);	 	//串口1初始化为115200
-	rdQueue.rear=0;
-	rdQueue.head=0;
-	readATFlag=1;
 }
 /////////////AT+UART=115200,8,1,0,3设置波特率，待测
 //关闭回显
 u8 ESP8266_CloseEcho(void)
 {
+	//未关闭回显前返回ATE0 OK,串口已屏蔽掉ATE0 0D 0D 0A
 	if(ESP8266_SendCmdWithCheck("ATE0","OK",NULL,50))
-	{
-		//未关闭回显前返回ATE0 OK,串口已屏蔽掉ATE0
-	}
-	else{
-		delay_ms(10);
-		
-	
-	printf("rdQueue.head:%d,rdQueue.rear:%d\r\n",rdQueue.head,rdQueue.rear);
-		ESP8266_ReadATRet(NULL,1);
-	}
-	return 1;
+		return 1;
+	return 0;
 }
 //重启模块
 u8 ESP8266_RST()
@@ -44,12 +33,13 @@ u8 ESP8266_RST()
 	//USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭串口1接受中断,不接受重启后接收的乱码
 	ESP8266_SendCmd("AT+RST");
 	//USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启串口1接受中断
-	while(!ESP8266_CmdIsSuccess("ready",2));
-	ESP8266_CloseEcho();
-	if(ESP8266_SendCmdWithCheck("AT","OK",NULL,50))
+	while(1)
 	{
-		return 1;
+		char recv[255];
+		ESP8266_ReadATRet(recv,1);
+		if(strstr(recv,"ready"))break;
 	}
+	ESP8266_CloseEcho();
 	return 0;
 }
 //发送指令  发送data+\r\n
@@ -57,6 +47,7 @@ u8 ESP8266_RST()
 u8 ESP8266_SendCmdWithCheck(char *data,char *ret1,char *ret2,u16 tenMsTimes)
 {
 	ESP8266_SendCmd(data);
+	printf("SendCmd:%s\r\n",data);
 	return ESP8266_ExpectRet(ret1,ret2,tenMsTimes);
 }
 u8 ESP8266_SendCmd(char *data)
@@ -76,7 +67,8 @@ u8 ESP8266_CWMODE_Choice(enum CWMODE mode)
 	ESP8266_printf("AT+CWMODE=%d\r\n",mode);
 	if(ESP8266_ExpectRet("OK",NULL,20))
 	{
-		if(ESP8266_RST())return 1;
+		ESP8266_RST();
+		return 1;
 	}
 	return 0;
 }
@@ -189,18 +181,17 @@ u8 ESP8266_CreateTcpServer(u32 tcpServerPort)
 //计时溢出时间为 timeout*10 ms
 u8 ESP8266_ExpectRet(char *para1,char *para2,u16 tenMsTimes)
 {
-	if(para1!=0 && para2==0)
+	if(para1!=NULL && para2==NULL)
 	{
-		int ret =ESP8266_CmdIsSuccess(para1,tenMsTimes);
-		return ret;
+		return ESP8266_CmdIsSuccess(para1,tenMsTimes);
 	}
-	else if(para1!=0 && para2!=0)
+	else if(para1!=NULL && para2!=NULL)
 	{
 		return ESP8266_CmdIsSuccess(para1,tenMsTimes) & ESP8266_CmdIsSuccess(para2,tenMsTimes);
 	}
-	else if(para2!=0)
+	else if(para1==NULL && para2!=NULL)
 	{
-		return ESP8266_CmdIsSuccess(para1,tenMsTimes) | ESP8266_CmdIsSuccess(para2,tenMsTimes);
+		return ESP8266_CmdIsSuccess(para2,tenMsTimes);
 	}
 	return 0;
 }
@@ -235,6 +226,7 @@ u8 ESP8266_CmdIsSuccess(char *expect,u16 tenMsTimes)
 			if(strstr(recv,expect))return 1;
 		}
 	}
+	printf("---return 0\r\n");
 	return 0;
 }
 
@@ -243,6 +235,7 @@ u8 ESP8266_ReadATRet(char data[],u16 tenMsTimes)
 {
 	u8 ch=1;
 	int tc=0;
+	char *th=data;
 	//printf("tc:%d,timeout:%d\r\n",tc,tenMsTimes);
 	while(rdQueue.head==rdQueue.rear && tc<tenMsTimes)//等待数据
 	{
@@ -250,16 +243,11 @@ u8 ESP8266_ReadATRet(char data[],u16 tenMsTimes)
 		tc+=1;
 	}
 	if(rdQueue.head==rdQueue.rear)return 0;//计时溢出，没有数据
-	//数据长度超过100
-	if(rdQueue.rear>=rdQueue.head+98)
-	{
-		rdQueue.head=rdQueue.rear;
-		return 0;
-	}
+	
 	//printf("____tc:%d,timeout:%d\r\n",tc,tenMsTimes);
 	//printf("head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
 	if(data==NULL)return 1;
-	while(ch!=0)
+	while(ch!=0 && rdQueue.head<rdQueue.rear)
 	{
 		ch=rdQueue.data[(++rdQueue.head)%USART_SLOT_SIZE];
 		*data=ch;
@@ -267,8 +255,6 @@ u8 ESP8266_ReadATRet(char data[],u16 tenMsTimes)
 		data++;
 	}
 	*data=0;
-	//printf("read over data:%s\r\n",data);
-	//printf("read over head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
 	return 1;
 }
 u8 ESP8266_ReadIpdData()

@@ -80,7 +80,7 @@ void TcpMgr::Request_ESP8266SetConfig(QString ssid,QString psw)
 void TcpMgr::Request_ESP8266SetRestore()
 {
     QJsonObject root;
-    QJson::json_add(root,"type","Request_ESP8266SetConfig");
+    QJson::json_add(root,"type","Request_ESP8266SetRestore");
     QJson::json_add(root,"data","");
     QJsonDocument jdoc=QJsonDocument(root);
     QString out(jdoc.toJson(QJsonDocument::Compact));

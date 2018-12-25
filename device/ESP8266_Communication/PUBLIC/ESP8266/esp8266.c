@@ -19,17 +19,17 @@ void ESP8266_Init()
 	u8 i=0;
 	ESP8266_DEVICE_Init(115200);
 	USART3_Init(115200);		//串口3初始化为115200
-	for(i=0;i<SERVER_ACCEPT_MAX;i++)
-	{
-		sRecvBuf[i].rear=0;
-		sRecvBuf[i].head=0;
-		sRecvBuf[i].singleLen=0xffff;
-		sRecvBuf[i].cursor= 0;
-	}
-	//delay_ms(500);
+//	for(i=0;i<SERVER_ACCEPT_MAX;i++)
+//	{
+//		sRecvBuf[i].rear=0;
+//		sRecvBuf[i].head=0;
+//		sRecvBuf[i].singleLen=0xffff;
+//		sRecvBuf[i].cursor= 0;
+//	}
+//	rdQueue.rear=0;
+//	rdQueue.head=0;
+//	readATFlag=1;	
 }
-
-
 void ESP8266_test()
 {
 	char *out;
@@ -107,7 +107,7 @@ void ESP8266_test()
 
 }
 
-u8 ESP8266_Start(enum ESP8266STARTMODE mode,char *ssid,char *psw)
+u8 ESP8266_Start(enum ESP8266STARTMODE mode,char *ssid,char *psw,int restartflag)
 {
 //	while(1)
 //	{
@@ -115,17 +115,30 @@ u8 ESP8266_Start(enum ESP8266STARTMODE mode,char *ssid,char *psw)
 //		delay_ms(1);
 //	}
 //	return 0;
+	u8 i;	
+	if(restartflag)ESP8266_SendCmd("AT+CIPCLOSE");
+	delay_ms(20);
+	for(i=0;i<SERVER_ACCEPT_MAX;i++)
+	{
+		sRecvBuf[i].rear=0;
+		sRecvBuf[i].head=0;
+		sRecvBuf[i].singleLen=0xffff;
+		sRecvBuf[i].cursor= 0;
+	}
+	rdQueue.rear=0;
+	rdQueue.head=0;
+	readATFlag=1;	
+	if(restartflag)ESP8266_RST();
 	switch(mode)
 	{
 		case LOCAL:
-			if(ESP8266_LocalMode(APTcpServerPort,ssid,psw))
-				ESP8266_RecvProcess(LOCAL);
+			if(!ESP8266_LocalMode(APTcpServerPort,ssid,psw))return 0;
 			break;
 		case CLOUD:
-			if(ESP8266_CLOUDMode("TCP",ssid ,psw ,CLOUD_TCP_ADDRESS,CLOUD_TCP_PORT))
-				ESP8266_RecvProcess(CLOUD);
+			if(!ESP8266_CLOUDMode("TCP",ssid ,psw ,CLOUD_TCP_ADDRESS,CLOUD_TCP_PORT))return 0;
 			break;
 	}
+	if(!restartflag)ESP8266_RecvProcess(mode);
 	return 1;
 }
 /*
@@ -136,6 +149,7 @@ u8 ESP8266_Start(enum ESP8266STARTMODE mode,char *ssid,char *psw)
 u8 ESP8266_LocalMode(u32 tcpServerPort,char *ssid,char *psw)
 {
 	u8 op=0;
+	u8 ret;
 	u8 count=0;
 	char temp[100];
 	ESP8266_CloseEcho();
@@ -155,8 +169,8 @@ u8 ESP8266_LocalMode(u32 tcpServerPort,char *ssid,char *psw)
 				 {op++;count=0;}
 				break;
 			case 2:
-//				count++;
-//				if(ESP8266_SendCmdWithCheck("AT+CWDHCP=0,1","OK",NULL,50))//使能DHCP
+				count++;
+				if(ESP8266_SendCmdWithCheck("AT+CWDHCP=0,1","OK",NULL,50))//使能DHCP
 				{op++;count=0;}
 				break;
 			case 3:
@@ -165,7 +179,7 @@ u8 ESP8266_LocalMode(u32 tcpServerPort,char *ssid,char *psw)
 				if(ssid!=NULL)
 				{
 					sprintf(temp,"AT+CWSAP=\"%s\",\"%s\",%d,%d",ssid,psw,APCHL,APECN);
-					if(ESP8266_SendCmdWithCheck("","OK",NULL,50))
+					if(ESP8266_SendCmdWithCheck(temp,"OK",NULL,50))
 					{op++;count=0;}
 				}else 
 					op++;
@@ -173,13 +187,16 @@ u8 ESP8266_LocalMode(u32 tcpServerPort,char *ssid,char *psw)
 			case 4:
 				count++;
 				//修改SERVER模式，为0才能修改CIPMODE
-				if(ESP8266_SendCmdWithCheck("AT+CIPSERVER=0","OK",NULL,50))
-				 {op++;count=0;}
+//				if(ESP8266_SendCmdWithCheck("AT+CIPSERVER=0","OK",NULL,50))
+					{op++;count=0;}
+			
+				 break;
 			case 5:
 				count++;
 				//修改CIPMUX模式，为0才能修改CIPMODE
 				if(ESP8266_SendCmdWithCheck("AT+CIPMUX=0","OK",NULL,50))
 				 {op++;count=0;}
+				 break;
 			case 6:
 				count++;
 				//必须为非透传模式,修改其值，只能在单路模式下
@@ -371,12 +388,12 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 	char *ostream;
 	char recvData[255];
 	char rjsonbuf[255];
-	char temp[4][50];
+	char temp[3][50];
+	u8 restartflag=0;
 	int rjsoni;
 	delay_ms(100);
 	//ESP8266_RST();
 	//printf("ESP8266_RST() over\r\n");
-	//ESP8266_LocalMode(APTcpServerPort,"QtMmmmm","12345678");
 	switch(mode)
 	{
 		case LOCAL:
@@ -393,6 +410,7 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 						outjson=json_object();
 						printf("Client %d recv:%s\r\n",i,sRecvBuf[i].rData[sRecvBuf[i].head%SCR_SLOT_MAX]);
 						injson=json_loads(sRecvBuf[i].rData[sRecvBuf[i].head%SCR_SLOT_MAX], JSON_DECODE_ANY,NULL);
+						sRecvBuf[i].head++;
 						if(json_find(injson,"type",rjsonbuf))
 						{
 							printf("Message Type is:%s\r\n",rjsonbuf);
@@ -431,26 +449,27 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 								printf("data.mode :%s\r\n",rjsonbuf);
 								json_find(injson,"data.ssid",rjsonbuf);
 								strcpy(temp[1],rjsonbuf);
-								printf("data.ssid :%s\r\n",rjsonbuf);
+								printf("data.ssid :%s\r\n",temp[1]);
 								json_find(injson,"data.psw",rjsonbuf);
 								strcpy(temp[2],rjsonbuf);
-								printf("data.psw :%s\r\n",rjsonbuf);
+								printf("data.psw :%s\r\n",temp[2]);
 								//不需要保存至FALSH，ESP8266自带FALSH
-								if(strstr(temp[0],"ap"))
-								{
-									if(ESP8266_SetAPModeConfig(temp[1],temp[2],5,3))
-									{
-										json_add(outjson,"type","Reply_ESP8266SetConfig");
-										json_add(outjson,"data","success");
-									}
-									else
-									{
-										json_add(outjson,"type","Reply_ESP8266SetConfig");
-										json_add(outjson,"data","failed");
-									}
-								}
+//								if(ESP8266_SetAPModeConfig(temp[1],temp[2],5,3))
+//								{
+//									json_add(outjson,"type","Reply_ESP8266SetConfig");
+//									json_add(outjson,"data","");
+//								}
 								ostream=json_dumps(outjson, JSON_DECODE_ANY);
 								ESP8266_SendNet_unTransparent(i,ostream);
+								//
+								if(strstr(temp[0],"ap"))
+								{
+									ESP8266_Start(LOCAL,temp[1],temp[2],1);
+								}
+								else if(strstr(temp[0],"station"))
+								{
+									ESP8266_Start(CLOUD,temp[1],temp[2],1);
+								}
 							}
 							else if(strstr(rjsonbuf,"Request_ESP8266SetRestore"))
 							{
@@ -458,7 +477,7 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 								json_add(outjson,"data","");
 								ostream=json_dumps(outjson, JSON_DECODE_ANY);
 								ESP8266_SendNet_unTransparent(i,ostream);
-								ESP8266_LocalMode(APTcpServerPort,APSSID,APPSW);
+								ESP8266_Start(LOCAL,APSSID,APPSW,1);
 							}
 							else if(strstr(rjsonbuf,"Request_SetConfig"))
 							{
@@ -484,7 +503,6 @@ void ESP8266_RecvProcess(enum ESP8266STARTMODE mode)
 								ESP8266_SendNet_unTransparent(i,ostream);
 							}
 						}
-						sRecvBuf[i].head++;
 						free(ostream);
 						json_decref(injson);
 						json_decref(outjson);

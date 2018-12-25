@@ -7,7 +7,7 @@
 #define STATIONSSID "zy_em"
 #define STATIONPSW "12345678"
 
-#define APSSID "zy_em"
+#define APSSID "ESP8266_Restore"
 #define APPSW "12345678"
 #define APTcpServerPort 7641	//AP模式下创建的服务器端口
 #define APCHL 5
@@ -26,7 +26,7 @@ enum ESP8266STARTMODE{
 
 void ESP8266_Init(void);
 void ESP8266_test(void);
-u8 ESP8266_Start(enum ESP8266STARTMODE mode, char *ssid,char *psw);
+u8 ESP8266_Start(enum ESP8266STARTMODE mode,char *ssid,char *psw,int restartflag);
 u8 ESP8266_LocalMode(u32 port,char *ssid,char *psw);
 u8 ESP8266_CLOUDMode(char *type ,char *ssid,char *psw,char *address, int port);
 u8 GetJsonType(json_t *injson,char *type);

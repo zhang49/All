@@ -7,7 +7,7 @@
 #include <memory>
 #include "tcpcilent.h"
 //192.168.20.105 deviceServerIP
-static const QString TCPCLIENT_ADDRESS="192.168.20.105";
+static const QString TCPCLIENT_ADDRESS="192.168.4.1";
 static const int TCPCLIENT_PORT=7641;
 
 //继承QObject,否则无法connct

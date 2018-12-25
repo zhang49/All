@@ -41,7 +41,7 @@ void MainWindow::send_Json(QJsonObject root)
 
 void MainWindow::slot_sendbtn_clicked()
 {
-    //TcpMgr::getInstance()->Request_SetConfig(0,1,250,500);
+    TcpMgr::getInstance()->Request_SetConfig(0,1,250,500);
 }
 void MainWindow::slot_closebtn_clicked()
 {
@@ -50,7 +50,7 @@ void MainWindow::slot_closebtn_clicked()
 
 void MainWindow::slot_modifyapbtn_clicked()
 {
-    TcpMgr::getInstance()->Request_ESP8266SetConfig("QtModifySSID","123456789");
+    TcpMgr::getInstance()->Request_ESP8266SetConfig("QtModifySSID","12345678");
 }
 void MainWindow::slot_restorebtn_clicked()
 {
