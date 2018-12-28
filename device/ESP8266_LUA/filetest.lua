@@ -24,7 +24,6 @@ print(wifi.sta.getip())
 htmlname="index.html"
 content=readfile(htmlname)
 print(content)
-print(string.format("0x%x",file.fscfg()))
 
 
 

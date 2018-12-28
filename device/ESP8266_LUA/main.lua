@@ -1,51 +1,94 @@
-configfilename="config.txt"
-function getFileConfig()
-     if file.exists(configfilename) then
-        if file.open(configfilename, "r") then
-            line=file.readline()
-            content=""
-            cfg={}
-            i=0
-            while( line )
-            do
-                k=string.sub(line, 0,string.find(line, "=")-1)
-                v=string.sub(line, string.find(line, "=.*")+1)
-                v=v.sub(v, 0,string.len(v)-1)
-                cfg[k]=v
-                line=file.readline()
+configfilename="Config.txt"
+cinfigData={}
+function tableToString(root)
+   local buf='{' 
+   index=0
+    --if type(v) == "table" then return end
+    for k,v in pairs(root) do
+       if index ~= 0 then buf=buf.."," end
+       local index=index+1
+       buf=buf..'"'..k..'":'
+       if type(v) == "table" then 
+           buf=buf..'{' 
+           local index_t=0
+            --if type(v) == "table" then return end
+            for k,v in pairs(v) do
+               if index_t ~= 0 then buf=buf.."," end
+               index_t=index_t+1
+               buf=buf..'"'..k..'":"'..v..'"' 
             end
-            file.close()
-        end
-        return cfg
+            buf=buf..'}'
+       else
+       buf=buf..'"'..v..'"' 
+       end
     end
-    return nil;
+    buf=buf..'}'
+    return buf
+end
+function readConfigFromFile()
+    if not file.exists("Config.txt") or file.open("Config.txt") and file.read() ==nil then
+        file.open("Config.txt","w+")
+        local table={}
+        table["ap"]={}
+        table["station"]={}
+        table["wifimode"]="station"
+        table["startmode"]="config"
+        table["ap"]["ssid"]="ESP8266_Mode"
+        table["ap"]["pwd"]="12345678"
+        table["station"]["ssid"]="Ares"
+        table["station"]["pwd"]="460204415"
+        local wbuf=tableToString(table)
+        file.write(wbuf) 
+        file.close()
+        print("create file!")
+    end
+        file.close()
+        file.open("Config.txt","r")
+        content=file.read()
+        cinfigData = sjson.decode(content)    
+        file.close()   
 end
 
+function working(tar)
+    if tar ~= nil then print("has parameter") end
+    if cinfigData["startmode"]=="config" then
+        startConfigPage()
+    elseif cinfigData["startmode"]=="normal" then
+        print("working normal")
+    end
+end
 
-function start(target,cfg)
-    if target=="config" then
-        wifi.setmode(wifi.AP)
+function start(wifimode)
+    if workMode ~= nil then print("has parameter") end
+    
+    if cinfigData["wifimode"]=="ap" then
+        wifi.setmode( wifi.SOFTAP )
         wifi.ap.config({ ssid = "ESP8266_Config", pwd = "12345678" })
         wifi.ap.dhcp.start()
-        startConfigServerPage()
-    elseif target=="work" then
-        config=readfile("config")
-        wifi.setmode(wifi.STATION)
-        print(cfg["ssid"].."__"..cfg["pwd"])
-        wifi.sta.config({ ssid = cfg["ssid"],pwd = cfg["pwd"] })
-        hasgotip=0
+     
+        working()
+    elseif cinfigData["wifimode"] =="station" then
+        wifi.setmode( wifi.STATION )
+        print(cinfigData["station"]["ssid"].."__"..cinfigData["station"]["pwd"])
+     
+        wifi.sta.config({ ssid = cinfigData["station"]["ssid"],pwd = cinfigData["station"]["pwd"] })
+
+        local wifi_try_c=2
         wifigotiptimer = tmr.create()
         wifigotiptimer:register(1000, 1, function()
             wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
                 print("\n\tSTA - GOT IP".."\n\tStation IP: "..infro.IP.."\n\tSubnet mask: "..
                 infro.netmask.."\n\tGateway IP: "..infro.gateway)
-                hasgotip=1
-                wifigotiptimer:stop()
+                wifi_try_c=0
+                --don't unregister wifigotiptimer
+                working()
             end)
             wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, function(infro)
                 print("disconnect ssid:",infro.ssid)
-                hasgotip=0
+                wifi_try_c=wifi_try_c+1
+                if wifi_try_c<=15 then --open error led
                 wifigotiptimer:start()
+                end
             end)
        end)
        wifigotiptimer:start()
@@ -56,8 +99,8 @@ end
 function readfile(filepath)
     if file.exists(filepath) then
         if file.open(filepath, "r") then
-            line=file.readline()
-            content=""
+            local line=file.readline()
+            local content=""
             while( line ) 
             do
                 content=content .. line
@@ -69,7 +112,8 @@ function readfile(filepath)
     end
    return nil; 
 end
-function startConfigServerPage()
+
+function startConfigPage()
     srv = net.createServer(net.TCP)
     srv:listen(80, function(conn)
       conn:on("receive", function(client, request)
@@ -87,29 +131,37 @@ function startConfigServerPage()
             _GET[k] = v
           end
         end
-        if(path == "/") then
+        if(path == '/') then
             buf=readfile(indexpage)
         end
-        if(path == "/login") then
+        
+        if(path == '/favicon.ico') then
+            buf=readfile('favicon.ico')
+        end
+        
+        if(path == '/login') then
             buf = buf .. "<!DOCTYPE html>"
             buf = buf .. "<html><body><div style=\"width:500px;margin:0 auto\">"
-            if(_GET.identity ~=nil and _GET.ssid ~= nil and _GET.psw ~= nil) then
-                buf = buf .. "<p>identity is:".. _GET.identity .."</p>"
-                buf = buf .. "<p>ssid is:".. _GET.ssid .."</p>"
-                buf = buf .. "<p>psw is:".. _GET.psw .."</p>"
+            if(_GET.token ~=nil and _GET.ap ~= nil) then
+                buf = buf .. "<p>identity is:".. _GET.token .."</p>"
+                buf = buf .. "<p>ssid is:".. _GET.ap .."</p>"
                 buf = buf .. "</div></body></html>"
-                print("id:".._GET.identity.."\r\nssid:".._GET.ssid.."\r\npsw:".._GET.psw)
+                print(_GET.ap)
+                --configData["ap"]["ssid"]=_GET.ap[1]
+                --configData["ap"]["pwd"]=_GET.ap["pwd"]
+                print("ap.ssid:"..configData["ap"]["ssid"])
+                --print("ap.pwd:"..configData["ap"]["pwd"])
+                --configData["station"]["ssid"]=_GET.station["ssid"]
+                --configData["station"]["pwd"]=_GET.station["pwd"]
                 if file.open(configfilename, "w+") then
-                    file.writeline("id="..id);
-                    file.writeline("ssid="..ssid);
-                    file.writeline("pwd="..psw);
+                    --local wbuf=tableToString(table)
+                   --file.write(wbuf) 
                     file.close()
-                    cfg=getConfig()
-                    print(cfg['ssid'])
                 else
                     print("open error")
                 end
-            end            
+            end   
+            print(readfile(configfilename))        
         end
          client:send(buf)
       end)
@@ -117,11 +169,9 @@ function startConfigServerPage()
     end)
 end
 
+readConfigFromFile()
+start()
 
-cfg=getFileConfig()
-if cfg ~= nil then 
-    start("work",cfg)
-    end
 
 
 

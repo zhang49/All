@@ -1,4 +1,10 @@
-spi.transaction(0, 8, "222", 8, "22", 8, 8, 8)
-dat={}
-dat = spi.get_miso(0, 0xb0000,500,255)
-print(dat)
+configfilename="config.txt"
+if file.open(configfilename, "w+") then
+    file.writeline("id=".."token");
+    file.writeline("ssid=".."Ares");
+    file.writeline("pwd=".."460204415");
+    file.writeline("startmode=".."work");
+    file.close()
+else
+    print("open error")
+end
