@@ -1,12 +1,28 @@
-function readfromstmspi()
-    spirecvdata=spi.recv(1,1)
-    print(spirecvdata)
-    return spirecvdata
+configfilename="config.txt"
+function getFileConfig()
+     if file.exists(configfilename) then
+        if file.open(configfilename, "r") then
+            line=file.readline()
+            content=""
+            cfg={}
+            i=0
+            while( line )
+            do
+                k=string.sub(line, 0,string.find(line, "=")-1)
+                v=string.sub(line, string.find(line, "=.*")+1)
+                v=v.sub(v, 0,string.len(v)-1)
+                cfg[k]=v
+                line=file.readline()
+            end
+            file.close()
+        end
+        return cfg
+    end
+    return nil;
 end
-function sendtostmspi(data)
-   spi.send(1,data)
-end
-function start(target)
+
+
+function start(target,cfg)
     if target=="config" then
         wifi.setmode(wifi.AP)
         wifi.ap.config({ ssid = "ESP8266_Config", pwd = "12345678" })
@@ -15,13 +31,26 @@ function start(target)
     elseif target=="work" then
         config=readfile("config")
         wifi.setmode(wifi.STATION)
-        wifi.station.config({ ssid = "GamePartment", pwd = "game1234" })
-        wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
-            print("\n\tSTA - GOT IP".."\n\tStation IP: "..infro.IP.."\n\tSubnet mask: "..
-            infro.netmask.."\n\tGateway IP: "..infro.gateway)
+        print(cfg["ssid"].."__"..cfg["pwd"])
+        wifi.sta.config({ ssid = cfg["ssid"],pwd = cfg["pwd"] })
+        hasgotip=0
+        wifigotiptimer = tmr.create()
+        wifigotiptimer:register(1000, 1, function()
+            wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
+                print("\n\tSTA - GOT IP".."\n\tStation IP: "..infro.IP.."\n\tSubnet mask: "..
+                infro.netmask.."\n\tGateway IP: "..infro.gateway)
+                hasgotip=1
+                wifigotiptimer:stop()
+            end)
+            wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, function(infro)
+                print("disconnect ssid:",infro.ssid)
+                hasgotip=0
+                wifigotiptimer:start()
+            end)
+       end)
+       wifigotiptimer:start()
             
-            spi.setup(1, spi.MASTER, spi.CPOL_HIGH, spi.CPHA_HIGH, 8, 100)
-        end)
+    end
 end
         
 function readfile(filepath)
@@ -40,11 +69,6 @@ function readfile(filepath)
     end
    return nil; 
 end
-
-wifi.setmode(wifi.STATION)
-wifi.sta.config({ ssid = "GamePartment", pwd = "game1234" })
-print(wifi.sta.getip())
-
 function startConfigServerPage()
     srv = net.createServer(net.TCP)
     srv:listen(80, function(conn)
@@ -69,21 +93,24 @@ function startConfigServerPage()
         if(path == "/login") then
             buf = buf .. "<!DOCTYPE html>"
             buf = buf .. "<html><body><div style=\"width:500px;margin:0 auto\">"
-            if(_GET.identity ~=nil ) then
-            print(_GET.identity)
-            buf = buf .. "<p>identity is:".. _GET.identity .."</p>"
-            end
-            if(_GET.ssid ~=nil ) then
-            print(_GET.ssid)
-            buf = buf .. "<p>ssid is:".. _GET.ssid .."</p>"
-            end
-            if(_GET.psw ~=nil ) then
-            print(_GET.psw)
-            buf = buf .. "<p>psw is:".. _GET.psw .."</p>"
-            end
-            buf = buf .. "</div></body></html>"
+            if(_GET.identity ~=nil and _GET.ssid ~= nil and _GET.psw ~= nil) then
+                buf = buf .. "<p>identity is:".. _GET.identity .."</p>"
+                buf = buf .. "<p>ssid is:".. _GET.ssid .."</p>"
+                buf = buf .. "<p>psw is:".. _GET.psw .."</p>"
+                buf = buf .. "</div></body></html>"
+                print("id:".._GET.identity.."\r\nssid:".._GET.ssid.."\r\npsw:".._GET.psw)
+                if file.open(configfilename, "w+") then
+                    file.writeline("id="..id);
+                    file.writeline("ssid="..ssid);
+                    file.writeline("pwd="..psw);
+                    file.close()
+                    cfg=getConfig()
+                    print(cfg['ssid'])
+                else
+                    print("open error")
+                end
+            end            
         end
-       local _on, _off = "", ""
          client:send(buf)
       end)
     conn:on("sent", function(c) c:close() end)
@@ -91,7 +118,10 @@ function startConfigServerPage()
 end
 
 
-
+cfg=getFileConfig()
+if cfg ~= nil then 
+    start("work",cfg)
+    end
 
 
 

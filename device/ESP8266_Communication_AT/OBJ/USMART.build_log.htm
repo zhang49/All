@@ -1,0 +1,113 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: ¦ÌVision V5.17.0.0
+Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: z zhuoyuan, zhuoyuan, LIC=UB401-CQL6E-EYMVT-RUMMS-MC3LE-4ZJH3
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Professional  Version: 5.17
+Toolchain Path:  D:\keil\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.06 update 1 (build 61)
+Assembler:       Armasm.exe V5.06 update 1 (build 61)
+Linker/Locator:  ArmLink.exe V5.06 update 1 (build 61)
+Library Manager: ArmAr.exe V5.06 update 1 (build 61)
+Hex Converter:   FromElf.exe V5.06 update 1 (build 61)
+CPU DLL:         SARMCM3.DLL V5.17
+Dialog DLL:      DCM.DLL V1.13.4.0
+Target DLL:      Segger\JL2CM3.dll V2.99.16.0
+Dialog DLL:      TCM.DLL V1.14.6.0
+ 
+<h2>Project:</h2>
+D:\WorkGit\auto_door\device\ESP8266_Communication\USER\USMART.uvprojx
+Project File Date:  12/26/2018
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.06 update 1 (build 61)', folder: 'D:\keil\ARM\ARMCC\Bin'
+Rebuild target 'Target 1'
+compiling sys.c...
+compiling delay.c...
+compiling usart.c...
+compiling system_stm32f10x.c...
+compiling main.c...
+compiling stm32f10x_it.c...
+compiling led.c...
+assembling startup_stm32f10x_hd.s...
+compiling core_cm3.c...
+compiling stm32f10x_gpio.c...
+compiling stm32f10x_usart.c...
+compiling myspi.c...
+compiling misc.c...
+compiling stm32f10x_rcc.c...
+compiling jansson_config.c...
+compiling stm32f10x_spi.c...
+compiling stm32f10x_tim.c...
+compiling esp8266.c...
+..\PUBLIC\ESP8266\esp8266device.h(35): warning:  #1295-D: Deprecated declaration ESP8266_RestoreAPConfig - give arg types
+  u8 ESP8266_RestoreAPConfig();
+..\PUBLIC\Net\netdef.h(28): warning:  #1-D: last line of file ends without a newline
+    
+..\PUBLIC\ESP8266\esp8266.c(19): warning:  #177-D: variable "i" was declared but never referenced
+  	u8 i=0;
+..\PUBLIC\ESP8266\esp8266.c(72): warning:  #111-D: statement is unreachable
+  	injson=json_loads(out, JSON_DECODE_ANY,NULL);
+..\PUBLIC\ESP8266\esp8266.c(36): warning:  #177-D: variable "rjsonbuf" was declared but never referenced
+  	char rjsonbuf[255];
+..\PUBLIC\ESP8266\esp8266.c(221): warning:  #111-D: statement is unreachable
+  	return 0;
+..\PUBLIC\ESP8266\esp8266.c(150): warning:  #177-D: variable "ret" was declared but never referenced
+  	u8 ret;
+..\PUBLIC\ESP8266\esp8266.c(271): warning:  #111-D: statement is unreachable
+  	return 0;
+..\PUBLIC\ESP8266\esp8266.c(305): warning:  #940-D: missing return statement at end of non-void function "json_add"
+  }
+..\PUBLIC\ESP8266\esp8266.c(328): warning:  #1293-D: assignment in condition
+  				
+son_object_foreach(injson, k, v)
+..\PUBLIC\ESP8266\esp8266.c(384): warning:  #177-D: variable "recvData" was declared but never referenced
+  		char recvData[255];
+..\PUBLIC\ESP8266\esp8266.c(387): warning:  #177-D: variable "restartflag" was declared but never referenced
+  		u8 restartflag=0;
+..\PUBLIC\ESP8266\esp8266.c(492): warning:  #940-D: missing return statement at end of non-void function "ESP8266_ReadLocal"
+  }
+..\PUBLIC\ESP8266\esp8266.c(508): warning:  #940-D: missing return statement at end of non-void function "ESP8266_RecvProcess"
+  }
+..\PUBLIC\ESP8266\esp8266.c: 14 warnings, 0 errors
+compiling esp8266device.c...
+..\PUBLIC\ESP8266\esp8266device.h(35): warning:  #1295-D: Deprecated declaration ESP8266_RestoreAPConfig - give arg types
+  u8 ESP8266_RestoreAPConfig();
+..\PUBLIC\ESP8266\esp8266device.c(239): warning:  #177-D: variable "th" was declared but never referenced
+  	char *th=data;
+..\PUBLIC\ESP8266\esp8266device.c(366): warning:  #550-D: variable "cid" was set but never used
+  	uint8_t cid;
+..\PUBLIC\ESP8266\esp8266device.c: 3 warnings, 0 errors
+linking...
+Program Size: Code=9384 RO-data=356 RW-data=64 ZI-data=5128  
+FromELF: creating hex file...
+"..\OBJ\USMART.axf" - 0 Error(s), 17 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: Keil
+                http://www.keil.com/pack/Keil.Jansson.1.0.0.pack
+                Keil::Data Exchange:JSON:Jansson:2.7.0
+                Jansson is a C library for encoding, decoding and manipulating JSON data
+   * Component: Jansson Version: 2.7.0
+
+<h2>Collection of Component include folders:</h2>
+  D:\WorkGit\auto_door\device\ESP8266_Communication\USER\RTE
+  D:\keil\ARM\PACK\Keil\Jansson\1.0.0\src
+  D:\keil\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Device\Include
+
+<h2>Collection of Component Files used:</h2>
+
+   * Component: Keil::Data Exchange:JSON:Jansson:2.7.0
+      Include file:  src\jansson.h
+      Library file:  lib\jansson_CM3LE.lib
+      Source file:   src\jansson_config.c
+Build Time Elapsed:  00:00:02
+</pre>
+</body>
+</html>
