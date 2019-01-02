@@ -1,4 +1,2 @@
-
---wifi.sta.autoconnect(0)
---dofile('main.lua')
+wifi.sta.autoconnect(0)
 
