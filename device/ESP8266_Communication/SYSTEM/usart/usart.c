@@ -36,8 +36,6 @@ int fputc(int ch, FILE *f)
 struct USART2_RD_QUEUE rdQueue;
 
 u16 RX_count=0;       //单条数据接收字节数
-u8 readATFlag=0;	//标记为读AT指令返回数据
-u16 RX_NetLength=0;
 
 void USART1_Init(u32 bound)
 {
@@ -156,8 +154,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) 
 	{  
 		recvByte =USART_ReceiveData(USART1);
-		if(readATFlag) //接收中断(接收到的数据必须是0x0d 0x0a(\r\n)结尾)
-		{
+			//(接收到的数据必须是0x0d 0x0a(\r\n)结尾)
 			if(RX_count&0x8000)//已接收了0x0d
 			{
 				if(recvByte==0x0a && (RX_count&0x7FFF)>0)//接收到0d 0a结尾,且长度大于\r\n
@@ -183,7 +180,6 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 				}
 				else
 				{
-					//+PID,0,15:
 					RX_count++;
 					if(rdQueue.rear>0xffffff00)//rear即将上溢
 					{
@@ -195,80 +191,6 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 				}
 			}
 		}
-		else
-		{
-			//收到1个字节改变rdQueue.rear
-			rdQueue.data[(++rdQueue.rear)%USART_SLOT_SIZE]=recvByte;
-		}
-//		else 
-//		{	
-//			//透传模式下没有+IPD,<len>:前缀，暂不处理
-//			if((RX_count&0xc000)==0x4000)//接收了I
-//			{
-//				if(recvByte=='P')//p
-//				{
-//					RX_count|=0x8000;//RX_count最高2位 11
-//				}
-//				else if(recvByte=='D' && (RX_count&0xc000)==0xc000)//D且接收了I P
-//				{
-//					
-//				}
-//			
-//			}else
-//			{
-//				if(recvByte=='I')RX_count|=0x4000;//RX_count最高2位 01
-//			}
-//			//数据不应做过多处理，直接存入缓冲区
-//			if(RX_NetLength==0)
-//			{
-//				RX_count=0;
-//				RX_NetLength=recvByte;
-//			}
-//			else
-//			{
-//				RX_count++;
-//				rdQueue.data[(rdQueue.rear+RX_count)%USART_SLOT_SIZE]=recvByte;
-//				if(RX_count==RX_NetLength)//收尾,改变rdQueue.rear
-//				{
-//					rdQueue.rear+=(RX_count&0x7fff);
-//					rdQueue.rear=(rdQueue.rear+1)%USART_SLOT_SIZE;
-//					rdQueue.data[rdQueue.rear]=0;
-//					RX_NetLength=0;
-//				}
-//			}
-//			
-//			if(RX_count&0x8000)//已接收了0x0d
-//			{
-//				if(recvByte==0x0a && (RX_count&0x7FFF)>0)//接收到0d 0a结尾,且长度大于\r\n
-//				{
-//					//
-//					rdQueue.rear+=(RX_count&0x7fff);
-//					rdQueue.rear=(rdQueue.rear+1)%USART_SLOT_SIZE;
-//					rdQueue.data[rdQueue.rear]=0;
-//				}
-//				RX_count=0;
-//				if(recvByte==0x0d)RX_count|=0x8000;
-//			}
-//			else
-//			{
-//				if(recvByte==0x0d)
-//				{
-//					RX_count|=0x8000;//接收到的是0x0d
-//				}
-//				else
-//				{
-//					if(rdQueue.rear>0xffffff00)//rear即将上溢
-//					{
-//						rdQueue.rear-=(rdQueue.head-rdQueue.head%USART_SLOT_SIZE);
-//						rdQueue.head%=USART_SLOT_SIZE;
-//					}
-//					RX_count++;
-//					//rdQueue.rear+(RX_count&0x3fff)，先不改变rdQueue.rear，否则数据可能读取不全
-//					rdQueue.data[(rdQueue.rear+(RX_count&0x7fff))%USART_SLOT_SIZE]=recvByte;
-//				}
-//			}
-//		}
-	} 
 } 
 
 

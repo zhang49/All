@@ -27,7 +27,6 @@ struct USART2_RD_QUEUE{
 };
 
 extern struct USART2_RD_QUEUE rdQueue;	//¶ÓÁÐ»º³åÇø
-extern u8 readATFlag;
 void USART1_Init(u32 bound);
 void USART3_Init(u32 bound);
 void USART1_Putc(char ch);
