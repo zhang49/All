@@ -54,8 +54,9 @@ function readConfigFromFile()
     table["startmode"]="config"
     table["ap"]["ssid"]="ESP8266_Mode"
     table["ap"]["pwd"]="12345678"
-    table["station"]["ssid"]="360WiFi-1AC8AE"
-    table["station"]["pwd"]="12345678"
+    --360WiFi-1AC8AE
+    table["station"]["ssid"]="Ares"
+    table["station"]["pwd"]="460204415"
     local wbuf=tableToString(table)
     file.write(wbuf) 
     file.close()
@@ -66,7 +67,6 @@ function readConfigFromFile()
   file.open(configfilename,"r")
   content=file.read()
   configData = sjson.decode(content)
-  print(configData["station"]["ssid"])    
   file.close()   
 end
 
@@ -185,29 +185,25 @@ end
 --send Data to Server,has test in websocket
 function sendData(sck, data)
   local response = {}
-  local sublen=255
+  local sublen=254
+  local ret=""
   while true 
   do
     --a problem in print(string.sub(data,i,j)) , get data NULL
-    local ret=string.sub(data,0,sublen)
-    --response[#response + 1]=ret
-    
-    if #ret ~= sublen then 
-    table.remove(response, 1)
+    ret=string.sub(data,0,sublen)
+    if(ret~=nil) then
+      response[#response + 1]=ret
+      data=string.sub(data,sublen+1,-1)
     end
-    data=string.sub(data,sublen+1,-1)
+    if ret==nil or #ret~=sublen then break end 
   end
+  print('-')
   -- sends and removes the first element from the 'response' table
-  print(#response)
   local function send(localSocket)
-    if response == nil then return nil end
-    if #response > 0 then
-      local dd=
-            tmr.delay(10)
-      localSocket:send(dd)
-    else
-      --localSocket:close()
+    if response == nil or #response==0 then 
       response = nil
+    elseif #response > 0 then
+      localSocket:send(table.remove(response,1))
     end
   end
   -- triggers the send() function again once the first chunk of data was sent
@@ -216,29 +212,38 @@ function sendData(sck, data)
 end
 
 function sendResourceFile(sck, filename)
-  if file.exists(filename) then
-    if file.open(filename, "r") then
-      local line=file.readline()
-      local content=""
-      while( line )
-      do
-        line=file.readline()
-        if(line~=nil) then
-          --over string length
-          if(#content+#line>1024) then
-            sendData(sck,content)
-            content=line
-          else
-            content=content..line
-          end
-        end
-      end
-      if(content~=nil) then sendData(sck,content) end
-      file.close()
-    end
-  end
-end
+  local status = 200
+  local type=""
+  if(string.find(filename,"html")) then type="text/html"
+  elseif(string.find(filename,"js")) then type="application/javascript"
+    else type="image/ico" end
+    local header = 'HTTP/1.1 ' .. status .. '\r\n'
 
+    header = header .. 'Content-Type: ' .. type .. '\r\n'
+    if string.sub(filename, -3) == '.gz' then
+        header = header .. 'Content-Encoding: gzip\r\n'
+    end
+    header = header .. '\r\n'
+
+    print('* Sending ', filename)
+    print("header:"..header)
+    
+    local pos = 0
+    local function doSend()
+        file.open(filename, 'r')
+        if file.seek('set', pos) == nil then
+            sck:close()
+            print('* Finished ', filename)
+        else
+            local buf = file.read(1024)
+            pos = pos + 1024
+            sck:send(buf)
+        end
+        file.close()
+    end
+    sck:on('sent', doSend)
+    sck:send(header)
+end
 
 function startConfigPage()
   srv = net.createServer(net.TCP)
