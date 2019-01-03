@@ -25,92 +25,33 @@ function tableToString(root)
     buf=buf..'}'
     return buf
 end
-function readConfigFromFile()
-    if not file.exists("Config.txt") or file.open("Config.txt") and file.read() ==nil then
-        file.open("Config.txt","w+")
-        local table={}
-        table["ap"]={}
-        table["station"]={}
-        table["wifimode"]="station"
-        table["startmode"]="config"
-        table["ap"]["ssid"]="ESP8266_Mode"
-        table["ap"]["pwd"]="12345678"
-        table["station"]["ssid"]="zy_em"
-        table["station"]["pwd"]="12345678"
-        local wbuf=tableToString(table)
-        file.write(wbuf) 
-        file.close()
-        print("create file!")
-    end
-        file.close()
-        file.open("Config.txt","r")
-        content=file.read()
-        cinfigData = sjson.decode(content)    
-        file.close()   
-end
+function sendData(client,content)
 
-function working(tar)
-    if tar ~= nil then print("has parameter") end
-    if cinfigData["startmode"]=="config" then
-        startConfigPage()
-    elseif cinfigData["startmode"]=="normal" then
-        print("working normal")
-    end
-end
-
-function start(wifimode)
-    if workMode ~= nil then print("has parameter") end
-    
-    if cinfigData["wifimode"]=="ap" then
-        wifi.setmode( wifi.SOFTAP )
-        wifi.ap.config({ ssid = "ESP8266_Config", pwd = "12345678" })
-        wifi.ap.dhcp.start()
-     
-        --working()
-    elseif cinfigData["wifimode"] =="station" then
-        wifi.setmode( wifi.STATION )
-        print(cinfigData["station"]["ssid"].."__"..cinfigData["station"]["pwd"])
-     
-        wifi.sta.config({ ssid = cinfigData["station"]["ssid"],pwd = cinfigData["station"]["pwd"] })
-
-        local wifi_try_c=2
-        wifigotiptimer = tmr.create()
-        wifigotiptimer:register(1000, 1, function()
-            wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
-                print("\n\tSTA - GOT IP".."\n\tStation IP: "..infro.IP.."\n\tSubnet mask: "..
-                infro.netmask.."\n\tGateway IP: "..infro.gateway)
-                wifi_try_c=0
-                --don't unregister wifigotiptimer
-                --working()
-            end)
-            wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, function(infro)
-                print("disconnect ssid:",infro.ssid)
-                wifi_try_c=wifi_try_c+1
-                if wifi_try_c<=15 then --open error led
-                wifigotiptimer:start()
-                end
-            end)
-       end)
-       wifigotiptimer:start()
-            
-    end
 end
         
-function readfile(filepath)
-    if file.exists(filepath) then
-        if file.open(filepath, "r") then
-            local line=file.readline()
-            local content=""
-            while( line ) 
-            do
-                content=content .. line
-                line=file.readline()
-            end
-            file.close()
-            return content
+function sendResourceFile(sck, filename)
+  if file.exists(filename) then
+    if file.open(filename, "r") then
+      local line=file.readline()
+      local content=""
+      while( line )
+      do
+        line=file.readline()
+        if(line~=nil) then
+          if(#content+#line>2048) then
+            sendData(client,content)
+            print("send")
+          else
+            content=content..line
+          end
+        else
+          if(content~=nil) then sendData(client,content) end
         end
+      end
+      file.close()
+      return content
     end
-   return nil; 
+  end
 end
 
 function startConfigPage()
@@ -126,11 +67,7 @@ function startConfigPage()
           _, _, method, path = string.find(request, "([A-Z]+) (.+) HTTP")
         end
         local _GET = {}
-        if (vars ~= nil) then
-          for k, v in string.gmatch(vars, "(%w+)=(%w+)&*") do
-            _GET[k] = v
-          end
-        end
+        
         if(path == '/') then
             buf=readfile(indexpage)
         end
@@ -140,36 +77,49 @@ function startConfigPage()
         end
         
         if(path == '/login') then
-            buf = buf .. "<!DOCTYPE html>"
-            buf = buf .. "<html><body><div style=\"width:500px;margin:0 auto\">"
-            if(_GET.token ~=nil and _GET.ap ~= nil) then
-                buf = buf .. "<p>identity is:".. _GET.token .."</p>"
-                buf = buf .. "<p>ssid is:".. _GET.ap .."</p>"
-                buf = buf .. "</div></body></html>"
-                print(_GET.ap)
-                --configData["ap"]["ssid"]=_GET.ap[1]
-                --configData["ap"]["pwd"]=_GET.ap["pwd"]
-                print("ap.ssid:"..configData["ap"]["ssid"])
-                --print("ap.pwd:"..configData["ap"]["pwd"])
-                --configData["station"]["ssid"]=_GET.station["ssid"]
-                --configData["station"]["pwd"]=_GET.station["pwd"]
-                if file.open(configfilename, "w+") then
-                    --local wbuf=tableToString(table)
-                   --file.write(wbuf) 
-                    file.close()
-                else
-                    print("open error")
-                end
-            end   
-            print(readfile(configfilename))        
+        
         end
-         client:send(buf)
       end)
     conn:on("sent", function(c) c:close() end)
     end)
 end
 
-start()
+--startConfigPage()
+request="/a/login.jpg"
+local indexpage="index.html"
+local buf = ""
+local retcontent=""
+local _, _, method, path, vars = string.find(request, "([A-Z]+) (.+)?(.+) HTTP")
+if (method == nil) then
+  _, _, method, path = string.find(request, "([A-Z]+) (.+) HTTP")
+end
+path='/jquery-3.2.1.min.js'
+local _GET = {}
+  local temp=string.sub(path,#path-string.find(string.reverse(path),"/")+2,#path)
+  local i=string.find(temp,'[\.]')
+  if i~=nil then
+    print("request resourse file:"..temp)
+    --local type=string.sub(temp,i+1,#temp)
+    --local name=string.sub(temp,1,string.find(temp,'[\.]')-1)
+    content=sendResourceFile(client,temp)
+    --print(content)
+  else  
+    print("not request resource data.")
+    local function sw_command() print("command") end
+    local function sw_index() print("index") end
+    local function sw_login() print("login") end
+    local function sw_root() print("login") end
+    local mswitch={
+      [""]=sw_index,
+      ["command"]=sw_command,
+      ["login"]=sw_login,
+      ["root"]=sw_root
+    }
+    local sw=mswitch[temp]
+    if sw then sw()
+    else print("not find :"..temp)
+    end
+  end
 
 
 
