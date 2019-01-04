@@ -71,3 +71,38 @@
 *.d
 *.lnp
 *.dep
+/device/ESP8266_LUA/init - 副本.lua
+/device/ESP8266_LUA/test23232 - 副本.lua
+/device/ESP8266_LUA/config - 副本.txt
+/device/ESP8266_LUA/favicon - 副本.ico
+/device/ESP8266_LUA/file - 副本.lua
+/device/ESP8266_LUA/filetest - 副本.lua
+/device/ESP8266_LUA/getconfigfile - 副本.lua
+/device/ESP8266_LUA/index - 副本.html
+/device/ESP8266_LUA/login - 副本.html
+/device/ESP8266_LUA/main - 副本.lua
+/device/ESP8266_LUA/main_old - 副本.lua
+/device/ESP8266_LUA/nettest - 副本.lua
+/device/ESP8266_LUA/script1 - 副本.lua
+/device/ESP8266_LUA/sjsontest - 副本.lua
+/device/ESP8266_LUA/spitest - 副本.lua
+/device/ESP8266_LUA/spi接线 - 副本.png
+/device/ESP8266_LUA/temp - 副本/getconfigtestcustom.lua
+/device/ESP8266_LUA/test - 副本.lua
+/device/ESP8266_LUA/test212 - 副本.lua
+/device/ESP8266_LUA/usarttest - 副本.lua
+/device/ESP8266_LUA/websockettest - 副本.lua
+/device/ESP8266_LUA/wifitest - 副本.lua
+/device/ESP8266_LUA/固件 - 副本/_temp_by_dltool/downloadPanel1/nodemcu-master-10-modules-2018-12-27-12-07-33-integer.bin_rep
+/device/ESP8266_LUA/固件 - 副本/nodemcu-master-10-modules-2018-12-27-12-07-33-integer.bin
+/device/ESP8266_LUA/sjsontest - 副本.lua
+/device/ESP8266_LUA/spitest - 副本.lua
+/device/ESP8266_LUA/spi接线 - 副本.png
+/device/ESP8266_LUA/temp - 副本/getconfigtestcustom.lua
+/device/ESP8266_LUA/test - 副本.lua
+/device/ESP8266_LUA/test212 - 副本.lua
+/device/ESP8266_LUA/usarttest - 副本.lua
+/device/ESP8266_LUA/websockettest - 副本.lua
+/device/ESP8266_LUA/wifitest - 副本.lua
+/device/ESP8266_LUA/固件 - 副本/_temp_by_dltool/downloadPanel1/nodemcu-master-10-modules-2018-12-27-12-07-33-integer.bin_rep
+/device/ESP8266_LUA/固件 - 副本/nodemcu-master-10-modules-2018-12-27-12-07-33-integer.bin
