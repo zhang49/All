@@ -1,0 +1,37 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+<title>测试</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+</head>  
+<body>
+
+    <button type="button" id="btn">测试</button>
+
+
+
+<script src="jquery-3.2.1.min.js"></script>
+<script type="text/javascript">
+		$('#btn').on('click', function(){
+            test();
+        });
+
+        function test(){
+            $.ajax({
+                'url' : '/',
+                'type' : 'post',
+                'dataType' : 'json',
+                'data' : {
+                    'data' : 'test'
+                },
+                'success' : function(){
+                    alert('ok');
+                },
+                'error' : function(){
+                    alert('网络错误');
+                }
+            });
+        }
+</script>
+</body>
+</html>
