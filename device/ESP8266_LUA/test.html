@@ -1,107 +1,37 @@
-<!DOCTYPE html>
-<html>
-<<<<<<< HEAD
-
-<head>
-    <meta charset="utf-8">
-    <title>xdplayer test</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-</head>
-
-<body>
-    <button onclick="test()">test</button>
-	<textarea id="received_output" rows="24" cols="120"></textarea><br />
-
-</body>
-
+<!DOCTYPE html>  
+<html>  
+<head>  
+<title>test</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+</head>  
+<body style="width:300px;margin:0 auto">
+<button type="button" id="btn">test</button>
+<script src="jquery-3.2.1.min.js"></script>
+<script src="jquery-weui.js"></script>
 <script type="text/javascript">
-		
-
-        /*socket 初始化*/
-        var sock;
-        var ser_num = 1;
-        var form = null;
-        var cur_config = null;
-        sock = new WebSocket("ws://192.168.20.2:3380");
-        console.log(sock);
-        sock.onopen = function(){
-            console.log('open');
-			
-			received_output.innerHTML += "open" + "\n";
+		$('#btn').on('click', function(){
+            test();
+        });
+        function test(){
+            $.ajax({
+                'url' : '/',
+                'type' : 'post',
+                'dataType' : 'json',
+				'data' : {
+					 'type' :'Heartbeat',
+					"data" : {
+						"time_tick" : "2",
+						"fruit" : "pear"
+					}
+				},
+                'success' : function(){
+                    alert('ok');
+                },
+                'error' : function(){
+                    alert('网络错误');
+                }
+            });
         }
-        sock.onerror = function(e){
-            console.log('error',e);
-			
-			received_output.innerHTML += "error" + "\n";
-        }
-        sock.onclose = function(){
-            console.log('close');
-			
-			received_output.innerHTML += "close" + "\n";
-        }
-        sock.onmessage = function(e){
-            var obj_msg = JSON.parse(e.data);
-            console.log(obj_msg);
-            
-			received_output.innerHTML += "recv: " + e.data + "\n";			
-        }
-
-     
-        //发送socket信息
-        function sockSend  (command, data) {
-            var json_obj = {
-                command: command,
-                serial_num: ser_num++,
-                data:data
-            };
-
-            console.log(json_obj);
-			
-			received_output.innerHTML += "send: " + JSON.stringify(json_obj) + "\n";
-
-            if (sock.readyState === 1) {
-
-                sock.send(JSON.stringify(json_obj));
-            } else {
-                setTimeout(function () {
-                   sockSend (command, data);
-                }, 100000);
-            }
-        }
-
-    
-	  /*设置道具信息*/
-	  function test(){
-	  var list_item = [];
-		var data = {
-		  type: "requestData",                       
-          name: "W",                  
-          desc: "T",             
-          price: "H",                   
-		}
-		list_item.push(data);
-		sockSend('set_item_info',list_item);
-	  }
-	  
-    </script>
-
-=======
-<head>
-<style>
-ul{text-align:center;list-style-type:none;}
-</style>
-</head>
-<body><div style="width:500px;margin:0 auto">
-
-<table>
-<ul><li><h2>Config Infromation</h2></li>
-<form action="" method="get">
-<li><p>IdNum:<input type="text" name="ap['ssid']" value="" />&nbsp </p></li><li>
-<p>SSID:&nbsp <input type="text" name="ssid" value="" />&nbsp </p></li><li>
-<p>PSW:&nbsp <input type="text" name="pwd" value="" />&nbsp </p></li><li>
-<p><input type="submit" value="Save" width=100 /></p></li></ul></form>
-</div></body>
-
-<script src="jquery-3.3.1.min.js"></script>
->>>>>>> 3e1413e8420d3503728110503293ef8998a2981f
-</html>
+</script>
+</body>
+</html
