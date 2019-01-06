@@ -1,30 +1,56 @@
 
 function readfile(filepath)
     if file.exists(filepath) then
-        if file.open(filepath, "r") then
-            line=file.readline()
-            content=""
-            while( line ) 
-            do
-                print(line)
-                content=content .. line
-                line=file.readline()
+        fd=file.open(filepath,'r')
+        local resData={}
+        i=0
+        local buf
+        if fd then
+            buf=fd:read(1460)
+            while buf do
+            i=i+1
+            print(i)
+            ok=pcall(table.insert,resData,#resData+1,buf)
+            if ok then print('ok')
+            else 
+            
+            return
+            print('error')
+            end 
+            buf=fd:read(1460)
             end
-            file.close()
-            return content
         end
+        print(#resData)
     end
-   return nil; 
+end
+pos=0
+buf=""
+readlen=0
+filename='jquery-weui.js'
+i=0
+
+buf=""
+print('strat')
+while buf~=nil
+do
+file.open(filename, 'r')
+if file.seek('set', pos) == nil then
+    buf=nil
+    readlen=pos-1460+readlen
+    print(filename..'Finished. total len:'..readlen)
+    print('use i:'..i)
+else
+    buf = file.read(1460)
+    pos = pos + 1460
+    readlen=#buf
+end
+file.close()
 end
 
-wifi.setmode(wifi.STATION)
-wifi.sta.config({ ssid = "GamePartment", pwd = "game1234" })
-print(wifi.sta.getip())
 
-htmlname="index.html"
-content=readfile(htmlname)
-print(content)
 
+
+--readfile('jquery-weui.js')
 
 
 

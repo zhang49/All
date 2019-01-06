@@ -1,10 +1,5 @@
 configfilename="Config.txt"
 configData={}
-ws_address="192.168.20.2"
-ws_port='3380'
-
---ws = websocket.createClient()
-ws = net.createConnection(net.TCP, 0)
 uart.on("data", "\r",function(data)
   -- \n(10) ...... \r(13)
   --print("receive from uart:"..string.sub(data,0,#data-1))
@@ -44,38 +39,47 @@ function tableToString(root)
   return buf
 end
 
-function readConfigFromFile()
-  if not file.exists(configfilename) or file.open(configfilename) and file.read() ==nil then
-    file.open(configfilename,"w+")
-    local table={}
-    table["ap"]={}
-    table["station"]={}
-    table["wifimode"]="station"
-    table["startmode"]="config"
-    table["ap"]["ssid"]="ESP8266_Mode"
-    table["ap"]["pwd"]="12345678"
-    --
-    table["station"]["ssid"]="360WiFi-1AC8AE"
-    table["station"]["pwd"]="12345678"
-    local wbuf=tableToString(table)
+function readConfigFromFile(fname)
+  if not file.exists(fname) then
+    file.open(fname,'w')
+    local cfg={}
+    cfg.ap={}
+    cfg.station={}
+    cfg.cloud={}
+    cfg.wifimode="station"
+    cfg.startmode="local"
+    cfg.ap.ssid="ESP8266_Mode"
+    cfg.ap.pwd="12345678"
+    cfg.station.ssid="Ares"
+    cfg.station.pwd="460204415"
+    cfg.cloud.ip="192.168.20.2"
+    cfg.cloud.port="3380"
+    local wbuf=tableToString(cfg)
     file.write(wbuf) 
     file.close()
     --node.restart()
     --print("create file!")
   end
   file.close()
-  file.open(configfilename,"r")
-  content=file.read()
-  configData = sjson.decode(content)
-  file.close()   
+  local ret,dd
+  if file.open(fname,"r") then
+    ret,dd = pcall(sjson.decode,file.read(3096))
+    file.close()
+  end
+  if ret then return dd end
+  return nil
 end
 
-function startNormalPage()
+--ws = websocket.createClient()
+ws = net.createConnection(net.TCP, 0)
+function startCloudMode()
   ws_try_c = 1
   --ws:connect('ws://'..ws_address..':'..ws_port)
   wsConnctTimer = tmr.create()
   wsConnctTimer:register(3000, tmr.ALARM_SEMI, function()
-    ws:connect(3380,'192.168.20.2')
+    local ip=configData.cloud.ip
+    local port=tonumber(configData.cloud.port)
+    ws:connect(port,ip)
     ws:on("connection", function(ws)
       print('got ws connection')
       ws_try_c=0
@@ -85,6 +89,7 @@ function startNormalPage()
       --print('got message:', msg, opcode) -- opcode is 1 for text message, 2 for binary
       wsRecvProcess(msg)
     end)
+	--close then reconnect
   end)
   wsConnctTimer:start()
 end
@@ -95,15 +100,15 @@ function wsRecvProcess(msg)
   print(msg)
   if ok then
     --SendData to MasterDevice
-    if t["type"]=="SetConfig" and t["data"]~=nil then
-      configData["wifimode"]=t["data"]["wifi_mode"]
-      local wifimode=t["data"]["wifi_mode"]
-      if t["data"]["wifi-ssid"] ~=nil then
-        --print(t["data"]["wifi_mode"])
-        --print(t["data"]["wifi-ssid"])
-        --print(t["data"]["wifi-pwd"])
-        configData[wifimode]["ssid"]=t["data"]["wifi-ssid"]
-        configData[wifimode]["pwd"]=t["data"]["pwd"]
+    if t.type=="SetConfig" and t.data~=nil then
+      configData.wifimode=t.data.wifi_mode
+      local wifimode=t.data.wifi_mode
+      if t.data.wifi_ssid ~=nil then
+        --print(t.data.wifi_mode)
+        --print(t.data.wifi_ssid)
+        --print(t.data.wifi_pwd)
+        configData[wifimode].ssid=t.data.wifi_ssid
+        configData[wifimode].pwd=t.data.wifi_pwd
       end
     else
       sendToMasterDevice(msg..'\r\n')
@@ -112,93 +117,23 @@ function wsRecvProcess(msg)
     print("json encode error!")
   end
 end
-
-
-function working(startmode)
-  if workmode == nil then
-    startmode=configData["startmode"]
-  end
-  if startmode=="config" then
-    --print("working config")
-    startConfigPage()
-  elseif startmode=="normal" then
-    --print("working normal")
-    startNormalPage()
-  end
-end
-
-function start(wifimode)
-  --use uart1(TX) for send data to Master Device
-  uart.setup(1, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
-  --use uart0(RX) for recv data from Master Device
-  uart.setup(0, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
-  readConfigFromFile()
-  wifimode=configData["wifimode"]
-  --wifimode="station"
-  if wifimode == "ap" then
-    wifi.setmode( wifi.SOFTAP )
-    wifi.ap.config({ ssid = configData["ap"]["ssid"],pwd = configData["ap"]["pwd"] })
-    wifi.ap.dhcp.start()
-    working()
-  elseif wifimode =="station" then
-    wifi.setmode( wifi.STATION )
-    print(configData["station"]["ssid"].."__"..configData["station"]["pwd"])
-    wifi.sta.config({ ssid = configData["station"]["ssid"],pwd = configData["station"]["pwd"] })
-    local wifi_try_c=1
-    wifigotiptimer = tmr.create()
-    wifigotiptimer:register(1000, tmr.ALARM_SEMI, function()
-      wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
-        print("\n\tSTA - GOT IP".."\n\tStation IP: "..infro.IP.."\n\tSubnet mask: "..
-        infro.netmask.."\n\tGateway IP: "..infro.gateway)
-        wifi_try_c=0
-        --don't unregister wifigotiptimer
-        working()
-      end)
-      wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, function(infro)
-        --print("disconnect ssid:",infro.ssid)
-        wifi_try_c=wifi_try_c+1
-        --if wifi_try_c<=15 then --open error led
-        wifigotiptimer:start()
-        --end
-      end)
-    end)
-    wifigotiptimer:start()
-  end
-end
-        
+ 
 function readfile(filepath)
   if file.exists(filepath) then
-    if file.open(filepath, "r") then
-      local line=file.readline()
-      local content=""
-      while( line ) 
-      do
-        content=content .. line
-        line=file.readline()
-      end
-      file.close()
+    local fd = file.open(filepath, "r")
+    if fd then
+	  local buf,content="",""
+	  while buf~=nil
+	  do
+	    content=content..buf
+		buf=fd:read(1024)
+	  end
+	  fd:close()
+	  fd=nil
       return content
     end
   end
   return nil; 
-end
---send Data to Server
-function guessType(filename)
-    local types = {
-        ['.css'] = 'text/css', 
-        ['.js'] = 'application/javascript', 
-        ['.html'] = 'text/html',
-        ['.png'] = 'image/png',
-        ['.jpg'] = 'image/jpeg',
-        ['.ico'] = 'image/jpeg'
-    }
-    for ext, type in pairs(types) do
-        if string.sub(filename, -string.len(ext)) == ext
-            or string.sub(filename, -string.len(ext .. '.gz')) == ext .. '.gz' then
-            return type
-        end
-    end
-    return 'text/plain'
 end
 
 function sendData(sck, data)
@@ -229,134 +164,118 @@ function sendData(sck, data)
   send(sck)
 end
 
-function sendResourceFile(sck, filename)
-  local status = 200  
-  local mType=guessType(filename)
-    local header = 'HTTP/1.1 ' .. status .. '\r\n'
-    header= header .. 'Cache-Control: max-age=3592000\r\n'
-    header = header .. 'Content-Type: ' .. mType .. '\r\n'
-    if string.sub(filename, -3) == '.gz' then
-        header = header .. 'Content-Encoding: gzip\r\n'
-    end
-    header = header .. '\r\n'
-    print('* Sending ', filename)
-    print("header:"..header)
-
-    local pos = 0
-    local function doSend()
-        file.open(filename, 'r')
-        if file.seek('set', pos) == nil then
-            sck:close()
-            print('* Finished ', filename)
-        else
-            local buf = file.read(1460)
-            pos = pos + 1460
-            sck:send(buf)
-        end
-        file.close()
-    end
-    sck:on('sent', doSend)
-    sck:send(header)
-end
-
-function startConfigPage()
-  srv = net.createServer(net.TCP)
-  srv:listen(80, function(conn)
-    conn:on("receive", function(client, request)
-      print(request)
-      local indexpage="index.html"
-      local buf = nil
-      local retcontent=""
-      local _, _, method, path, vars = string.find(request, "([A-Z]+) (.+)?(.+) HTTP")
-      --print(request)
-      if (method == nil) then
-        _, _, method, path = string.find(request, "([A-Z]+) (.+) HTTP")
-      end
-      local temp=string.sub(path,#path-string.find(string.reverse(path),"/")+2,#path)
-      if temp=='/' or string.find(temp,'[\.]') then
-        print("request resourse file:"..temp)
-        sendResourceFile(client,temp)
-      else
-        print("not request resource data.")
-        local function sw_index() 
-          print("index")
-          sendResourceFile(client,indexpage)
-        end
-        local function sw_command() print("command") end
-        local function sw_login() print("login")
-          buf = buf .. "<!DOCTYPE html>"
-          buf = buf .. '<html><body><div style="width:500px;margin:0 auto">'
-          if(_GET.token ~=nil and _GET.apssid ~= nil) then
-            print("post data is not")
-            buf = buf .. "<p>token is:".. _GET.token .."</p>"
-            buf = buf .. "<p>ssid is:".. _GET.apssid .."</p>"
-            buf = buf .. "<p>pwd is:".. _GET.appwd .."</p>"
-            --print(_GET.ap)
-            configData["token"]=_GET.token
-            configData["wifimode"]="station";
-            configData["station"]["ssid"]=_GET.apssid
-            configData["station"]["pwd"]=_GET.appwd
-            configData["startmode"]="normal"
-            local wbuf=tableToString(configData)
-            print(wbuf)
-            if file.open(configfilename, "w+") then
-              file.write(wbuf) 
-              file.close()
-              sendData(client,buf)
-              node.restart()
-              return nil
-            else
-              --print("open error")
-            end
-          end   
-          buf = buf .. "<p>close ap and start station now</p>"
-          buf = buf .. "</div></body></html>"
-          --print(readfile(configfilename))        
-        end
-        local function sw_root() print("root") end
-        local mswitch={
-          [""]=sw_index,
-          ["command"]=sw_command,
-          ["login"]=sw_login,
-          ["root"]=sw_root
-        }
-        if (method == "POST") then
-          local i=string.find(request,'\r\n\r\n')
-          if i~=nil then
-            vars=string.sub(request,i+4,#request)
-          else
-            print("find double rn is nil")
-          end
-        end
-        print("request path:"..path)
-        local _GET = {}
-        if ( vars ~=nil ) then
-          print("vars:"..vars)
-          local index=1,rear,k,v
-          while true
-          do
-            index=string.find (vars, "=")
-            if index==nil then break;
-            else
-              k=string.sub(vars,0,index-1)
-              rear=string.find (vars, "&", index)
-              if rear==nil then rear=#vars+1 end
-              v=string.sub(vars,index+1,rear-1)
-              vars=string.sub(vars,rear+1)
-              _GET[k]=v
-              print("key="..k.." , value="..v)
-            end
-          end
-        end
-        local sw=mswitch[temp]
-        if sw then sw()
-        else print("not find :"..temp)
-        end
-      end
-    end)
+function startLocalMode()
+  dofile('httpServer.lua')
+  httpServer:listen(80)
+  httpServer:onRecv('/command', function(req, res)
+  print('on command: GET len:'..#req.GET)
+  print(tableToString(req.GET))
+    res:send('success')
   end)
+  httpServer:onRecv('/test', function(req, res)
+    res:sendResourceFile('test.html')
+  end)
+  httpServer:onRecv('/login', function(req, res)
+    local buf = buf .. "<!DOCTYPE html>"
+    buf = buf .. '<html><body><div style="width:500px;margin:0 auto">'
+    if(req.GET.token ~=nil and req.GET.apssid ~= nil) then
+      print("post data is not")
+      buf = buf .. "<p>token is:".. req.GET.token .."</p>"
+      buf = buf .. "<p>ssid is:".. req.GET.apssid .."</p>"
+      buf = buf .. "<p>pwd is:".. req.GET.appwd .."</p>"
+     buf = buf .. "<p>close ap and start station now</p>"
+      buf = buf .. "</div></body></html>"
+      --print(req.GET.ap)
+      configData.token=req.GET.token
+      configData.wifimode="station";
+      configData.station.ssid=req.GET.apssid
+      configData.station.pwd=req.GET.appwd
+      configData.startmode="local"
+      local wbuf=tableToString(configData)
+      print(wbuf)
+      if file.open(configfilename, "w+") then
+        file.write(wbuf) 
+        file.close()
+        res:send(client,buf)
+        --waiting for senddata over
+        tmr.create:alarm(200, tmr.ALARM_SINGLE , function()
+          node.restart()
+        end)
+        return nil
+      else
+        --print("open error")
+      end
+    end   
+    --print(readfile(configfilename))      
+  end)
+      --local function sw_root() print("root") end
+      --local mswitch={
+      --[""]=sw_index,
+      --["command"]=sw_command,
+      --["login"]=sw_login,
+      --["root"]=sw_root
+      --}
+    --local sw=mswitch[temp]
+    --if sw then sw()
+    --else print("not find :"..temp)
+    --end
 end
+
+function working(startmode)
+  if startmode == nil then
+    startmode=configData.startmode
+  end
+  if startmode=="local" then
+    startLocalMode()
+  elseif startmode=="cloud" then
+    startCloudMode()
+  end
+end
+
+function start(wifimode)
+  --use uart1(TX) for send data to Master Device
+  uart.setup(1, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
+  --use uart0(RX) for recv data from Master Device
+  uart.setup(0, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
+  configData=readConfigFromFile(configfilename)
+  wifimode=configData.wifimode
+  --wifimode="station"
+  if wifimode == "ap" then
+    wifi.setmode( wifi.SOFTAP )
+    wifi.ap.config({ ssid = configData.ap.ssid,pwd = configData.ap.pwd })
+    wifi.ap.dhcp.start()
+    working()
+  elseif wifimode =="station" then
+    wifi.setmode( wifi.STATION )
+    print(configData.station.ssid.."__"..configData.station.pwd)
+    wifi.sta.config({ ssid = configData.station.ssid,pwd = configData.station.pwd })
+    local wifi_try_c=1
+    wifigotiptimer = tmr.create()
+    wifigotiptimer:register(1000, tmr.ALARM_SEMI, function()
+      wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
+        print("\n\tSTATION - GOT IP: "..infro.IP)
+		--"\n\tSubnet mask: "..infro.netmask.."\n\tGateway IP: "..infro.gateway)
+        wifi_try_c=0
+        --don't unregister wifigotiptimer
+        working()
+      end)
+      wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, function(infro)
+        --print("disconnect ssid:",infro.ssid)
+        wifi_try_c=wifi_try_c+1
+        --if wifi_try_c<=15 then --open error led
+        wifigotiptimer:start()
+        --end
+      end)
+    end)
+    wifigotiptimer:start()
+  elseif wifimode == 'both' then
+    wifi.setmode(wifi.STATIONAP)
+	working()
+  end
+end
+
 start()
+
 
 
 

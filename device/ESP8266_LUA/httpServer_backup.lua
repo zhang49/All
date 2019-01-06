@@ -67,10 +67,6 @@ function Res:status(status)
 	self._status = status
 end
 
-sendbuf={}
-sendover=1
-
-
 --------------------
 -- Request
 --------------------
@@ -134,14 +130,13 @@ function Res:sendResourceFile(filename)
     local function doSend()
 		file.open(filename, 'r')
 		if file.seek('set', pos) == nil then
-			readlen=pos-500+readlen
-			sendover=1
+			readlen=pos-300+readlen
 			self:close()
 			--print(filename..'Finished. total len:'..readlen)
 		else
-			buf = file.read(500)
+			buf = file.read(300)
 			self._sck:send(buf)
-			pos = pos + 500
+			pos = pos + 300
 			readlen=#buf
 		end
 		file.close()
@@ -149,17 +144,6 @@ function Res:sendResourceFile(filename)
     self._sck:on('sent', doSend)
     self._sck:send(header)
 end
-
-tmrtest = tmr.create()
-tmrtest:register(10, tmr.ALARM_SEMI, function()
-	if #sendbuf~=0 and true then
-		sendover=0
-		tab=table.remove(sendbuf,1)
-		tab.r:sendResourceFile(tab.f)
-	end
-	tmrtest:start()
-end)
-tmrtest:start()
 
 function parseRequestHeader(req,res)
 	local _, _, method, path, vars = string.find(req.source, "([A-Z]+) (.+)?(.+) HTTP")    
@@ -197,18 +181,12 @@ function staticFile(req, res)
 	--print('staticFile get path:'..req.path)
 	if req.path == '/' then
 		filename = 'index.html'
-		table.insert(sendbuf,#sendbuf+1,{
-			f=filename,
-			r=res
-		})
+		res:sendResourceFile(filename)
 	else
 		filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
 		if string.find(filename,'[\.]') then
 			print("request resourse file:"..filename)
-			table.insert(sendbuf,#sendbuf+1,{
-				f=filename,
-				r=res
-			})
+			res:sendResourceFile(filename)
 		end
 		--filename = string.gsub(string.sub(req.path, 2), '/', '_')
 	end
