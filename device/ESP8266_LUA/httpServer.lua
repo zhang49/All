@@ -128,7 +128,7 @@ function Res:sendResourceFile(filename)
 		if file.seek('set', pos) == nil then
 			self:close()
 		else
-			buf = file.read(1460)
+			local buf = file.read(1460)
 			self._sck:send(buf)
 			pos = pos + 1460
 		end
@@ -216,7 +216,6 @@ function httpServer:close()
 	self._srv:close()
 	self._srv = nil
 end
-
 
 function httpServer:listen(port)
 	self._srv = net.createServer(net.TCP)

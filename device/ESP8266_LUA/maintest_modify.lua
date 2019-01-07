@@ -1,7 +1,7 @@
 configfilename='Config.txt'
 configData={}
 sendbuf={}
-sendover=1
+sendflag=0
 uart.on("data", "\r",function(data)
   -- \n(10) ...... \r(13)
   --print("receive from uart:"..string.sub(data,0,#data-1))
@@ -27,10 +27,10 @@ function tableToString(root)
       buf=buf..'{' 
       local index_t=0
       --if type(v) == "table" then return end
-      for k,v in pairs(v) do
+      for m,n in pairs(v) do
         if index_t ~= 0 then buf=buf.."," end
-        index_t=index_t+1
-        buf=buf..'"'..k..'":"'..v..'"' 
+        index_t=1
+        buf=buf..'"'..m..'":"'..n..'"' 
       end
       buf=buf..'}'
     else
@@ -205,6 +205,16 @@ function httpSend(sck,body)
   sck:on('sent', doSend)
   doSend()
 end
+fd=nil
+
+function closesck(sck)
+	sck:on('sent', function() end) -- release
+	sck:on('receive', function() end)
+	sck:close()
+	fd:close()
+	fd=nil
+	sck=nil
+end
 
 function sendResourceFile(sck,filename)
   local mType = guessType(filename)
@@ -221,38 +231,52 @@ function sendResourceFile(sck,filename)
     return nil
   end
   local header = 'HTTP/1.1 ' .. status .. '\r\n'
+  header= header .. 'Cache-Control: public\r\n' -- cache
   header= header .. 'Cache-Control: max-age=3592000\r\n' -- cache
   header = header .. 'Content-Type: ' .. mType .. '\r\n'
   if string.sub(filename, -3) == '.gz' then 
     header = header .. 'Content-Encoding: gzip\r\n' 
   end
   header = header .. '\r\n'	-------improtant
+  
+	print('-----1')
   print(header)
-  local fd=file.open(filename, 'r')
+	print('-----2')
+  fd=file.open(filename, 'r')
   local function doSend()
     --local total_allocated, estimated_used = node.egc.meminfo()
     --print('----------start before has:'..total_allocated..'_use:'..estimated_used)
-      if fd then
         buf = fd.read(1460)
         if buf==nil then
-          sck:close()
-          fd:close()
-          fd=nil
-          sendover=1
+		  table.remove(sendbuf, 1)
+		  closesck(sck)
+          sendflag = 0
         else
           sck:send(buf)
+		  sendflag = 1
         end
-      else
-        sck:close()
-      end
   end
   sck:on('sent', doSend)
+	print('-----3')
   sck:send(header)
+	print('-----4')
 end
+--[[
+sendflag set 1 when has send data, and sendflag set 0 when send over
+if sendflag equal 200, it means that never send nothing in 2 seconds 
+--]]
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
-  if sendover==1 and #sendbuf>0 then
-    tb=table.remove(sendbuf, 1)
+  if sendflag ~=0 then sendflag=sendflag+1 end
+  if sendflag == 0 and #sendbuf > 0 then
+    sendflag=1
+    local tb=sendbuf[1]
+	print('before send table.reamove #sendbuf = '..#sendbuf)
     sendResourceFile(tb.s ,tb.f)
+  elseif sendflag>200 and #sendbuf > 0 then
+    local tb = table.remove(sendbuf, 1)
+	print('after timeout table.reamove #sendbuf = '..#sendbuf)
+    closesck(tb.s)
+	sendflag=0
   end
 end)
 function parseRequestHeader(req)
@@ -265,6 +289,7 @@ function parseRequestHeader(req)
   end
   req.GET=nil
   if ( vars ~=nil ) then
+    print('get parameter')
     req.GET={}
     vars=string.gsub(vars,'%%5B','[')
     vars=string.gsub(vars,'%%5D','')
@@ -287,6 +312,14 @@ function startLocalMode()
   srv= net.createServer(net.TCP)
   srv:listen(80, function(conn)
   local buffer = {}
+  conn:on('disconnection',function(sck)
+    for i=#sendbuf,1,-1 do
+	  if sendbuf[i].s == sck then
+		table.remove(sendbuf,i)
+		break
+	  end
+	end
+  end)
   conn:on('receive', function(sck, msg)
     local ip = sck:getpeer()
     if buffer.ip == nil then
@@ -294,6 +327,7 @@ function startLocalMode()
     else
       buffer.ip = buffer.ip .. msg
     end
+	--print('--[['..buffer.ip..']]--')
     local i=string.find(buffer.ip,'\r\n\r\n')
     if i then
       if string.find(string.sub(buffer.ip, 1, 6), 'POST /') == 1 then
@@ -330,11 +364,13 @@ function startLocalMode()
     end
     if fname then
       --sendResourceFile(sck,fname)
+	   print('before insert #sendbuf = '..#sendbuf)
       table.insert(sendbuf, #sendbuf+1, { s = sck, f = fname})
     elseif req.path=='/' then
       --sendResourceFile(sck,'index.html')
     elseif req.path=='/command' then
       print('recv command :'..tableToString(req.GET))
+	  req.GET = nil
     elseif req.path=='/login' then
      
     end

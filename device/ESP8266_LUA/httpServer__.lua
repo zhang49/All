@@ -239,8 +239,6 @@ function httpServer:listen(port)
 			buffer.ip = buffer.ip .. msg 
 			--print("Merge buffer .")
 		end
-
-		
 		local i=string.find(buffer.ip,'\r\n\r\n')
 		if i then
 			if string.find(string.sub(buffer.ip,1,6),'POST /')==1 then
