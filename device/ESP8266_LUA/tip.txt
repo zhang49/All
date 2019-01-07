@@ -1,1 +1,25 @@
-ESP8266 NodeMcu 无线发送速率 测试 7.1 kb/s
+﻿##########!!!LUA文件编译成.lc再运行，比直接运行LUA高效
+##########ESP8266 NodeMcu 无线发送速率 测试 7.1 kb/s——直接运行LUA，错误做法
+##########
+NodeMcu 编译lua固件
+1.克隆nodemcu-firmware
+git -clone https://github.com/nodemcu/nodemcu-firmware.git
+2.配置nodemcu-firmware/app/include目录下的user_model.h和user_config.h
+user_model.h涵盖需要编译的模块
+user_config涵盖模块配置项
+3.Make
+export BUILD_DATE=$(date +%Y%m%d)
+make EXTRA_CCFLAGS="-DBUILD_DATE='\"'$BUILD_DATE'\"'" all
+完成后会在/bin生成.bin文件
+4.整合.bin文件
+合并:
+srec_cat -output "temp.bin" -binary 0x00000.bin -binary -fill 0xff 0x00000 0x10000 0x10000.bin -binary -offset 0x10000
+-output "temp.bin"    输出文件名temp.bin
+-fill 0xff 0x00000 0x10000    在[0x00000,0x10000]内填充0xff
+-binary ...... 0x10000.bin -binary -offset 0x10000    偏移0x10000开始写0x10000.bin
+把0x00000.bin与0x10000.bin合并成temp.bin
+追加?:
+srec_cat -output "nodemcu_32mb.bin" -binary temp.bin -binary -fill 0xff 0x00000 0x70000 0x70000-32mb.img -binary -offset 0x70000 
+
+srec_cat -output "32mb_NULL.bin" -binary NULL.bin -binary -fill 0xff 0x00000 0x70000 0x70000-32mb.img -binary -offset 0x70000 
+

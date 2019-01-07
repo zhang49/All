@@ -15,7 +15,6 @@ function guessType(filename)
     end
     return 'text/plain'
 end
-
 function sendData(sck, data)
   local response = {}
   local sublen=254
@@ -50,7 +49,6 @@ Res = {
 	_mType = nil,
 	_status = nil
 }
-
 function Res:new(sck)
 	local o = {}
 	setmetatable(o, self)--inherit self
@@ -66,11 +64,6 @@ end
 function Res:status(status)
 	self._status = status
 end
-
-sendbuf={}
-sendover=1
-
-
 --------------------
 -- Request
 --------------------
@@ -130,36 +123,20 @@ function Res:sendResourceFile(filename)
     --print('-----response header-----\r\n'..header..'\r\n---------')
     --print('* Sending ', filename)
     local pos = 0
-	local readlen = 0	
     local function doSend()
 		file.open(filename, 'r')
 		if file.seek('set', pos) == nil then
-			readlen=pos-500+readlen
-			sendover=1
 			self:close()
-			--print(filename..'Finished. total len:'..readlen)
 		else
-			buf = file.read(500)
+			buf = file.read(1460)
 			self._sck:send(buf)
-			pos = pos + 500
-			readlen=#buf
+			pos = pos + 1460
 		end
 		file.close()
     end
     self._sck:on('sent', doSend)
     self._sck:send(header)
 end
-
-tmrtest = tmr.create()
-tmrtest:register(10, tmr.ALARM_SEMI, function()
-	if #sendbuf~=0 and true then
-		sendover=0
-		tab=table.remove(sendbuf,1)
-		tab.r:sendResourceFile(tab.f)
-	end
-	tmrtest:start()
-end)
-tmrtest:start()
 
 function parseRequestHeader(req,res)
 	local _, _, method, path, vars = string.find(req.source, "([A-Z]+) (.+)?(.+) HTTP")    
@@ -196,19 +173,12 @@ function staticFile(req, res)
 	local filename = ''
 	--print('staticFile get path:'..req.path)
 	if req.path == '/' then
-		filename = 'index.html'
-		table.insert(sendbuf,#sendbuf+1,{
-			f=filename,
-			r=res
-		})
+		res:sendResourceFile('index.html')
 	else
 		filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
 		if string.find(filename,'[\.]') then
 			print("request resourse file:"..filename)
-			table.insert(sendbuf,#sendbuf+1,{
-				f=filename,
-				r=res
-			})
+		res:sendResourceFile(filename)
 		end
 		--filename = string.gsub(string.sub(req.path, 2), '/', '_')
 	end
@@ -261,8 +231,6 @@ function httpServer:listen(port)
 			buffer.ip = buffer.ip .. msg 
 			--print("Merge buffer .")
 		end
-
-		
 		local i=string.find(buffer.ip,'\r\n\r\n')
 		if i then
 			if string.find(string.sub(buffer.ip,1,6),'POST /')==1 then
@@ -275,6 +243,7 @@ function httpServer:listen(port)
 						reqData=string.sub(buffer.ip,0,length+i-1)
 						--print("reqData is:"..reqData)
 						buffer.ip=string.sub(buffer.ip,length+i,-1)
+						collectgarbage()
 					else return nil
 					end
 				end
@@ -285,6 +254,7 @@ function httpServer:listen(port)
 				--print("reqData is:"..reqData)
 			end
 		else
+			collectgarbage()
 			return nil
 		end
 		
@@ -313,6 +283,7 @@ function httpServer:listen(port)
 		
 		local req = { source = reqData, path = nil, method = nil, GET = {},ip = sck:getpeer() }
 		if not parseRequestHeader(req,nil) then
+			collectgarbage()
 			return nil
 		end
 		local res = Res:new(sck)-- new Res with sck

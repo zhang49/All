@@ -1,5 +1,5 @@
 wifi.sta.autoconnect(0)
-node.setcpufreq(node.CPU160MHZ)
+node.compile("maintest_modify.lua")
 tmr.create():alarm(5000,tmr.ALARM_SINGLE,function()
-dofile('maintest.lua')
+dofile('maintest_modify.lc')
 end)

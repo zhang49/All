@@ -50,8 +50,8 @@ function readConfigFromFile(fname)
     cfg.startmode="local"
     cfg.ap.ssid="ESP8266_Mode"
     cfg.ap.pwd="12345678"
-    cfg.station.ssid="Ares"
-    cfg.station.pwd="460204415"
+    cfg.station.ssid="360WiFi-1AC8AE"
+    cfg.station.pwd="12345678"
     cfg.cloud.ip="192.168.20.2"
     cfg.cloud.port="3380"
     local wbuf=tableToString(cfg)
@@ -62,10 +62,15 @@ function readConfigFromFile(fname)
   end
   file.close()
   local ret,dd
+  local total_allocated, estimated_used = node.egc.meminfo()
+  print('----------before decode json:'..total_allocated..'_use:'..estimated_used)
   if file.open(fname,"r") then
     ret,dd = pcall(sjson.decode,file.read(3096))
     file.close()
   end
+  
+  local endtotal_allocated, estimated_used = node.egc.meminfo()
+  print('----------after decode json:'..total_allocated..'_use:'..estimated_used)
   if ret then return dd end
   return nil
 end
@@ -165,7 +170,7 @@ function sendData(sck, data)
 end
 
 function startLocalMode()
-  dofile('httpServer.lua')
+  dofile('httpServer.lc')
   httpServer:listen(80)
   httpServer:onRecv('/command', function(req, res)
   print('on command: GET len:'..#req.GET)
@@ -219,9 +224,13 @@ function startLocalMode()
     --if sw then sw()
     --else print("not find :"..temp)
     --end
+	
+	
 end
 
 function working(startmode)
+  local total_allocated, estimated_used = node.egc.meminfo()
+  print('----------after working:'..total_allocated..'_use:'..estimated_used)
   if startmode == nil then
     startmode=configData.startmode
   end
