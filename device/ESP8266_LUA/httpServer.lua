@@ -1,3 +1,6 @@
+sendFileBuf = {}
+fileSendFlag = 0
+fd = nil
 function guessType(filename)
     local types = {
         ['.css'] = 'text/css', 
@@ -14,32 +17,6 @@ function guessType(filename)
         end
     end
     return 'text/plain'
-end
-function sendData(sck, data)
-  local response = {}
-  local sublen=254
-  local ret=""
-  while true 
-  do
-    --a problem in print(string.sub(data,i,j)) , get data NULL
-    ret=string.sub(data,0,sublen)
-    if(ret~=nil) then
-      response[#response + 1]=ret
-      data=string.sub(data,sublen+1,-1)
-    end
-    if ret==nil or #ret~=sublen then break end 
-  end
-  -- sends and removes the first element from the 'response' table
-  local function send(localSocket)
-    if response == nil or #response==0 then 
-      response = nil
-    elseif #response > 0 then
-      localSocket:send(table.remove(response,1))
-    end
-  end
-  -- triggers the send() function again once the first chunk of data was sent
-  sck:on("sent", send)
-  send(sck)
 end
 --------------------
 -- Response
@@ -74,11 +51,17 @@ end
 --	_GET = nil,
 --}
 
+function closeSck_file(sck)
+  sck:on('sent', function() end) -- release
+  sck:on('receive', function() end)
+  sck:close()
+  sck=nil
+  if fd ~= nil then fd:close() fd=nil end
+end
 
 function Res:send(body)
 	self._status = self._status or 200
 	self._mType = self._mType or 'text/html'
-
 	local buf = 'HTTP/1.1 ' .. self._status .. '\r\n'
 		.. 'Content-Type: ' .. self._mType .. '\r\n'
 		.. 'Content-Length:' .. string.len(body) .. '\r\n'
@@ -98,46 +81,58 @@ function Res:send(body)
 	doSend()
 end
 
-function Res:sendResourceFile(filename)
-	self._mType=guessType(filename)
+function sendFile_real(sck, filename)
+    local mType, status, header
+	mType = guessType(filename)
+	status = 200
 	if file.exists(filename .. '.gz') then
-		print('--'..filename..' has gz ....')
 		filename = filename .. '.gz'
 	elseif not file.exists(filename) then
-		self:status(404)
-		if filename == '404.html' then
-			self:send(404)
-		else
-			self:sendResourceFile('404.html')
-		end
-		return
+		status = 404
+		filename = '404.html'
+		if file.exists('404.html.gz') then filename = '404.html.gz' end
 	end
-	self._status = self._status or 200 
-    local header = 'HTTP/1.1 ' .. self._status .. '\r\n'
+    header = 'HTTP/1.1 ' .. status .. '\r\n'
     header= header .. 'Cache-Control: max-age=3592000\r\n' -- cache
-    header = header .. 'Content-Type: ' .. self._mType .. '\r\n'
+    header = header .. 'Content-Type: ' .. mType .. '\r\n'
     if string.sub(filename, -3) == '.gz' then
         header = header .. 'Content-Encoding: gzip\r\n'
     end
 	header = header .. '\r\n'	-------improtant
     --print('-----response header-----\r\n'..header..'\r\n---------')
     --print('* Sending ', filename)
-    local pos = 0
-    local function doSend()
-		file.open(filename, 'r')
-		if file.seek('set', pos) == nil then
-			self:close()
-		else
-			local buf = file.read(1460)
-			self._sck:send(buf)
-			pos = pos + 1460
-		end
-		file.close()
-    end
-    self._sck:on('sent', doSend)
-    self._sck:send(header)
+    fd=file.open(filename, 'r')
+	  local function doSend()
+			buf = fd.read(1460)
+			if buf == nil then
+			  table.remove(sendFileBuf, 1)
+			  closeSck_file(sck)
+			  fileSendFlag = 0
+			else
+			  sck:send(buf)
+			  fileSendFlag = 1
+			end
+	  end
+    sck:on('sent', doSend)
+    sck:send(header)
 end
-
+--保存socket, filename到sendFileBuf中，定时器检查发送
+function Res:sendFile(filename)
+	table.insert(sendFileBuf, #sendFileBuf+1, { s = self._sck, f = filename})
+end
+--每10ms 检查，发送sendFileBuf中的filname，超时2s关闭socket
+tmr.create():alarm(10,tmr.ALARM_AUTO,function()
+  if fileSendFlag ~=0 then fileSendFlag=fileSendFlag+1 end
+  if fileSendFlag == 0 and #sendFileBuf > 0 then
+    fileSendFlag=1
+    local tb=sendFileBuf[1]
+    sendFile_real(tb.s ,tb.f)
+  elseif fileSendFlag>200 and #sendFileBuf > 0 then
+    local tb = table.remove(sendFileBuf, 1)
+    closeSck_file(tb.s)
+	fileSendFlag=0
+  end
+end)
 function parseRequestHeader(req,res)
 	local _, _, method, path, vars = string.find(req.source, "([A-Z]+) (.+)?(.+) HTTP")    
     --print('-----request source-----\r\n'..req.source..'\r\n---------')
@@ -169,20 +164,14 @@ function parseRequestHeader(req,res)
 	return true
 end
 
-function staticFile(req, res)
-	local filename = ''
-	--print('staticFile get path:'..req.path)
-	if req.path == '/' then
-		res:sendResourceFile('index.html')
-	else
-		filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
-		if string.find(filename,'[\.]') then
-			print("request resourse file:"..filename)
-		res:sendResourceFile(filename)
-		end
-		--filename = string.gsub(string.sub(req.path, 2), '/', '_')
+function isRequestFile(req, res)
+	local filename
+	filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
+	if string.find(filename,'[\.]') then
+	  print("request resourse file:"..filename)
+	  res:sendFile(filename)
 	end
-	--print("staticFile over")
+	--filename = string.gsub(string.sub(req.path, 2), '/', '_')
 	return true
 end
 
@@ -193,7 +182,7 @@ httpServer = {
 	_srv = nil,
 	_mids = {{
 		url = '.*',
-		cb = staticFile
+		cb = isRequestFile
 	}
 	}
 }
@@ -230,10 +219,11 @@ function httpServer:listen(port)
 			buffer.ip = buffer.ip .. msg 
 			--print("Merge buffer .")
 		end
-		local i=string.find(buffer.ip,'\r\n\r\n')
+		local i, reqData, nextstr, len
+		i=string.find(buffer.ip,'\r\n\r\n')
 		if i then
 			if string.find(string.sub(buffer.ip,1,6),'POST /')==1 then
-				local _,_,len=string.find(buffer.ip,'Content[\-]Length: ([0-9]+)')
+				_,_,len=string.find(buffer.ip,'Content[\-]Length: ([0-9]+)')
 				--print(len)
 				if len~=nil then
 					local length=tonumber(len)

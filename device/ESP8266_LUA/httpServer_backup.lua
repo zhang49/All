@@ -15,7 +15,6 @@ function guessType(filename)
     end
     return 'text/plain'
 end
-
 function sendData(sck, data)
   local response = {}
   local sublen=254
@@ -50,7 +49,6 @@ Res = {
 	_mType = nil,
 	_status = nil
 }
-
 function Res:new(sck)
 	local o = {}
 	setmetatable(o, self)--inherit self
@@ -66,7 +64,6 @@ end
 function Res:status(status)
 	self._status = status
 end
-
 --------------------
 -- Request
 --------------------
@@ -126,18 +123,14 @@ function Res:sendResourceFile(filename)
     --print('-----response header-----\r\n'..header..'\r\n---------')
     --print('* Sending ', filename)
     local pos = 0
-	local readlen = 0	
     local function doSend()
 		file.open(filename, 'r')
 		if file.seek('set', pos) == nil then
-			readlen=pos-300+readlen
 			self:close()
-			--print(filename..'Finished. total len:'..readlen)
 		else
-			buf = file.read(300)
+			local buf = file.read(1460)
 			self._sck:send(buf)
-			pos = pos + 300
-			readlen=#buf
+			pos = pos + 1460
 		end
 		file.close()
     end
@@ -180,13 +173,12 @@ function staticFile(req, res)
 	local filename = ''
 	--print('staticFile get path:'..req.path)
 	if req.path == '/' then
-		filename = 'index.html'
-		res:sendResourceFile(filename)
+		res:sendResourceFile('index.html')
 	else
 		filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
 		if string.find(filename,'[\.]') then
 			print("request resourse file:"..filename)
-			res:sendResourceFile(filename)
+		res:sendResourceFile(filename)
 		end
 		--filename = string.gsub(string.sub(req.path, 2), '/', '_')
 	end
@@ -225,7 +217,6 @@ function httpServer:close()
 	self._srv = nil
 end
 
-
 function httpServer:listen(port)
 	self._srv = net.createServer(net.TCP)
 	self._srv:listen(port, function(conn)
@@ -251,6 +242,7 @@ function httpServer:listen(port)
 						reqData=string.sub(buffer.ip,0,length+i-1)
 						--print("reqData is:"..reqData)
 						buffer.ip=string.sub(buffer.ip,length+i,-1)
+						collectgarbage()
 					else return nil
 					end
 				end
@@ -261,6 +253,7 @@ function httpServer:listen(port)
 				--print("reqData is:"..reqData)
 			end
 		else
+			collectgarbage()
 			return nil
 		end
 		
@@ -289,6 +282,7 @@ function httpServer:listen(port)
 		
 		local req = { source = reqData, path = nil, method = nil, GET = {},ip = sck:getpeer() }
 		if not parseRequestHeader(req,nil) then
+			collectgarbage()
 			return nil
 		end
 		local res = Res:new(sck)-- new Res with sck

@@ -89,10 +89,10 @@ function handleRecv(sck,root)
 	    or root.data.wifi_station_pwd == nil or root.data.wifi_mode == nil then
 		error_code = 1
 	  else
-	    configData[ap].ssid = root.data.wifi_ap_ssid
-        configData[ap].pwd = root.data.wifi_ap_pwd
-        configData[station].ssid = root.data.wifi_station_ssid
-        configData[station].pwd = root.data.wifi_station_pwd
+	    configData.ap.ssid = root.data.wifi_ap_ssid
+        configData.ap.pwd = root.data.wifi_ap_pwd
+        configData.station.ssid = root.data.wifi_station_ssid
+        configData.station.pwd = root.data.wifi_station_pwd
 	    if root.data.wifi_mode == 1 then
 		  configData.wifimode = 'ap'
 		  configData.startmode = 'local'
@@ -121,10 +121,10 @@ function handleRecv(sck,root)
 	  root.type = 'Reply_GetWiFiConfig'
 	  root.data = {}
 	  root.data.work_mode = (configData.wifimode == 'station' and 0 or 1)
-	  root.data.wifi_ap_ssid = configData[ap].ssid
-	  root.data.wifi_ap_pwd = configData[ap].pwd
-	  root.data.wifi_station_ssid = configData[station].ssid
-	  root.data.wifi_station_pwd = configData[station].pwd
+	  root.data.wifi_ap_ssid = configData.ap.ssid
+	  root.data.wifi_ap_pwd = configData.ap.pwd
+	  root.data.wifi_station_ssid = configData.station.ssid
+	  root.data.wifi_station_pwd = configData.station.pwd
 	  buf=tableToString(root) 
 	  buf = buf .. error_code ..'","error_str":"","data":""}'
 	  httpSend(sck, buf)
