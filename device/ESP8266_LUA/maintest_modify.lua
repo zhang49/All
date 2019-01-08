@@ -1,20 +1,29 @@
-configfilename='Config.txt'
-configData={}
-sendbuf={}
-sendflag=0
-uart.on("data", "\r",function(data)
+CONFIGFILENAME='Config.txt'
+configData = {}
+sendFileBuf = {}
+saveSckBuf = {}
+fileSendOverFlag = 0
+fd = nil
+function recvFromMasterDevice(msg)
   -- \n(10) ...... \r(13)
   --print("receive from uart:"..string.sub(data,0,#data-1))
-  msg=string.sub(data,2,#data-1)
+  msg=string.sub(msg,2,#msg-1)
   print("recv data from STM32:"..msg)
-  sendData(ws,msg)
-end, 0)
-
+  if configData.startmode == 'local' then
+  elseif configData.startmode == 'cloud' then
+  end
+  sck=table.remove(saveSckBuf,1)
+  if sck ~=nil then
+    httpSend(sck,msg)
+  else 
+    --send to websocket    httpSend(ws,msg)???
+  end
+end
+uart.on("data", "\r",function (data) recvFromMasterDevice(data) end, 0)
 function sendToMasterDevice(data)
   print('send data to STM32:'..data)
   uart.write(1,data)
 end
-
 function tableToString(root)
   local buf='{' 
   local index=0
@@ -40,12 +49,9 @@ function tableToString(root)
   buf=buf..'}'
   return buf
 end
-
 function readConfigFromFile(fname)
   if not file.exists(fname) then
     file.open(fname,'w')
-	local total_allocated, estimated_used = node.egc.meminfo()
-	print('----------start before has:'..total_allocated..'_use:'..estimated_used)
     local cfg={}
     cfg.ap={}
     cfg.station={}
@@ -62,7 +68,6 @@ function readConfigFromFile(fname)
     file.write(wbuf) 
     file.close()
     --node.restart()
-    --print("create file!")
   end
   file.close()
   local ret,dd
@@ -73,55 +78,70 @@ function readConfigFromFile(fname)
   if ret then return dd end
   return nil
 end
-
 --ws = websocket.createClient()
 ws = net.createConnection(net.TCP, 0)
-function startCloudMode()
-  ws_try_c = 1
-  --ws:connect('ws://'..ws_address..':'..ws_port)
-  wsConnctTimer = tmr.create()
-  wsConnctTimer:register(3000, tmr.ALARM_SEMI, function()
-    local ip=configData.cloud.ip
-    local port=tonumber(configData.cloud.port)
-    ws:connect(port,ip)
-    ws:on("connection", function(ws)
-      print('got ws connection')
-      ws_try_c=0
-      --wsConnctTimer:unregister() --no unregister for reconnect
-    end)
-    ws:on("receive", function(_, msg, opcode)
-      --print('got message:', msg, opcode) -- opcode is 1 for text message, 2 for binary
-      wsRecvProcess(msg)
-    end)
-	--close then reconnect
-  end)
-  wsConnctTimer:start()
+function handleRecv(sck,root)
+    --SendData to MasterDevice
+    if root.type=="SetWiFiConfig" and root.data~=nil then
+	  local buf = '{"type":"Reply_SetWiFiConfig","error_code":"'
+	  local error_code = 0
+      if root.data.wifi_ap_ssid == nil or root.data.wifi_ap_pwd == nil or root.data.wifi_station_ssid == nil
+	    or root.data.wifi_station_pwd == nil or root.data.wifi_mode == nil then
+		error_code = 1
+	  else
+	    configData[ap].ssid = root.data.wifi_ap_ssid
+        configData[ap].pwd = root.data.wifi_ap_pwd
+        configData[station].ssid = root.data.wifi_station_ssid
+        configData[station].pwd = root.data.wifi_station_pwd
+	    if root.data.wifi_mode == 1 then
+		  configData.wifimode = 'ap'
+		  configData.startmode = 'local'
+		elseif root.data.wifi_mode == 0 then
+		  configData.wifimode = 'station'
+		  configData.startmode = 'cloud'
+		end
+		if false and file.open(CONFIGFILENAME, "w+") then
+		  --file.write(wbuf)
+		  file.close()
+		  --wheather here send response to net?
+		  tmr.create:alarm(200, tmr.ALARM_SINGLE , function()
+            node.restart()
+		  end)
+	    else
+		  error_code = 1
+          --print("open error")
+        end
+	  end
+	  buf = buf .. error_code ..'","error_str":"","data":""}'
+	  httpSend(sck, buf)
+	elseif root.type=="GetWiFiConfig" then
+	  local root = {}
+	  local error_code = 0
+	  local buf = ""
+	  root.type = 'Reply_GetWiFiConfig'
+	  root.data = {}
+	  root.data.work_mode = (configData.wifimode == 'station' and 0 or 1)
+	  root.data.wifi_ap_ssid = configData[ap].ssid
+	  root.data.wifi_ap_pwd = configData[ap].pwd
+	  root.data.wifi_station_ssid = configData[station].ssid
+	  root.data.wifi_station_pwd = configData[station].pwd
+	  buf=tableToString(root) 
+	  buf = buf .. error_code ..'","error_str":"","data":""}'
+	  httpSend(sck, buf)
+	else
+	  --print('this msg will send to Master:'..tableToString(root))
+	  table.insert(saveSckBuf, #saveSckBuf+1, sck)
+	  --print('#saveSckBuf:'..#saveSckBuf)
+	  sendToMasterDevice(tableToString(root)..'\r\n')
+	end
+	return true
 end
-
 function wsRecvProcess(msg)
   --msg='{"type":"SetConfig","data":{"has_lock":"1","open_stay_time":"4","lock_delay_time":"5","wifi_mode":"ap","wifi-ssid":"zy_em","wifi-pwd":"12345678","token":""}}'
-  local ok,t = pcall(sjson.decode,msg)
-  print(msg)
-  if ok then
-    --SendData to MasterDevice
-    if t.type=="SetConfig" and t.data~=nil then
-      configData.wifimode=t.data.wifi_mode
-      local wifimode=t.data.wifi_mode
-      if t.data.wifi_ssid ~=nil then
-        --print(t.data.wifi_mode)
-        --print(t.data.wifi_ssid)
-        --print(t.data.wifi_pwd)
-        configData[wifimode].ssid=t.data.wifi_ssid
-        configData[wifimode].pwd=t.data.wifi_pwd
-      end
-    else
-      sendToMasterDevice(msg..'\r\n')
-    end
-  else
-    print("json encode error!")
-  end
+  local ok,root = pcall(sjson.decode,msg)
+  if not ok then print("json encode error!") return nil end
+  handleRecv(root)
 end
- 
 function readfile(filepath)
   if file.exists(filepath) then
     local fd = file.open(filepath, "r")
@@ -139,7 +159,6 @@ function readfile(filepath)
   end
   return nil; 
 end
-
 function guessType(filename)
   local types = {
     ['.css'] = 'text/css', 
@@ -157,6 +176,7 @@ function guessType(filename)
   end
   return 'text/plain'
 end
+-----------
 function sendData(sck, data)
   local response = {}
   local sublen=254
@@ -173,123 +193,103 @@ function sendData(sck, data)
   end
   -- sends and removes the first element from the 'response' table
   local function send(localSocket)
-    if response == nil or #response==0 then 
-      response = nil
-    elseif #response > 0 then
-      localSocket:send(table.remove(response,1))
-    end
+  if response == nil or #response==0 then response = nil
+  elseif #response > 0 then localSocket:send(table.remove(response,1)) end
   end
   -- triggers the send() function again once the first chunk of data was sent
   sck:on("sent", send)
   send(sck)
 end
-
+function closeHttpeSck(sck)
+  sck:on('sent', function() end) -- release
+  sck:on('receive', function() end)
+  sck:close()
+  sck=nil
+  if fd ~= nil then fd:close() fd=nil end
+end
+function send(sck, data)
+  local function doSend()
+    if data == nil or data == '' then
+      if sck ~= nil then closeHttpeSck(sck)
+	  else
+	    sck:close()
+        sck:on('sent', function() end)
+		sck = nil
+	  end
+    else
+      sck:send(string.sub(data, 1, 512))
+      data = string.sub(data, 512)
+    end
+  end
+  sck:on('sent', doSend)
+  doSend()
+end
+------------------closesck after sendover
 function httpSend(sck,body)
   local status = 200
   local mType = mType or 'text/html'
   local buffer = 'HTTP/1.1 ' .. status .. '\r\n'
     .. 'Content-Type: ' .. mType .. '\r\n'
     .. 'Content-Length:' .. string.len(body) .. '\r\n'
-  if self._redirectUrl ~= nil then
-    buffer = buffer .. 'Location: ' .. self._redirectUrl .. '\r\n'
-  end
+  if redirectUrl ~= nil then buffer = buffer .. 'Location: ' .. redirectUrl .. '\r\n' end
   buffer = buffer .. '\r\n' .. body
-  local function doSend()
-    if buffer== nil or buffer == '' then 
-      sck:close()
-    else
-      sck:send(string.sub(buffer, 1, 512))
-      buffer = string.sub(bufer, 512)
-    end
-  end
-  sck:on('sent', doSend)
-  doSend()
+  send(sck, buffer)
 end
-fd=nil
-
-function closesck(sck)
-	sck:on('sent', function() end) -- release
-	sck:on('receive', function() end)
-	sck:close()
-	fd:close()
-	fd=nil
-	sck=nil
-end
-
 function sendResourceFile(sck,filename)
   local mType = guessType(filename)
   local status = 200
-  if file.exists(filename .. '.gz') then
-    filename = filename .. '.gz'
+  if file.exists(filename .. '.gz') then filename = filename .. '.gz'
   elseif not file.exists(filename) then
     status=404
-    if filename == '404.html' then
-      sck:send(404)
-    else
-      sendResourceFile(sck,'404.html')
-    end
+    if filename == '404.html' then sck:send(404) else sendResourceFile(sck,'404.html') end
     return nil
   end
   local header = 'HTTP/1.1 ' .. status .. '\r\n'
   header= header .. 'Cache-Control: public\r\n' -- cache
   header= header .. 'Cache-Control: max-age=3592000\r\n' -- cache
   header = header .. 'Content-Type: ' .. mType .. '\r\n'
-  if string.sub(filename, -3) == '.gz' then 
-    header = header .. 'Content-Encoding: gzip\r\n' 
-  end
+  if string.sub(filename, -3) == '.gz' then header = header .. 'Content-Encoding: gzip\r\n' end
   header = header .. '\r\n'	-------improtant
-  
-	print('-----1')
   print(header)
-	print('-----2')
   fd=file.open(filename, 'r')
   local function doSend()
-    --local total_allocated, estimated_used = node.egc.meminfo()
-    --print('----------start before has:'..total_allocated..'_use:'..estimated_used)
         buf = fd.read(1460)
         if buf==nil then
-		  table.remove(sendbuf, 1)
-		  closesck(sck)
-          sendflag = 0
+		  table.remove(sendFileBuf, 1)
+		  closeHttpeSck(sck)
+          fileSendOverFlag = 0
         else
           sck:send(buf)
-		  sendflag = 1
+		  fileSendOverFlag = 1
         end
   end
   sck:on('sent', doSend)
-	print('-----3')
   sck:send(header)
-	print('-----4')
 end
 --[[
-sendflag set 1 when has send data, and sendflag set 0 when send over
-if sendflag equal 200, it means that never send nothing in 2 seconds 
+fileSendOverFlag set 1 when has send data, and fileSendOverFlag set 0 when send over
+if fileSendOverFlag equal 200, it means that never send nothing in 2 seconds 
 --]]
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
-  if sendflag ~=0 then sendflag=sendflag+1 end
-  if sendflag == 0 and #sendbuf > 0 then
-    sendflag=1
-    local tb=sendbuf[1]
-	print('before send table.reamove #sendbuf = '..#sendbuf)
+  if fileSendOverFlag ~=0 then fileSendOverFlag=fileSendOverFlag+1 end
+  if fileSendOverFlag == 0 and #sendFileBuf > 0 then
+    fileSendOverFlag=1
+    local tb=sendFileBuf[1]
     sendResourceFile(tb.s ,tb.f)
-  elseif sendflag>200 and #sendbuf > 0 then
-    local tb = table.remove(sendbuf, 1)
-	print('after timeout table.reamove #sendbuf = '..#sendbuf)
-    closesck(tb.s)
-	sendflag=0
+  elseif fileSendOverFlag>200 and #sendFileBuf > 0 then
+    local tb = table.remove(sendFileBuf, 1)
+    closeHttpeSck(tb.s)
+	fileSendOverFlag=0
   end
 end)
 function parseRequestHeader(req)
   local _, _, method, path, vars = string.find(req.source, "([A-Z]+) (.+)?(.+) HTTP")
-  --print('-----request source-----\r\n'..req.source..'\r\n---------')	if (method == nil) then	--doesn't has vars
   _, _, method, path = string.find(req.source, "([A-Z]+) (.+) HTTP")
   if (method == 'POST') then	--POST Data is behind the tail
     _,_,vars=string.find(req.source,'\r\n\r\n(.*)')
-    --print('vars is:'..vars)
   end
   req.GET=nil
   if ( vars ~=nil ) then
-    print('get parameter')
     req.GET={}
     vars=string.gsub(vars,'%%5B','[')
     vars=string.gsub(vars,'%%5D','')
@@ -308,19 +308,36 @@ function parseRequestHeader(req)
   req.path=path
   return true
 end
+function startCloudMode()
+  ws_try_c = 1
+  --ws:connect('ws://'..ws_address..':'..ws_port)
+  wsConnctTimer = tmr.create()
+  wsConnctTimer:register(3000, tmr.ALARM_SEMI, function()
+    local ip=configData.cloud.ip
+    local port=tonumber(configData.cloud.port)
+    ws:connect(port,ip)
+    ws:on("connection", function(ws)
+      ws_try_c=0
+      --wsConnctTimer:unregister() --no unregister for reconnect
+    end)
+    ws:on("receive", function(_, msg, opcode)
+      --print('got message:', msg, opcode) -- opcode is 1 for text message, 2 for binary
+      wsRecvProcess(msg)
+    end)
+	--close then reconnect
+  end)
+  wsConnctTimer:start()
+end
 function startLocalMode()
   srv= net.createServer(net.TCP)
   srv:listen(80, function(conn)
   local buffer = {}
   conn:on('disconnection',function(sck)
-    for i=#sendbuf,1,-1 do
-	  if sendbuf[i].s == sck then
-		table.remove(sendbuf,i)
-		break
-	  end
+    for i=#sendFileBuf,1,-1 do if sendFileBuf[i].s == sck then table.remove(sendFileBuf,i) break end
 	end
   end)
   conn:on('receive', function(sck, msg)
+  --print('recv Data---------------')
     local ip = sck:getpeer()
     if buffer.ip == nil then
       buffer.ip = msg
@@ -328,35 +345,29 @@ function startLocalMode()
       buffer.ip = buffer.ip .. msg
     end
 	--print('--[['..buffer.ip..']]--')
-    local i=string.find(buffer.ip,'\r\n\r\n')
+	local i, reqData, nextstr
+    i=string.find(buffer.ip,'\r\n\r\n')
     if i then
       if string.find(string.sub(buffer.ip, 1, 6), 'POST /') == 1 then
-        local _, _, len = string.find(buffer.ip, 'Content[\-]Length: ([0-9]+)')
+        local length, len
+		_, _, len = string.find(buffer.ip, 'Content[\-]Length: ([0-9]+)')
         if len ~= nil then
-          local length = tonumber(len)
+          length = tonumber(len)
           i=i+4
           if #buffer.ip >= length+i-1 then
             reqData = string.sub(buffer.ip, 0, length+i-1)
             buffer.ip = string.sub(buffer.ip, length+i, -1)
-          else
-            collectgarbage()
-          return nil
-          end
-        end
+          else collectgarbage() return nil end
+		end
       else 
         _, _, reqData, nextstr = string.find(buffer.ip, '(.*)\r\n\r\n(.*)')
         buffer.ip=nextstr
       end
-    else
-      collectgarbage()
-      return nil
-    end
+    else collectgarbage() return nil end
     ip=nil
     local req = { source = reqData, path = nil, method = nil, GET = {},ip = sck:getpeer() }
-    if not parseRequestHeader(req) then
-      collectgarbage()
-      return nil 
-    end
+    if not parseRequestHeader(req) then collectgarbage() return nil end
+    collectgarbage()
     print('recv path',req.path)
     local fname=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
     if not string.find(fname,'[\.]') then
@@ -364,32 +375,30 @@ function startLocalMode()
     end
     if fname then
       --sendResourceFile(sck,fname)
-	   print('before insert #sendbuf = '..#sendbuf)
-      table.insert(sendbuf, #sendbuf+1, { s = sck, f = fname})
+	  --sendFile by tmr
+	   print('before insert #sendFileBuf = '..#sendFileBuf)
+      table.insert(sendFileBuf, #sendFileBuf+1, { s = sck, f = fname})
     elseif req.path=='/' then
       --sendResourceFile(sck,'index.html')
     elseif req.path=='/command' then
-      print('recv command :'..tableToString(req.GET))
-	  req.GET = nil
+      --print('recv command :'..tableToString(req.GET))
+	  handleRecv(sck,req.GET)
+	  --httpSend(sck,'{"test" : ""}')
     elseif req.path=='/login' then
      
     end
-    collectgarbage()
-    end)
-  end)
-end
+    collectgarbage() end) end) end
 
 function working(startmode)
 if startmode == nil then startmode=configData.startmode end
 if startmode=="local" then startLocalMode() elseif startmode=="cloud" then startCloudMode() end
 end
-
 function start(wifimode)
   --use uart1(TX) for send data to Master Device
   uart.setup(1, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
   --use uart0(RX) for recv data from Master Device
   uart.setup(0, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
-  configData=readConfigFromFile(configfilename)
+  configData=readConfigFromFile(CONFIGFILENAME)
   wifimode=configData.wifimode
   --wifimode="station"
   if wifimode == "ap" then
@@ -425,7 +434,6 @@ function start(wifimode)
     working()
   end
 end
-
 start()
 
 

@@ -6,8 +6,8 @@
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 </head>  
 <body">
-	<img src="Thresh.jpg" />
-    <button type="button" id="btn">测试</button>
+<img src="Thresh.jpg" style="width:1px;height:1px"/>
+<button type="button" id="btn">测试</button>
 <script src="jquery-3.2.1.min.js"></script>
 <script src="jquery-weui.js"></script>
 <script type="text/javascript">
@@ -24,15 +24,21 @@
                     'type' :'Heartbeat',
 					"data" : {
 						"time_tick" : "2",
-						"fruit" : "pear"
+						"fruit" : "pear",
+						"pear" : "cat",
+						"humen" : "true",
+						"hobby" : "nothing",
+						"sport" : "baskball",
+						"keypress" : "control",
+						"mousedownon" : "onlyleft"
 					}
                 },
-                'success' : function(){
+                /*'success' : function(){
                     alert('ok');
                 },
                 'error' : function(){
                     alert('网络错误');
-                }
+                }*/
             });
         }
 </script>

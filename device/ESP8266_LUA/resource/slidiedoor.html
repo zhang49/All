@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+	<title>slidiedoor</title>
+	<link rel="stylesheet" type="text/css" href="./css/rests.css">
+	<link rel="stylesheet" type="text/css" href="./font/iconfont.css">
+    <link rel="stylesheet" type="text/css" href="./css/slidiedoor.css">
+    <script type="text/javascript" src="./js/jquery-3.2.1.min.js"></script>
+</head>
+<body style="background:#fff;">
+	<div class="slidiedoor">
+		<!-- ------------左侧菜单栏----------- -->
+		<ul class="sidenav">
+			<li><a><span>卓远滑动门01</span></a></li>
+			<li><a><span>卓远滑动门02</span></a></li>
+			<li><a><span>卓远滑动门03</span></a></li>
+			<li><a><span>卓远滑动门04</span></a></li>
+			<li><a><span>卓远滑动门05</span></a></li>
+			<li><a><span>卓远滑动门06</span></a></li>
+		</ul>
+		<!-- -------------内容块------------- -->
+		<div class="container">
+			<!-- ----------顶部--------------- -->
+			<div class="sidetop">
+				<div class="side_door">
+					<i class="iconfont">&#xe613;</i>
+					<span>滑动门</span>
+				</div>
+				<div class="send_test">
+					<i class="iconfont">&#xe605;</i>
+					<span>发送测试</span>
+				</div>
+			</div>
+			<div class="side_control">
+				<p class="GetDoorConfig">修改门配置</p>
+			</div>
+			<div class="side_control">
+				<p class="SetDoorConfig">修改门配置</span>
+			</div>
+			<div class="side_control">
+				<p class="GetWiFiConfig">获取无线配置</span>
+			</div>
+			<div class="side_control">
+				<p class="SetWiFiConfig">修改无线配置</span>
+			</div>
+			<div class="side_control">
+				<p class="GetSafeConfig">获取安全配置</span>
+			</div>
+			<div class="side_control">
+				<p class="SetSafeConfig">修改安全配置</span>
+			</div>
+			<!-- -------------配置--------------- -->
+		
+		</div>
+	</div>	
+	<!-- -----------正在加载------------ -->
+	<div class="spinner_con" style="display: none;">
+		<div>
+			<div class="spinner">
+			  <div class="spinner-container container1">
+			    <div class="circle1"></div>
+			    <div class="circle2"></div>
+			    <div class="circle3"></div>
+			    <div class="circle4"></div>
+			  </div>
+			  <div class="spinner-container container2">
+			    <div class="circle1"></div>
+			    <div class="circle2"></div>
+			    <div class="circle3"></div>
+			    <div class="circle4"></div>
+			  </div>
+			  <div class="spinner-container container3">
+			    <div class="circle1"></div>
+			    <div class="circle2"></div>
+			    <div class="circle3"></div>
+			    <div class="circle4"></div>
+			  </div>
+			</div>
+			<div class="spinner_text">正在加载</div>
+		</div>	
+	</div>
+	<!-- -----------保存成功弹出框------------ -->
+	<div class="saveinfo" style="display: none;">
+		<div class="sidg">
+			<i class="iconfont">&#xe625;</i>
+			<div class="sidg_text">保存成功</div>
+		</div>
+	</div>
+	<!-- ----------纯文本弹出框------------- -->
+	<div class="clearinfo" style="display: none;">
+		<div class="clear_text">操作失败</div>
+	</div>
+</body>
+<script>
+	//触发左侧菜单栏
+	$(".side_door").click(function(){
+		$(".sidenav span").toggleClass("sidetoggle01");
+		$(".container").toggleClass("sidetoggle02");	
+	});
+    //工作模式切换控制
+    $(".i02_r span").click(function(){
+        $.each($(".i02_r span"), function(i, o){
+            if($(this).hasClass('active')){
+                $(this).removeClass('active');
+            }
+        });
+        $(this).addClass('active');
+    });
+    //配置显示隐藏
+    $(".deploy_title").click(function(){
+    	$(".deploy_con").slideToggle("slow");
+    	$(".deploy_title .dep_t_icon").toggleClass("depi_act");
+    });
+    //控制左侧导航栏高度
+    var w_height = $(window).height();
+    $(".slidiedoor,.container").css("min-height",w_height);
+    //选择菜单
+    $(".sidenav li").click(function(){
+    	var navname = $(this).find("span").text();
+    	$(".sidenav span").removeClass("sidetoggle01");
+    	$(".container").removeClass("sidetoggle02");
+    	$(".side_door span").text(navname);
+    });
+    //发送测试
+    $(".send_test").click(function(){
+    	sendtest()
+    });
+    $(".GetDoorConfig").click(function(){
+    	GetDoorConfig()
+    });
+    $(".SetDoorConfig").click(function(){
+    	SetDoorConfig()
+    });
+    $(".GetWiFiConfig").click(function(){
+    	GetWiFiConfig()
+    });
+    $(".SetWiFiConfig").click(function(){
+    	SetWiFiConfig()
+    });
+    $(".GetSafeConfig").click(function(){
+    	GetSafeConfig()
+    });
+    $(".SetSafeConfig").click(function(){
+    	SetSafeConfig()
+    });
+	function sendtest(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : {
+				"type" : "SetConfig",
+				"data" : {  		
+				  "has_lock" : "1",         //是否带锁：1：带锁，0：不带
+				  "open_stay_time" : "4",   //开门停留时间，单位ms
+				  "lock_delay_time" : "5",  //上锁前、开锁后的等待时间，单位ms    
+				  "wifidsdsdsdsmode" : "ap",        //ap: 热点，station: 客户端
+				  "wifisdsdsdsds232ssid" : "sdsdsds",
+				  "wifidsdsdsdspwd" : "dsdsds",
+				  "token" : "dsds"
+				}
+			}
+		});
+    }
+	function GetDoorConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : {
+				"type" : "GetDoorConfig",
+				"data" : ""
+			}
+		});
+    }
+	function SetDoorConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' :   {
+				"type" : "SetDoorConfig",
+				"data" : {  		
+				  "is_lock_enabled" : "1",         //是否启用锁：1：启用，0：不启用
+				  "open_stay_time" : "66",         //开门停留时间，单位ms
+				  "lock_delay_time" : "66",        //上锁前、开锁后的等待时间，单位ms
+				  "run_speed_ratio" : 6.6,         //运行速度比率，相对于最大速度
+				  "run_acc_speed_ratio" : 6.6,     //运行加速度比率，相对于最大加速度
+				  "study_speed_ratio" : 6.6        //学习速度比率，相对于最大速度
+				}
+			  }
+		});
+    }
+	function GetWiFiConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : {
+				"type" : "GetWiFiConfig",
+				"data" : ""
+			}
+		});
+    }
+	function SetWiFiConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' :   {
+				"type" : "SetWiFiConfig",
+				"data" : {
+				  "work_mode" : "0",               //工作模式: 1:本地模式 0:云端模式
+				  "wifi_ap_ssid" : "name",         //无线名称: 本地模式下路由的名称
+				  "wifi_ap_pwd" : "password",	   //无线密码: 本地模式下路由的名称
+				  "wifi_station_ssid" : "name",    //无线名称: 云端模式下连接的WiFi名称
+				  "wifi_station_pwd" : "password"  //无线密码: 云端模式下连接的WiFi密码
+				}
+			  } 
+		});
+    }
+	function GetSafeConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : {
+				"type" : "GetSafeConfig",
+				"data" : ""
+			}
+		});
+    }
+	function SetSafeConfig(){
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : {
+				"type" : "SetSafeConfig",
+				"data" : {
+				  "token" : "Did"                            //设备token
+				}
+			  }
+		});
+    }
+</script>
+</html>
