@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+    <title>控制台</title>
+    <link rel="stylesheet" type="text/css" href="./css/rests.css">
+    <link rel="stylesheet" type="text/css" href="./font/iconfont.css">
+    <link rel="stylesheet" type="text/css" href="./css/door.css">
+</head>
+<body>
+<div class="slidiedoor">
+    <!-- -------------内容块------------- -->
+
+    <div class="container">
+        <!-- ----------顶部--------------- -->
+        <div class="sidetop">
+            <div class="side_door">
+                <i class="iconfont">&#xe613;</i>
+                <span>自动门</span>
+            </div>
+        </div>
+
+        <!-- -------------操控-------------- -->
+        <div class="side_control">
+            <div class="side_c_top">
+                <div class="side_c">
+                    <i class="iconfont">&#xe60a;</i>
+                    <span>操控</span>
+                </div>
+                <div class="side_state">
+                    <span class="state s-green"></span>
+                    <span class="state-msg">运行正常</span>
+                </div>
+            </div>
+            <div class="side_btn">
+                <ul>
+                    <li class="o-door" data-type="0">开门</li>
+                    <li class="o-door" data-type="1">关门</li>
+                    <li class="o-door" data-type="2">锁定</li>
+                    <li class="o-door" data-type="3">解锁</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- -------------认证配置--------------- -->
+        <div class="deploy dtoken">
+            <div class="deploy_title pda">
+                <div>
+                    <i class="iconfont">&#xe64b;</i>
+                    <span>认证配置</span>
+                </div>
+                <i class="iconfont dep_t_icon">&#xe650;</i>
+            </div>
+            <div class="deploy_token deploy_con" style="display:none;">
+                <div class="dt_title">
+                    <div>
+                        <span>TOKEN：</span>
+                    </div>
+                    <!--<i class="iconfont dep_t_icon bian">&#xe68e;</i>-->
+                </div>
+                <div class="dt_con">
+                    <p class="s-token">D2F0D552-89DC-0434-2E0B-83DAAD141890</p>
+                </div>
+                <div class="dt_input" style="display:none;">
+                    <input type="text" value="D2F0D552-89DC-0434-2E0B-83DAAD141890">
+                    <div class="dt_input_btn">
+                        <button class="cancel">取消</button>
+                        <button class="confi">确定</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- -------------WIFI配置--------------- -->
+        <div class="deploy">
+            <div class="deploy_title">
+                <div>
+                    <i class="iconfont">&#xe61e;</i>
+                    <span>WIFI配置</span>
+                </div>
+                <i class="iconfont dep_t_icon">&#xe650;</i>
+            </div>
+            <div class="deploy_con" style="display:none;">
+                <div class="deploy_i01">
+                    <!--隐藏域-->
+                    <input type="hidden" value="1" class="w-mode">
+                    <div class="i01_l">
+                        <i class="iconfont">&#xe6cf;</i>
+                        <span>工作模式</span>
+                    </div>
+                    <div class="i02_r">
+                        <div class="i02_r01 mode">
+                            <span class="r01 active" data-work_mode="1"></span>本地
+                        </div>
+                        <div class="i02_r02 mode">
+                            <span class="r01" data-work_mode="0"></span>云端
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                </div>
+                <div class="deploy_con_m">
+                    <div class="d_c_m">
+                        <div>
+                            <i class="iconfont">&#xe65e;</i>
+                            <label>WIFI账号(本地)：</label>
+                        </div>
+                        <div class="ipd">
+                            <input type="text" class="wa-ssid" placeholder="请输入本地WIFI账号">
+                        </div>
+                    </div>
+                    <div class="d_c_m">
+                        <div>
+                            <i class="iconfont">&#xe626;</i>
+                            <label>WIFI密码(本地)：</label>
+                        </div>
+                        <div class="ipd">
+                            <input type="password" class="wa-pwd" placeholder="请输入本地WIFI密码">
+                        </div>
+                    </div>
+                </div>
+                <div class="deploy_con_m">
+                    <div class="d_c_m">
+                        <div>
+                            <i class="iconfont">&#xe65e;</i>
+                            <label>WIFI账号(云端)：</label>
+                        </div>
+                        <div class="ipd">
+                            <input type="text" class="ws-ssid" placeholder="请输入云端WIFI账号">
+                        </div>
+                    </div>
+                    <div class="d_c_m">
+                        <div>
+                            <i class="iconfont">&#xe626;</i>
+                            <label>WIFI密码(云端)：</label>
+                        </div>
+                        <div class="ipd">
+                            <input type="password" class="ws-pwd" placeholder="请输入云端WIFI密码">
+                        </div>
+                    </div>
+                </div>
+                <div class="ds">
+                    <div class="deploy_save w-btn">保存配置</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- -------------门配置--------------- -->
+        <div class="deploy">
+            <div class="deploy_title">
+                <div>
+                    <i class="iconfont">&#xe607;</i>
+                    <span>门配置</span>
+                </div>
+                <i class="iconfont dep_t_icon">&#xe650;</i>
+            </div>
+            <div class="deploy_con"  style="display:none;">
+                <div class="deploy_i02">
+                    <div class="i01_l">
+                        <i class="iconfont">&#xe601;</i>
+                        <span>启动双门联动</span>
+                    </div>
+                    <div>
+                        <label class="switch" >
+                            <input type="checkbox" class="is_double_group" />
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+                </div>
+                <div class="deploy_i02">
+                    <div class="i01_l">
+                        <i class="iconfont">&#xe647;</i>
+                        <span>启动红外感应</span>
+                    </div>
+                    <div>
+                        <label class="switch" >
+                            <input type="checkbox" class="is_detect_enabled" />
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+                </div>
+                <div class="deploy_i02">
+                    <div class="i01_l">
+                        <i class="iconfont">&#xe6dc;</i>
+                        <span>常开</span>
+                    </div>
+                    <div>
+                        <label class="switch" >
+                            <input type="checkbox" class="is_always_open" />
+                            <div class="slider round"></div>
+                        </label>
+                    </div>
+                </div>
+                <div class="deploy_i03">
+                    <div class="deploy_i02 i032">
+                        <div class="i01_l">
+                            <i class="iconfont">&#xe624;</i>
+                            <span>自动关门</span>
+                        </div>
+                        <div>
+                            <label class="switch" >
+                                <input type="checkbox" class="is_auto_close" />
+                                <div class="slider round"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="d_i03_t">
+                        <label>关门时间(ms)：</label>
+                        <input type="text" class="open_stay_time" placeholder="请输入关门时间">
+                    </div>
+                </div>
+                <div class="deploy_i03">
+                    <div class="deploy_i02 i032">
+                        <div class="i01_l">
+                            <i class="iconfont">&#xe600;</i>
+                            <span>启动锁</span>
+                        </div>
+                        <div>
+                            <label class="switch" >
+                                <input type="checkbox" class="is_lock_enabled" />
+                                <div class="slider round"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="d_i03_t">
+                        <label>等待时间(ms)：</label>
+                        <input type="text" class="lock_delay_time" placeholder="请输入关门时间">
+                    </div>
+                </div>
+                <div class="deploy_i04">
+                    <div>
+                        <i class="iconfont">&#xe622;</i>
+                        <span>运行速度比率：</span>
+                    </div>
+                    <div class="ipd">
+                        <input type="text" class="run_speed_ratio" placeholder="请输入运行速度比率" value="1.0">
+                    </div>
+                </div>
+                <div class="deploy_i04">
+                    <div>
+                        <i class="iconfont">&#xe6e8;</i>
+                        <span>运行加速度比率：</span>
+                    </div>
+                    <div class="ipd">
+                        <input type="text" class="run_acc_speed_ratio" placeholder="请输入运行加速度比率" value="1.0">
+                    </div>
+                </div>
+                <div class="deploy_i04">
+                    <div>
+                        <i class="iconfont">&#xe638;</i>
+                        <span>学习速度比率：</span>
+                    </div>
+                    <div class="ipd">
+                        <input type="text" class="study_speed_ratio" placeholder="请输入学习速度比率" value="1.0">
+                    </div>
+                </div>
+                <div class="ds">
+                    <div class="deploy_save d-btn">保存配置</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- -----------正在加载------------ -->
+<div class="spinner_con a-load" style="display: none;">
+    <div>
+        <div class="spinner">
+            <div class="spinner-container container1">
+                <div class="circle1"></div>
+                <div class="circle2"></div>
+                <div class="circle3"></div>
+                <div class="circle4"></div>
+            </div>
+            <div class="spinner-container container2">
+                <div class="circle1"></div>
+                <div class="circle2"></div>
+                <div class="circle3"></div>
+                <div class="circle4"></div>
+            </div>
+            <div class="spinner-container container3">
+                <div class="circle1"></div>
+                <div class="circle2"></div>
+                <div class="circle3"></div>
+                <div class="circle4"></div>
+            </div>
+        </div>
+        <div class="spinner_text">正在加载</div>
+    </div>
+</div>
+
+<!-- -----------保存成功弹出框------------ -->
+<div class="saveinfo s-msg" style="display: none;">
+    <div class="sidg">
+        <i class="iconfont">&#xe625;</i>
+        <div class="sidg_text">保存成功</div>
+    </div>
+</div>
+
+<!-- ----------纯文本弹出框------------- -->
+<div class="clearinfo a-msg" style="display: none;">
+    <div class="clear_text">操作失败</div>
+</div>
+
+</body>
+
+<script type="text/javascript" src="./js/jquery-3.2.1.min.js"></script>
+<script type="text/javascript" src="./js/index.js"></script>
+
+</html>
