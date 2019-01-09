@@ -1,0 +1,2 @@
+windows обть╟Э
+python -m pip install --upgrade pip requests
