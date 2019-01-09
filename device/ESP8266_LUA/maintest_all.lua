@@ -1,7 +1,7 @@
 CONFIGFILENAME='Config.txt'
 configData = {}
 sendFileBuf = {}
-saveSckBuf = {}
+saveHttpSckBuf = {}
 fileSendOverFlag = 0
 fd = nil
 function recvFromMasterDevice(msg)
@@ -12,7 +12,7 @@ function recvFromMasterDevice(msg)
   if configData.startmode == 'local' then
   elseif configData.startmode == 'cloud' then
   end
-  sck=table.remove(saveSckBuf,1)
+  sck=table.remove(saveHttpSckBuf,1)
   if sck ~=nil then
     httpSend(sck,msg)
   else 
@@ -130,8 +130,8 @@ function handleRecv(sck,root)
 	  httpSend(sck, buf)
 	else
 	  --print('this msg will send to Master:'..tableToString(root))
-	  table.insert(saveSckBuf, #saveSckBuf+1, sck)
-	  --print('#saveSckBuf:'..#saveSckBuf)
+	  table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, sck)
+	  --print('#saveHttpSckBuf:'..#saveHttpSckBuf)
 	  sendToMasterDevice(tableToString(root)..'\r\n')
 	end
 	return true

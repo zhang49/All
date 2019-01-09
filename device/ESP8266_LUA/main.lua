@@ -1,20 +1,39 @@
-configfilename="Config.txt"
-configData={}
-uart.on("data", "\r",function(data)
-  -- \n(10) ...... \r(13)
-  --print("receive from uart:"..string.sub(data,0,#data-1))
-  msg=string.sub(data,2,#data-1)
-  print("recv data from STM32:"..msg)
-  sendData(ws,msg)
-end, 0)
-
+configfilename = "Config.txt"
+configData = {}
+saveHttpSckBuf = {}
+recvFMD_count = 0
+uart1_recvbuf = ""
 function sendToMasterDevice(data)
   print('send data to STM32:'..data)
   uart.write(1,data)
 end
 
+function recvFromMasterDevice(msg)
+  --stm32发送过来的消息末尾带 \r\n
+  if msg == '\n' then return nil end
+  if msg:byte(#msg-1) == 0xff and msg:byte(#msg) == 65 then
+    msg=string.sub(msg,0,-3)
+	uart1_recvbuf = uart1_recvbuf .. msg
+    print("recv single data over:"..uart1_recvbuf:byte(#uart1_recvbuf).."\r\nmsg:"..uart1_recvbuf)
+	if configData.startmode == 'local' then
+      sck = table.remove(saveHttpSckBuf,1)
+      if sck ~=nil then
+	    httpSend(sck, uart1_recvbuf)
+	  end
+	  uart1_recvbuf = ""
+    elseif configData.startmode == 'cloud' then
+	
+    end
+  else 
+    uart1_recvbuf = uart1_recvbuf .. msg
+  end
+end
+
+--当接收到\n或者接收数达到最大值255时调用function
+uart.on("data", "A", function (data) recvFromMasterDevice(data) end, 0)
+
 function tableToString(root)
-  local buf='{' 
+  local buf = '{' 
   local index=0
   --if type(v) == "table" then return end
   for k,v in pairs(root) do
@@ -89,11 +108,11 @@ function handleRecv(res,root)
         configData.station.ssid = root.data.wifi_station_ssid
         configData.station.pwd = root.data.wifi_station_pwd
 	    if root.data.wifi_mode == 1 then
-		  configData.wifimode = 'ap'
 		  configData.startmode = 'local'
+		  configData.wifimode = 'ap'
 		elseif root.data.wifi_mode == 0 then
-		  configData.wifimode = 'station'
 		  configData.startmode = 'cloud'
+		  configData.wifimode = 'station'
 		end
 		if false and file.open(CONFIGFILENAME, "w+") then
 		  --file.write(wbuf)
@@ -117,7 +136,7 @@ function handleRecv(res,root)
 	  root.error_str = ""
 	  root.error_code = error_code
 	  root.data = {}
-	  root.data.work_mode = (configData.wifimode == 'station' and 0 or 1)
+	  root.data.work_mode = (configData.startmode == 'cloud' and 0 or 1)
 	  root.data.wifi_ap_ssid = configData.ap.ssid
 	  root.data.wifi_ap_pwd = configData.ap.pwd
 	  root.data.wifi_station_ssid = configData.station.ssid
@@ -126,8 +145,9 @@ function handleRecv(res,root)
 	  res:send(buf)
 	else
 	  --print('this msg will send to Master:'..tableToString(root))
-	  --table.insert(saveSckBuf, #saveSckBuf+1, sck)
-	  --print('#saveSckBuf:'..#saveSckBuf)
+	  --table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, sck)
+	  --print('#saveHttpSckBuf:'..#saveHttpSckBuf)
+	  table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res._sck)
 	  sendToMasterDevice(tableToString(root)..'\r\n')
 	end
 	return true
@@ -212,24 +232,23 @@ function startLocalMode()
   dofile('httpServer.lc')
   httpServer:listen(80)
   httpServer:onRecv('/', function(req, res)
-    res:sendFile('slidiedoor.html')
+    res:sendFile('index.html')
   end)
   httpServer:onRecv('/command', function(req, res)
     handleRecv(res,req.GET)
   end)
   
-      --local function sw_root() print("root") end
-      --local mswitch={
-      --[""]=sw_index,
-      --["command"]=sw_command,
-      --["login"]=sw_login,
-      --["root"]=sw_root
-      --}
-    --local sw=mswitch[temp]
-    --if sw then sw()
-    --else print("not find :"..temp)
-    --end
-	
+  --local function sw_root() print("root") end
+  --local mswitch={
+  --[""]=sw_index,
+  --["command"]=sw_command,
+  --["login"]=sw_login,
+  --["root"]=sw_root
+  --}
+  --local sw=mswitch[temp]
+  --if sw then sw()
+  --else print("not find :"..temp)
+  --end
 	
 end
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
@@ -291,8 +310,6 @@ function start(wifimode)
 end
 
 start()
-
-
 
 
 

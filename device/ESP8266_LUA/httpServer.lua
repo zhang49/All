@@ -59,7 +59,12 @@ function closeSck_file(sck)
   if fd ~= nil then fd:close() fd=nil end
 end
 
-function Res:send(body)
+function httpSend(sck,msg,flag)
+  local res = Res:new(sck)-- new Res with sck
+  res:send(msg,flag)
+end
+
+function Res:send(body,flag)
 	self._status = self._status or 200
 	self._mType = self._mType or 'text/html'
 	local buf = 'HTTP/1.1 ' .. self._status .. '\r\n'
@@ -70,8 +75,8 @@ function Res:send(body)
 	end
 	buf = buf .. '\r\n' .. body
 	local function doSend()
-		if buf== nil or buf == '' then 
-			self:close()
+		if buf== nil or buf == '' then
+		    if flag == nil then self:close() end
 		else
 			self._sck:send(string.sub(buf, 1, 1460))
 			buf = string.sub(buf, 1460)
