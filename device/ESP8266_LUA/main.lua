@@ -3,34 +3,36 @@ configData = {}
 saveHttpSckBuf = {}
 recvFMD_count = 0
 uart1_recvbuf = ""
+wsClient = nil
+
 function sendToMasterDevice(data)
-  print('send data to STM32:'..data)
+  --print('send data to STM32:'..data)
   uart.write(1,data)
 end
 
 function recvFromMasterDevice(msg)
-  --stm32发送过来的消息末尾带 \r\n
+  -- tail 0xff +
   if msg == '\n' then return nil end
-  if msg:byte(#msg-1) == 0xff and msg:byte(#msg) == 65 then
-    msg=string.sub(msg,0,-3)
-	uart1_recvbuf = uart1_recvbuf .. msg
-    print("recv single data over:"..uart1_recvbuf:byte(#uart1_recvbuf).."\r\nmsg:"..uart1_recvbuf)
+  uart1_recvbuf = uart1_recvbuf .. msg
+  if uart1_recvbuf:byte(#uart1_recvbuf) == 43 and uart1_recvbuf:byte(#uart1_recvbuf-1) == 0xff then
+    uart1_recvbuf=string.sub(uart1_recvbuf,0,-3)
+    print("recv single data over:"..uart1_recvbuf:byte(#uart1_recvbuf).."_____msg:"..uart1_recvbuf)
 	if configData.startmode == 'local' then
-      sck = table.remove(saveHttpSckBuf,1)
-      if sck ~=nil then
-	    httpSend(sck, uart1_recvbuf)
+	  if #saveHttpSckBuf > 0 then
+        local res = table.remove(saveHttpSckBuf,1)
+		if res ~=nil then
+          res:send(uart1_recvbuf)
+		end
 	  end
-	  uart1_recvbuf = ""
-    elseif configData.startmode == 'cloud' then
-	
-    end
-  else 
-    uart1_recvbuf = uart1_recvbuf .. msg
+	elseif configData.startmode == 'cloud' then
+	  wsSend(uart1_recvbuf)
+	end
+	uart1_recvbuf = ""
   end
 end
 
 --当接收到\n或者接收数达到最大值255时调用function
-uart.on("data", "A", function (data) recvFromMasterDevice(data) end, 0)
+uart.on("data", "+", function (data) recvFromMasterDevice(data) end, 0)
 
 function tableToString(root)
   local buf = '{' 
@@ -81,24 +83,30 @@ function readConfigFromFile(fname)
   end
   file.close()
   local ret,dd
-  local total_allocated, estimated_used = node.egc.meminfo()
-  print('----------before decode json:'..total_allocated..'_use:'..estimated_used)
   if file.open(fname,"r") then
     ret,dd = pcall(sjson.decode,file.read(3096))
     file.close()
   end
-  
-  local endtotal_allocated, estimated_used = node.egc.meminfo()
-  print('----------after decode json:'..total_allocated..'_use:'..estimated_used)
-  if ret then return dd end
+  if ret then
+-----------------------
+--
+-----------------------
+    dd.startmode='local'
+	--dd.cloud.ip = '47.110.254.50'
+	--dd.cloud.port = '8282'
+    return dd
+  end
   return nil
 end
-
-function handleRecv(res,root)
+function wsSend(msg)
+  wsClient:send(msg)
+end
+function handleRecv(root,res)
     --SendData to MasterDevice
+	print('*handlemessage***********')
+	local retroot = {}
+	local error_code = 0
     if root.type=="SetWiFiConfig" and root.data~=nil then
-	  local buf = '{"type":"Reply_SetWiFiConfig","error_code":"'
-	  local error_code = 0
       if root.data.wifi_ap_ssid == nil or root.data.wifi_ap_pwd == nil or root.data.wifi_station_ssid == nil
 	    or root.data.wifi_station_pwd == nil or root.data.wifi_mode == nil then
 		error_code = 1
@@ -126,80 +134,83 @@ function handleRecv(res,root)
           --print("open error")
         end
 	  end
-	  buf = buf .. error_code ..'","error_str":"","data":""}'
-	  res:send(buf)
+	  retroot.type = 'Reply_SetWiFiConfig'
+	  retroot.error_str = ""
+	  retroot.data = ""
+	  retroot.error_code = error_code
+	  if wsClient then
+	    retroot.user_data = root.user_data and root.user_data or ""
+	    wsSend(tableToString(retroot))
+	  else
+	    res:send(tableToString(retroot))
+	  end
 	elseif root.type=="GetWiFiConfig" then
-	  local root = {}
-	  local error_code = 0
-	  local buf = ""
-	  root.type = 'Reply_GetWiFiConfig'
-	  root.error_str = ""
-	  root.error_code = error_code
-	  root.data = {}
-	  root.data.work_mode = (configData.startmode == 'cloud' and 0 or 1)
-	  root.data.wifi_ap_ssid = configData.ap.ssid
-	  root.data.wifi_ap_pwd = configData.ap.pwd
-	  root.data.wifi_station_ssid = configData.station.ssid
-	  root.data.wifi_station_pwd = configData.station.pwd
-	  buf=tableToString(root) 
-	  res:send(buf)
+	  retroot.type = 'Reply_GetWiFiConfig'
+	  retroot.error_str = ""
+	  retroot.error_code = error_code
+	  retroot.data = {}
+	  retroot.data.work_mode = (configData.startmode == 'cloud' and 0 or 1)
+	  retroot.data.wifi_ap_ssid = configData.ap.ssid
+	  retroot.data.wifi_ap_pwd = configData.ap.pwd
+	  retroot.data.wifi_station_ssid = configData.station.ssid
+	  retroot.data.wifi_station_pwd = configData.station.pwd
+	  
+	  if wsClient then
+	    retroot.user_data = root.user_data and root.user_data or ""
+	    wsSend(tableToString(retroot))
+	  else
+	    res:send(tableToString(retroot))
+	  end
+	  
 	else
 	  --print('this msg will send to Master:'..tableToString(root))
 	  --table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, sck)
 	  --print('#saveHttpSckBuf:'..#saveHttpSckBuf)
-	  table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res._sck)
-	  sendToMasterDevice(tableToString(root)..'\r\n')
+	  if #saveHttpSckBuf < 5 then
+	    table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res)
+		sendToMasterDevice(tableToString(root)..'\r\n')
+	  end
 	end
 	return true
 end
 
---ws = websocket.createClient()
-ws = net.createConnection(net.TCP, 0)
+function wsRecvProcess(msg)
+  local ok,root = pcall(sjson.decode,msg)
+  print('webSocket recv msg:'..msg)
+  if ok then
+    handleRecv(root)
+  else
+    print("json encode error!")
+  end
+end
+
 function startCloudMode()
-  ws_try_c = 1
-  --ws:connect('ws://'..ws_address..':'..ws_port)
+  wsClient = websocket.createClient()
+  local ws_try_c = 1
+  local ws_address=configData.cloud.ip
+  local ws_port=tonumber(configData.cloud.port)
+  print('\t\t\tStart CloudModule')
+  print('try connect to ws://'..ws_address..':'..ws_port)
   wsConnctTimer = tmr.create()
   wsConnctTimer:register(3000, tmr.ALARM_SEMI, function()
-    local ip=configData.cloud.ip
-    local port=tonumber(configData.cloud.port)
-    ws:connect(port,ip)
-    ws:on("connection", function(ws)
-      print('got ws connection')
+    wsClient:connect('ws://'..ws_address..':'..ws_port)
+    wsClient:on("connection", function(ws)
+      print('wsClient connection')
       ws_try_c=0
       --wsConnctTimer:unregister() --no unregister for reconnect
     end)
-    ws:on("receive", function(_, msg, opcode)
+    wsClient:on("receive", function(_, msg, opcode)
       --print('got message:', msg, opcode) -- opcode is 1 for text message, 2 for binary
       wsRecvProcess(msg)
     end)
+	wsClient:on("close", function(_, status)
+	  print('connection closed', status)
+	end)
 	--close then reconnect
   end)
   wsConnctTimer:start()
 end
 
-function wsRecvProcess(msg)
-  local ok,t = pcall(sjson.decode,msg)
-  print(msg)
-  if ok then
-    --SendData to MasterDevice
-    if t.type=="SetConfig" and t.data~=nil then
-      configData.wifimode=t.data.wifi_mode
-      local wifimode=t.data.wifi_mode
-      if t.data.wifi_ssid ~=nil then
-        --print(t.data.wifi_mode)
-        --print(t.data.wifi_ssid)
-        --print(t.data.wifi_pwd)
-        configData[wifimode].ssid=t.data.wifi_ssid
-        configData[wifimode].pwd=t.data.wifi_pwd
-      end
-    else
-      sendToMasterDevice(msg..'\r\n')
-    end
-  else
-    print("json encode error!")
-  end
-end
- 
 function sendData(sck, data)
   local response = {}
   local sublen=254
@@ -230,12 +241,15 @@ end
 
 function startLocalMode()
   dofile('httpServer.lc')
+  print('\t\t\tStart LocalModule')
+  --mdns.register("fishtank", {hardware='NodeMCU'})
   httpServer:listen(80)
+  
   httpServer:onRecv('/', function(req, res)
     res:sendFile('index.html')
   end)
   httpServer:onRecv('/command', function(req, res)
-    handleRecv(res,req.GET)
+    handleRecv(req.GET,res)
   end)
   
   --local function sw_root() print("root") end
@@ -255,8 +269,6 @@ tmr.create():alarm(10,tmr.ALARM_AUTO,function()
 
 end)
 function working(startmode)
-  local total_allocated, estimated_used = node.egc.meminfo()
-  print('----------after working:'..total_allocated..'_use:'..estimated_used)
   if startmode == nil then
     startmode=configData.startmode
   end
@@ -288,7 +300,7 @@ function start(wifimode)
     wifigotiptimer = tmr.create()
     wifigotiptimer:register(1000, tmr.ALARM_SEMI, function()
       wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, function(infro)
-        print("\n\tSTATION - GOT IP: "..infro.IP)
+        print("\n\t\t\tSTATION - GOT IP: "..infro.IP)
 		--"\n\tSubnet mask: "..infro.netmask.."\n\tGateway IP: "..infro.gateway)
         wifi_try_c=0
         --don't unregister wifigotiptimer

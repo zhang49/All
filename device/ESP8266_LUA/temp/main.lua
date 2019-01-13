@@ -166,9 +166,10 @@ function handleRecv(root,res)
 	  --print('this msg will send to Master:'..tableToString(root))
 	  --table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, sck)
 	  --print('#saveHttpSckBuf:'..#saveHttpSckBuf)
-	  
-	  table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res)
-	  sendToMasterDevice(tableToString(root)..'\r\n')
+	  if #saveHttpSckBuf < 5 then
+	    table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res)
+		sendToMasterDevice(tableToString(root)..'\r\n')
+	  end
 	end
 	return true
 end
