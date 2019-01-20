@@ -388,26 +388,26 @@ $(function(){
             arr['data'] = {};
             arr['data']['time_tick'] = Date.parse(new Date());
 
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : arr,
-            'success' : function(res){
-                if (res.error_code == 0 && res.data.RunState == 0){
-                    $('.state').addClass('s-green').removeClass('s-red');
-                    $('.state-msg').text('运行正常');
-                } else {
-                    $('.state').addClass('s-red').removeClass('s-green');
-                    $('.state-msg').text('运行异常');
-                }
-            },
-            'error' : function(){
-                $('.state').addClass('s-red').removeClass('s-green');
-                $('.state-msg').text('运行异常');
-                console.log('获取运行状态网络错误');
-            }
-        });
+        // $.ajax({
+            // 'url' : '/command',
+            // 'type' : 'post',
+            // 'dataType' : 'json',
+            // 'data' : arr,
+            // 'success' : function(res){
+                // if (res.error_code == 0 && res.data.RunState == 0){
+                    // $('.state').addClass('s-green').removeClass('s-red');
+                    // $('.state-msg').text('运行正常');
+                // } else {
+                    // $('.state').addClass('s-red').removeClass('s-green');
+                    // $('.state-msg').text('运行异常');
+                // }
+            // },
+            // 'error' : function(){
+                // $('.state').addClass('s-red').removeClass('s-green');
+                // $('.state-msg').text('运行异常');
+                // console.log('获取运行状态网络错误');
+            // }
+        // });
     }
 
     /**
