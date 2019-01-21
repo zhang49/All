@@ -1,6 +1,9 @@
+configfilename = "Config.txt"
 configData = {}
-saveHttpSckBuf = {}				   
+saveHttpSckBuf = {}
+recvFMD_count = 0
 uart1_recvbuf = ""
+wsClient = nil
 
 function sendToMasterDevice(data)
   --print('send data to STM32:'..data)
@@ -12,26 +15,25 @@ function recvFromMasterDevice(msg)
   if msg == '\n' then return nil end
   uart1_recvbuf = uart1_recvbuf .. msg
   if uart1_recvbuf:byte(#uart1_recvbuf) == 43 and uart1_recvbuf:byte(#uart1_recvbuf-1) == 0xff then
-    msg=string.sub(uart1_recvbuf,0,-3)
-	uart1_recvbuf = ""
-    print('Recv singledata from Stm32 over,Length:'..#msg..',msg:'..msg)
+    uart1_recvbuf=string.sub(uart1_recvbuf,0,-3)
+    print("recv single data over:"..uart1_recvbuf:byte(#uart1_recvbuf).."_____msg:"..uart1_recvbuf)
 	if configData.startmode == 'local' then
 	  if #saveHttpSckBuf > 0 then
         local res = table.remove(saveHttpSckBuf,1)
-		if res._sck ~=nil then --socket disconnected 
-		  res:send(msg)
-		else
+		if res ~=nil then
+          res:send(uart1_recvbuf)
 		end
 	  end
 	elseif configData.startmode == 'cloud' then
-	  wsSend(msg)
+	  wsSend(uart1_recvbuf)
 	end
+	uart1_recvbuf = ""
   end
 end
 
---当接收到\n或者接收数达到最大值255时调用function
+--褰撴帴鏀跺埌\n鎴栬�呮帴鏀舵暟�揪鍒版渶澶у��255鏃惰皟鐢╢unction
 uart.on("data", "+", function (data) recvFromMasterDevice(data) end, 0)
---把table类型转成String类型{}
+
 function tableToString(root)
   local buf = '{' 
   local index=0
@@ -44,10 +46,10 @@ function tableToString(root)
       buf=buf..'{' 
       local index_t=0
       --if type(v) == "table" then return end
-      for k2,v2 in pairs(v) do
+      for k,v in pairs(v) do
         if index_t ~= 0 then buf=buf.."," end
         index_t=index_t+1
-        buf=buf..'"'..k2..'":"'..v2..'"' 
+        buf=buf..'"'..k..'":"'..v..'"' 
       end
       buf=buf..'}'
     else
@@ -69,8 +71,8 @@ function readConfigFromFile(fname)
     cfg.startmode="local"
     cfg.ap.ssid="ESP8266_Mode"
     cfg.ap.pwd="12345678"
-    cfg.station.ssid="GamePartment"
-    cfg.station.pwd="game1234"
+    cfg.station.ssid="360WiFi-1AC8AE"
+    cfg.station.pwd="12345678"
     cfg.cloud.ip="192.168.20.2"
     cfg.cloud.port="3380"
     local wbuf=tableToString(cfg)
@@ -82,7 +84,7 @@ function readConfigFromFile(fname)
   file.close()
   local ret,dd
   if file.open(fname,"r") then
-    ret,dd = pcall(sjson.decode,file.read(1024))
+    ret,dd = pcall(sjson.decode,file.read(3096))
     file.close()
   end
   if ret then
@@ -96,13 +98,12 @@ function readConfigFromFile(fname)
   end
   return nil
 end
---当发送中的msg长度(可能存在多个同时发送)超出1460时需要分批发送
 function wsSend(msg)
   wsClient:send(msg)
 end
 function handleRecv(root,res)
     --SendData to MasterDevice
-	print('\t************handlemessage***********')
+	print('*handlemessage***********')
 	local retroot = {}
 	local error_code = 0
     if root.type=="SetWiFiConfig" and root.data~=nil then
@@ -121,7 +122,7 @@ function handleRecv(root,res)
 		  configData.startmode = 'cloud'
 		  configData.wifimode = 'station'
 		end
-		if false and file.open("Config.txt", "w+") then
+		if false and file.open(CONFIGFILENAME, "w+") then
 		  --file.write(wbuf)
 		  file.close()
 		  --wheather here send response to net?
@@ -159,7 +160,6 @@ function handleRecv(root,res)
 	    wsSend(tableToString(retroot))
 	  else
 	    res:send(tableToString(retroot))
-		
 	  end
 	  
 	else
@@ -184,7 +184,6 @@ function wsRecvProcess(msg)
 end
 
 function startCloudMode()
-  --wsClient = nil
   wsClient = websocket.createClient()
   local ws_try_c = 1
   local ws_address=configData.cloud.ip
@@ -244,12 +243,26 @@ function startLocalMode()
   print('\t\t\tStart LocalModule')
   --mdns.register("fishtank", {hardware='NodeMCU'})
   httpServer:listen(80)
+  
   httpServer:onRecv('/', function(req, res)
     res:sendFile('index.html')
   end)
   httpServer:onRecv('/command', function(req, res)
     handleRecv(req.GET,res)
   end)
+  
+  --local function sw_root() print("root") end
+  --local mswitch={
+  --[""]=sw_index,
+  --["command"]=sw_command,
+  --["login"]=sw_login,
+  --["root"]=sw_root
+  --}
+  --local sw=mswitch[temp]
+  --if sw then sw()
+  --else print("not find :"..temp)
+  --end
+	
 end
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
 
@@ -270,7 +283,7 @@ function start(wifimode)
   uart.setup(1, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
   --use uart0(RX) for recv data from Master Device
   uart.setup(0, 115200, 8, uart.PARITY_NONE, uart.STOPBITS_1,0)
-  configData=readConfigFromFile("Config.txt")
+  configData=readConfigFromFile(configfilename)
   wifimode=configData.wifimode
   --wifimode="station"
   if wifimode == "ap" then

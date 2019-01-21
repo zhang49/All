@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>websocket</title>
+</head>
+<body>
+<script type="text/javascript">
+    // var ws = new WebSocket("ws://118.89.111.232:8124");
+    var ws;
+    function startWS() {
+        console.log('start once again');
+        ws = new WebSocket("ws://127.0.0.1:8124");
+        // ws://echo.websocket.org
+        // ws = new WebSocket("ws://echo.websocket.org");
+        ws.onopen =  function (msg) {
+            console.log('webSocket opened');
+        };
+        ws.onmessage = function (message) {
+            console.log('receive message : ' + message.data);
+        };
+        ws.onerror = function (error) {
+            console.log('error :' + error.name + error.number);
+        };
+
+        ws.onclose =  function () {
+            console.log('webSocket closed');
+        };
+        // ws.send("websocket from js");
+
+
+    }
+    function sendMessage () {
+        console.log("sending a message");
+        ws.send("websocket from js");
+    }
+    // setInterval("startWS()", 1000);
+</script>
+
+<button onclick="startWS()">once</button><br><br>
+<button onclick="sendMessage()">sendMessage</button>
+</body>
+</html>
+

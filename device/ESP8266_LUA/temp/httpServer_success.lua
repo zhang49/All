@@ -50,7 +50,7 @@ end
 --	_method = nil,
 --	_GET = nil,
 --}
---关闭socket，删除监听事件，socket置nil，少了其中一步可能会造成内存溢出
+
 function closeSck(sck)
   sck:close()
   sck:on('sent', function() end) -- release closures context
@@ -58,19 +58,16 @@ function closeSck(sck)
   sck = nil
 end
 function Res:close()
-  closeSck(self._sck)
+  closeSck(Res._sck)
 end
 function closeSck_file(sck)
-  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
-  --当sck被关闭时,获取到的port, ip为nil
+  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
+  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
   local _,ip = sck:getpeer()
   if ip ~= nil then
     closeSck(sck)
   end
-  if fd ~= nil then 
-    fd:close() 
-	fd = nil 
-  end
+  if fd ~= nil then fd:close() fd=nil end
 end
 
 function httpSend(sck,msg,flag)
@@ -85,16 +82,16 @@ function Res:send(body,flag)
   local buf = 'HTTP/1.1 ' .. self._status .. '\r\n'
     .. 'Content-Type: ' .. self._mType .. '\r\n'
     .. 'Content-Length:' .. string.len(body) .. '\r\n'
---  if self._redirectUrl ~= nil then
---    buf = buf .. 'Location: ' .. self._redirectUrl .. '\r\n'
---  end
+  if self._redirectUrl ~= nil then
+    buf = buf .. 'Location: ' .. self._redirectUrl .. '\r\n'
+  end
   buf = buf .. '\r\n' .. body
   local function doSend()
     if buf == '' then
       if flag == nil then
         local _, ip = self._sck:getpeer()
 		if ip ~= nil then
-		  self:close() --调用function Res:close()关闭socket等
+		  self._sck:close()
 		end
       end
     else
@@ -102,8 +99,8 @@ function Res:send(body,flag)
       buf = string.sub(buf, 1460)
     end
   end
-  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
-  --当sck被关闭时,获取到的port, ip为nil
+  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
+  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
   local _,ip = self._sck:getpeer()
   if ip ~= nil then
     self._sck:on('sent', doSend)
@@ -131,41 +128,38 @@ function sendFile_real(sck, filename)
   header = header .. '\r\n'	-------improtant
   --print('-----response header-----\r\n'..header..'\r\n---------')
   --print('* Sending ', filename)
+  fd=file.open(filename, 'r')
   local function doSend()
     local buf = fd.read(1460)
     if buf == nil then
-      closeSck_file(sck)
       table.remove(sendFileBuf, 1)
-      fileSendFlag = 0  --关闭fd 后再值标志位	  
-	  if #sendFileBuf == 5 then 
-	    sck:unhold()  --解除TCP接收数据的阻塞
-	  end		  
+      closeSck_file(sck)
+	  if #sendFileBuf <= 6 then sck:unhold() end
+      fileSendFlag = 0 --鍏抽棴fd 鍚庡啀鍊兼爣蹇�浣�
     else
       sck:send(buf)
-      fileSendFlag = 1 --清空计时数
+      fileSendFlag = 1
     end
   end
-  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
-  --当sck被关闭时,获取到的port, ip为nil
+  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
+  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
   local _,ip = sck:getpeer()
   if ip ~= nil then
-    fd = nil
-    fd=file.open(filename, 'r')
-    sck:on('sent', doSend) 
+    sck:on('sent', doSend)
     sck:send(header)
   else
     table.remove(sendFileBuf, 1)
     fileSendFlag = 0
   end
 end
---保存socket, filename到sendFileBuf中，定时器检查发送
+--淇濆瓨socket, filename鍒皊endFileBuf涓紝瀹氭椂鍣ㄦ鏌ュ彂閫�
 function Res:sendFile(filename)
   local port,ip=self._sck:getpeer()
   local _,_,mark=string.find(string.reverse(ip),'(%d+)')
   mark = mark .. port
-  table.insert(sendFileBuf, #sendFileBuf+1, { s = self._sck, f = filename})
+  table.insert(sendFileBuf, #sendFileBuf+1, { m = mark, s = self._sck, f = filename})
 end
---每10ms 检查，发送sendFileBuf中的filname，超时2s关闭socket
+--姣�10ms 妫�鏌ワ紝鍙戦�乻endFileBuf涓殑filname锛岃秴鏃�2s鍏抽棴socket
 --sendFileTmr = tmr.create()
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
   if fileSendFlag ~=0 then fileSendFlag=fileSendFlag+1 end
@@ -217,7 +211,7 @@ function isRequestFile(req, res)
   local filename
   filename=string.sub(req.path,#req.path-string.find(string.reverse(req.path),"/")+2,#req.path)
   if string.find(filename,'[\.]') then
-    --print("request resourse file:"..filename)
+    print("request resourse file:"..filename)
     res:sendFile(filename)
   end
   --filename = string.gsub(string.sub(req.path, 2), '/', '_')
@@ -259,13 +253,10 @@ function httpServer:listen(port)
       sck:on('sent', function() end) -- release closures context
       sck:on('receive', function() end)
       sck = nil
-	  --print("disconnection")
-      --don't do this  sck:close, Because socket is closed!!!
+      --don't do this  sck:close
     end)
     conn:on('receive', function(sck, msg)
-	  if #sendFileBuf >= 6 then 
-	    sck:hold()
-	  end
+	  if #sendFileBuf >= 6 then sck:hold() end
       local port,ip=sck:getpeer()
       local _,_,cid=string.find(string.reverse(ip),'(%d+)')
       cid = cid .. port
@@ -301,7 +292,29 @@ function httpServer:listen(port)
       else
         collectgarbage()
         return nil
+      end	
+      --[[		local _,_,reqData,nextstr=string.find(buffer.cid,'(.-\r\n\r\n.*)(GET /.*)')
+      if nextstr == nil then
+        _,_,reqData,nextstr=string.find(buffer.cid,'(.-\r\n\r\n.*)(POST /.*)')
       end
+      if nextstr == nil then
+        _,_,reqData,nextstr=string.find(buffer.cid,'(.-\r\n\r\n.*)')
+        nextstr = ""
+      end
+      if reqData == nil then 
+        return nil
+      end
+      if string.find(string.sub(buffer.cid,1,6),'POST /')==1 then
+        --POST method must has data
+        if string.find(buffer.cid,'\r\n\r\n([^%s]+)') == nil then	
+          return nil
+        end
+      end
+      if nextstr~=nil then
+        buffer.cid=nextstr
+        --print('catch next header:'..buffer.cid)
+      end
+      --]]
       local req = { source = reqData, path = nil, method = nil, GET = {},ip = sck:getpeer() }
       if not parseRequestHeader(req,nil) then
         collectgarbage()
