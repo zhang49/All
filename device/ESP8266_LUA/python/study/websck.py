@@ -4,6 +4,8 @@ import threading
 import hashlib
 import socket
 import base64
+import time
+
 
 global clients
 clients = {}
@@ -48,8 +50,7 @@ class websocket_thread(threading.Thread):
         self.username = username
 
     def run(self):
-        print
-        'new websocket client joined!'
+        print('new websocket client joined!')
         data = self.connection.recv(1024)
         headers = self.parse_headers(data)
         token = self.generate_token(headers['Sec-WebSocket-Key'])
@@ -58,22 +59,28 @@ HTTP/1.1 101 WebSocket Protocol Hybi-10\r\n\
 Upgrade: WebSocket\r\n\
 Connection: Upgrade\r\n\
 Sec-WebSocket-Accept: %s\r\n\r\n' % token)
+        sendData = b'{\
+        "type" : "GetDoorConfig",\
+        "user_data" : ""\
+        "data" : ""\
+        }'
         while True:
-            try:
-                data = self.connection.recv(1024)
-            except socket.error as e:
-                print
-                "unexpected error: ", e
-                clients.pop(self.username)
-                break
-            data = self.parse_data(data)
-            if len(data) == 0:
-                continue
-            #message = self.username + ": " + data
+            data=self.parse_data(sendData)
             notify(data)
 
+    def recvProcess(self):
+        try:
+            data = self.connection.recv(1024)
+        except socket.error as e:
+            print("unexpected error: ", e)
+            clients.pop(self.username)
+        data = self.parse_data(data)
+        if len(data) == 0:
+            return 0
+        # message = self.username + ": " + data
+        notify(data)
+    #data is bytes
     def parse_data(self, data):
-        print(data)
         #print("str:%s",bytes.decode(msg))
         msg_len = data[1] & 127
         if msg_len == 126:
@@ -86,11 +93,10 @@ Sec-WebSocket-Accept: %s\r\n\r\n' % token)
             mask = data[2:6]
             content = data[6:]
         raw_str = ''
-        print('content:',content)
+        print('content:',bytes.decode(content))
         for i,d in enumerate(content):
             raw_str += chr( d ^ mask[i % 4])
         return raw_str
-
 
     def parse_headers(self, msg):
         headers = {}
@@ -119,10 +125,9 @@ class websocket_server(threading.Thread):
     def run(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('127.0.0.1', self.port))
+        sock.bind(('192.168.20.2', self.port))
         sock.listen(5)
-        print
-        'websocket server started!'
+        print('websocket server started!')
         while True:
             connection, address = sock.accept()
             try:
@@ -131,10 +136,9 @@ class websocket_server(threading.Thread):
                 thread.start()
                 clients[username] = connection
             except socket.timeout:
-                print
-                'websocket connection timeout!'
+                print('websocket connection timeout!')
 
 
 if __name__ == '__main__':
-    server = websocket_server(9000)
+    server = websocket_server(3380)
     server.start()

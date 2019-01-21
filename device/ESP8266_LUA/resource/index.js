@@ -1,6 +1,7 @@
 $(function(){
 
     var flag = true;                                                                                                   //判断是否继续获取配置
+    var getDoorConfigCount = 0;
 
     init();
 
@@ -165,6 +166,8 @@ $(function(){
                     return false;
                 }
 
+                getDoorConfigCount = 0;
+
                 var is_double_group = res.data.is_double_group == 1 ? true : false;
                 $('.is_double_group').prop('checked', is_double_group);
                 var is_detect_enabled = res.data.is_detect_enabled == 1 ? true : false;
@@ -182,6 +185,11 @@ $(function(){
                 $('.study_speed_ratio').val(res.data.study_speed_ratio);
             },
             'error' : function(){
+                if (getDoorConfigCount < 1){
+                    getDoorConfig();
+                    getDoorConfigCount++;
+                    return false;
+                }
                 flag = false;
                 showMsg('获取门配置网络错误');
             }
@@ -194,9 +202,9 @@ $(function(){
     function setSafeConfig(){
         //收集参数
         var arr = {};
-            arr['type'] = 'SetSafeConfig';
-            arr['data'] = {};
-            arr['data']['token'] = $('.s-token').val();                                                                 //token
+        arr['type'] = 'SetSafeConfig';
+        arr['data'] = {};
+        arr['data']['token'] = $('.s-token').val();                                                                 //token
 
         //验证参数
         if (arr['data']['token'] == ''){
@@ -230,13 +238,13 @@ $(function(){
      */
     function setWiFiConfig(){
         var arr = {};
-            arr['type'] = 'SetWiFiConfig';
-            arr['data'] = {};
-            arr['data']['work_mode'] = $('.w-mode').val();                                                             //工作模式
-            arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                          //本地模式下路由的名称
-            arr['data']['wifi_ap_pwd'] = $('.run_speed_ratio').val();                                               //本地模式下路由的名称
-            arr['data']['wifi_station_ssid'] = $('.run_acc_speed_ratio').val();                                       //云端模式下连接的WiFi名称
-            arr['data']['wifi_station_pwd'] = $('.study_speed_ratio').val();                                           //云端模式下连接的WiFi密码
+        arr['type'] = 'SetWiFiConfig';
+        arr['data'] = {};
+        arr['data']['work_mode'] = $('.w-mode').val();                                                             //工作模式
+        arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                          //本地模式下路由的名称
+        arr['data']['wifi_ap_pwd'] = $('.run_speed_ratio').val();                                               //本地模式下路由的名称
+        arr['data']['wifi_station_ssid'] = $('.run_acc_speed_ratio').val();                                       //云端模式下连接的WiFi名称
+        arr['data']['wifi_station_pwd'] = $('.study_speed_ratio').val();                                           //云端模式下连接的WiFi密码
 
         showLoad();
         $.ajax({
@@ -265,18 +273,18 @@ $(function(){
     function setDoorConfig(){
         //收集参数
         var arr = {};
-            arr['type'] = 'SetDoorConfig';
-            arr['data'] = {};
-            arr['data']['is_lock_enabled'] = $('.is_lock_enabled').is(':checked') ? "1" : "0";                              //是否启用锁
-            arr['data']['lock_delay_time'] = $('.lock_delay_time').val();                                               //等待时间
-            arr['data']['is_auto_close'] = $('.is_auto_close').is(':checked') ? "1" : "0";                                  //是否自动关门
-            arr['data']['open_stay_time'] = $('.open_stay_time').val();                                                 //停留时间
-            arr['data']['is_detect_enabled'] = $('.is_detect_enabled').is(':checked') ? "1" : "0";                          //是否启用感应开门
-            arr['data']['is_always_open'] = $('.is_always_open').is(':checked') ? "1" : "0";                                //是否常开
-            arr['data']['is_double_group'] = $('.is_double_group').is(':checked') ? "1" : "0";                             //是否双门联动
-            arr['data']['run_speed_ratio'] = $('.run_speed_ratio').val();                                               //运行速度比率，相对于最大速度
-            arr['data']['run_acc_speed_ratio'] = $('.run_acc_speed_ratio').val();                                       //运行加速度比率，相对于最大加速度
-            arr['data']['study_speed_ratio'] = $('.study_speed_ratio').val();                                           //学习速度比率，相对于最大速度
+        arr['type'] = 'SetDoorConfig';
+        arr['data'] = {};
+        arr['data']['is_lock_enabled'] = $('.is_lock_enabled').is(':checked') ? "1" : "0";                              //是否启用锁
+        arr['data']['lock_delay_time'] = $('.lock_delay_time').val();                                               //等待时间
+        arr['data']['is_auto_close'] = $('.is_auto_close').is(':checked') ? "1" : "0";                                  //是否自动关门
+        arr['data']['open_stay_time'] = $('.open_stay_time').val();                                                 //停留时间
+        arr['data']['is_detect_enabled'] = $('.is_detect_enabled').is(':checked') ? "1" : "0";                          //是否启用感应开门
+        arr['data']['is_always_open'] = $('.is_always_open').is(':checked') ? "1" : "0";                                //是否常开
+        arr['data']['is_double_group'] = $('.is_double_group').is(':checked') ? "1" : "0";                             //是否双门联动
+        arr['data']['run_speed_ratio'] = $('.run_speed_ratio').val();                                               //运行速度比率，相对于最大速度
+        arr['data']['run_acc_speed_ratio'] = $('.run_acc_speed_ratio').val();                                       //运行加速度比率，相对于最大加速度
+        arr['data']['study_speed_ratio'] = $('.study_speed_ratio').val();                                           //学习速度比率，相对于最大速度
 
         //验证参数
         if (arr['data']['lock_delay_time'] == ''){
@@ -350,9 +358,9 @@ $(function(){
      */
     function command(type){
         var arr = {};
-            arr['type'] = 'Command';
-            arr['data'] = {};
-            arr['data']['CommandType'] = type;
+        arr['type'] = 'Command';
+        arr['data'] = {};
+        arr['data']['CommandType'] = type;
 
         showLoad();
 
@@ -384,9 +392,9 @@ $(function(){
      */
     function getStatus(){
         var arr = {};
-            arr['type'] = 'Heartbeat';
-            arr['data'] = {};
-            arr['data']['time_tick'] = Date.parse(new Date());
+        arr['type'] = 'Heartbeat';
+        arr['data'] = {};
+        arr['data']['time_tick'] = Date.parse(new Date());
 
         $.ajax({
             'url' : '/command',

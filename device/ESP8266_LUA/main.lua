@@ -71,8 +71,8 @@ function readConfigFromFile(fname)
     cfg.startmode="local"
     cfg.ap.ssid="ESP8266_Mode"
     cfg.ap.pwd="12345678"
-    cfg.station.ssid="360WiFi-1AC8AE"
-    cfg.station.pwd="12345678"
+    cfg.station.ssid="GamePartment"
+    cfg.station.pwd="game1234"
     cfg.cloud.ip="192.168.20.2"
     cfg.cloud.port="3380"
     local wbuf=tableToString(cfg)
@@ -249,7 +249,7 @@ function startLocalMode()
     res:sendFile('index.html')
   end)
   httpServer:onRecv('/command', function(req, res)
-    handleRecv(req.GET,res)
+    --handleRecv(req.GET,res)
   end)
   
   --local function sw_root() print("root") end
@@ -265,9 +265,6 @@ function startLocalMode()
   --end
 	
 end
-tmr.create():alarm(10,tmr.ALARM_AUTO,function()
-
-end)
 function working(startmode)
   if startmode == nil then
     startmode=configData.startmode
