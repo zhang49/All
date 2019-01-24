@@ -1,1 +1,0 @@
-uart.write(1,"send to usart1")

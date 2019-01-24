@@ -11,21 +11,28 @@ function recvFromMasterDevice(msg)
   -- tail 0xff +
   if msg == '\n' then return nil end
   uart1_recvbuf = uart1_recvbuf .. msg
-  if uart1_recvbuf:byte(#uart1_recvbuf) == 43 and uart1_recvbuf:byte(#uart1_recvbuf-1) == 0xff then
-    msg=string.sub(uart1_recvbuf,0,-3)
-	uart1_recvbuf = ""
-    print('Recv singledata from Stm32 over,Length:'..#msg..',msg:'..msg)
-	if configData.startmode == 'local' then
-	  if #saveHttpSckBuf > 0 then
-        local res = table.remove(saveHttpSckBuf,1)
-		if res._sck ~=nil then --socket disconnected 
-		  res:send(msg)
-		else
-		end
+  print(msg)
+  if uart1_recvbuf:byte(#uart1_recvbuf) == 43 then
+	--0xff 43 recv Single Data Over
+    if uart1_recvbuf:byte(#uart1_recvbuf-1) == 0xff then
+      msg=string.sub(uart1_recvbuf,0,-3)
+	  uart1_recvbuf = ""
+      print('Recv singledata from Stm32 over,Length:'..#msg..',msg:'..msg)
+	  if configData.startmode == 'local' then
+	    if #saveHttpSckBuf > 0 then
+          local res = table.remove(saveHttpSckBuf,1)
+		  if res._sck ~=nil then --socket disconnected 
+		    res:send(msg)
+		  else
+		  end
+	    end
+	  elseif configData.startmode == 'cloud' then
+	    wsSend(msg)
 	  end
-	elseif configData.startmode == 'cloud' then
-	  wsSend(msg)
-	end
+	--0xff 43 recv Single Data continue
+	elseif uart1_recvbuf:byte(#uart1_recvbuf-1) == 0xfe then
+      uart1_recvbuf = string.sub(uart1_recvbuf,0,-3)
+    end
   end
 end
 
@@ -121,11 +128,11 @@ function handleRecv(root,res)
 		  configData.startmode = 'cloud'
 		  configData.wifimode = 'station'
 		end
-		if false and file.open("Config.txt", "w+") then
-		  --file.write(wbuf)
+		if file.open("Config.txt", "w+") then
+		  file.write(wbuf)
 		  file.close()
 		  --wheather here send response to net?
-		  tmr.create:alarm(200, tmr.ALARM_SINGLE , function()
+		  tmr.create:alarm(500, tmr.ALARM_SINGLE , function()
             node.restart()
 		  end)
 	    else

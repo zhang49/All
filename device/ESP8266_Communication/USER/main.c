@@ -14,11 +14,11 @@ int main(void)
 	delay_init();	    	 		//延时函数初始化	 
 	LED_Init();							//初始化与LED连接的硬件接口
 	USART3_Init(115200);		//串口3初始化为115200
-	//当ESP8266sLen不为0,定时器5ms 发送一次长度为Send_SingleLen字节
 	ESP8266_Init(115200,5);
 	printf("start...\r\n");
 	while(1)
 	{
+		
 		ESP8266_RecvProcess();
 	}
 	//ESP8266_Start();

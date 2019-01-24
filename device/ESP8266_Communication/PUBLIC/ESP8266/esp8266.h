@@ -12,6 +12,7 @@ void ESP8266_printf (char * Data, ... );
 void ESP8266_Sendu8(u8 ch);
 void ESP8266_senditoa(u32 d);
 u8 ESP8266_ReadNetData(char data[],u16 timeout);
+u8 ESP8266_NeedSendData(void);
 void ESP8266_SendNetData(char *ostream,u16 len);
 
 void ESP8266_test(void);

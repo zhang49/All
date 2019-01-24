@@ -31,7 +31,7 @@ function recvFromMasterDevice(msg)
   end
 end
 
---褰撴帴鏀跺埌\n鎴栬�呮帴鏀舵暟�揪鍒版渶澶у��255鏃惰皟鐢╢unction
+--当接收到\n或者接收数达到最大值255时调用function
 uart.on("data", "+", function (data) recvFromMasterDevice(data) end, 0)
 
 function tableToString(root)
@@ -71,8 +71,8 @@ function readConfigFromFile(fname)
     cfg.startmode="local"
     cfg.ap.ssid="ESP8266_Mode"
     cfg.ap.pwd="12345678"
-    cfg.station.ssid="360WiFi-1AC8AE"
-    cfg.station.pwd="12345678"
+    cfg.station.ssid="GamePartment"
+    cfg.station.pwd="game1234"
     cfg.cloud.ip="192.168.20.2"
     cfg.cloud.port="3380"
     local wbuf=tableToString(cfg)
@@ -166,9 +166,10 @@ function handleRecv(root,res)
 	  --print('this msg will send to Master:'..tableToString(root))
 	  --table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, sck)
 	  --print('#saveHttpSckBuf:'..#saveHttpSckBuf)
-	  
-	  table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res)
-	  sendToMasterDevice(tableToString(root)..'\r\n')
+	  if #saveHttpSckBuf < 5 then
+	    table.insert(saveHttpSckBuf, #saveHttpSckBuf+1, res)
+		sendToMasterDevice(tableToString(root)..'\r\n')
+	  end
 	end
 	return true
 end
@@ -264,9 +265,6 @@ function startLocalMode()
   --end
 	
 end
-tmr.create():alarm(10,tmr.ALARM_AUTO,function()
-
-end)
 function working(startmode)
   if startmode == nil then
     startmode=configData.startmode
@@ -321,3 +319,13 @@ function start(wifimode)
 end
 
 start()
+
+
+
+
+
+
+
+
+
+

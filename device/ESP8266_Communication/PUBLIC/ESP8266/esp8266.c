@@ -25,8 +25,10 @@ char token[24]="";
 
 const u8 Send_SingleLen = 20;//单次发送的数据长度
 u8 sendBuf[Send_SingleLen];//DMA发送缓冲区
-char ESP8266sData[512];
+char SendBuf[512];
+char ESP8266sData[255];
 u16 ESP8266sLen = 0;
+u16 SendCursor = 0;
 
 void ESP8266_test()
 {
@@ -264,7 +266,7 @@ u8 ESP8266_RecvProcess()
 //	json_add(outjson,"error_str","");
 //	ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
 //	ESP8266_SendNetData(ostream,strlen(ostream));
-					
+	if(ESP8266_NeedSendData())return 0;
 	if(!ESP8266_ReadNetData(recvData,255))return 0;
 	do
 	{
@@ -539,20 +541,38 @@ u8 ESP8266_ReadNetData(char data[],u16 timeout)
 	//printf("OVER...head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
 	return 1;
 }
-
+u8 ESP8266_NeedSendData()
+{
+	if(strlen(SendBuf))
+	{
+		u8 i=0;
+		u16 len = strlen(SendBuf);
+		//timer 3 检查ESP8266sLen，当其不为0则发送，发送完毕置0
+		for(;i<50 && SendCursor<len;i++)*(ESP8266sData+i)=*(SendBuf+(SendCursor++));
+		
+		if(SendCursor>=strlen(SendBuf))
+		{
+			*(ESP8266sData+i++)= 0xff;
+			*(ESP8266sData+i++)= '+';
+			SendCursor = 0;
+			SendBuf[0] = 0;
+		}
+		else
+		{			
+			*(ESP8266sData+i++)= 0xfe;
+			*(ESP8266sData+i++)= '+';
+		}
+		MYDMA_Enable(DMA1_Channel4,i);//开始一次DMA传输
+		printf("*****DMA SEND DATA TO NET:\r\n%s\r\n*****\r\n",ESP8266sData);
+		return 1;
+	}
+	return 0;
+	
+}
 void ESP8266_SendNetData(char *ostream,u16 len)
 {
-	u16 i=0;;
-	//timer 3 检查ESP8266sLen，当其不为0则发送，发送完毕置0
-	for(;i<len;i++)*(ESP8266sData+i)=*(ostream+i);
-	*(ESP8266sData+i++)= 0xff;
-	*(ESP8266sData+i++)= '+';
-	ESP8266sLen = i;
-	MYDMA_Enable(DMA1_Channel4,ESP8266sLen);//开始一次DMA传输
-	//ESP8266_Sendu8(len>>8);//先发高位
-	//ESP8266_Sendu8(len);
-	//printf("*****SEND DATA TO NET:\r\n%s\r\n*****\r\n",ostream);
-	//ESP8266_printf("%s+++",ostream);
+	strcpy(SendBuf,ostream);
+	SendBuf[len] = 0;
 }
 
 

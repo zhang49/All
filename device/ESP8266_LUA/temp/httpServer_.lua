@@ -53,6 +53,7 @@ end
 
 function closeSck(sck)
   sck:close()
+  print("sck:close")
   sck:on('sent', function() end) -- release closures context
   sck:on('receive', function() end)
   sck = nil
@@ -61,12 +62,13 @@ function Res:close()
   closeSck(Res._sck)
 end
 function closeSck_file(sck)
-  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
-  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
+  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
+  --当sck被关闭时,获取到的port, ip为nil
   local _,ip = sck:getpeer()
   if ip ~= nil then
     closeSck(sck)
   end
+  sck = nil
   if fd ~= nil then fd:close() fd=nil end
 end
 
@@ -99,8 +101,8 @@ function Res:send(body,flag)
       buf = string.sub(buf, 1460)
     end
   end
-  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
-  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
+  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
+  --当sck被关闭时,获取到的port, ip为nil
   local _,ip = self._sck:getpeer()
   if ip ~= nil then
     self._sck:on('sent', doSend)
@@ -134,32 +136,32 @@ function sendFile_real(sck, filename)
     if buf == nil then
       table.remove(sendFileBuf, 1)
       closeSck_file(sck)
-	  if #sendFileBuf <= 6 then sck:unhold() end
-      fileSendFlag = 0 --鍏抽棴fd 鍚庡啀鍊兼爣蹇�浣�
+      fileSendFlag = 0 --关闭fd 后再值标志位
     else
       sck:send(buf)
       fileSendFlag = 1
     end
   end
-  --sck琚叧闂悗濡傝嫢缁х画�彂閫佷細瀵艰嚧鎶ラ敊閲嶅惎锛屾病鏈夋帴鍙ｈ幏鍙杝ck鐘舵��
-  --褰搒ck琚叧闂椂,鑾峰彇鍒扮殑port, ip涓簄il
+  --sck被关闭后如若继续发送会导致报错重启，没有接口获取sck状态
+  --当sck被关闭时,获取到的port, ip为nil
   local _,ip = sck:getpeer()
   if ip ~= nil then
     sck:on('sent', doSend)
+	print("SendHeader. #sendFileBuf:"..#sendFileBuf)
     sck:send(header)
   else
     table.remove(sendFileBuf, 1)
     fileSendFlag = 0
   end
 end
---淇濆瓨socket, filename鍒皊endFileBuf涓紝瀹氭椂鍣ㄦ鏌ュ彂閫�
+--保存socket, filename到sendFileBuf中，定时器检查发送
 function Res:sendFile(filename)
   local port,ip=self._sck:getpeer()
   local _,_,mark=string.find(string.reverse(ip),'(%d+)')
   mark = mark .. port
-  table.insert(sendFileBuf, #sendFileBuf+1, { m = mark, s = self._sck, f = filename})
+  table.insert(sendFileBuf, #sendFileBuf+1, { s = self._sck, f = filename})
 end
---姣�10ms 妫�鏌ワ紝鍙戦�乻endFileBuf涓殑filname锛岃秴鏃�2s鍏抽棴socket
+--每10ms 检查，发送sendFileBuf中的filname，超时2s关闭socket
 --sendFileTmr = tmr.create()
 tmr.create():alarm(10,tmr.ALARM_AUTO,function()
   if fileSendFlag ~=0 then fileSendFlag=fileSendFlag+1 end
@@ -256,7 +258,6 @@ function httpServer:listen(port)
       --don't do this  sck:close
     end)
     conn:on('receive', function(sck, msg)
-	  if #sendFileBuf >= 6 then sck:hold() end
       local port,ip=sck:getpeer()
       local _,_,cid=string.find(string.reverse(ip),'(%d+)')
       cid = cid .. port
@@ -316,7 +317,7 @@ function httpServer:listen(port)
       end
       --]]
       local req = { source = reqData, path = nil, method = nil, GET = {},ip = sck:getpeer() }
-      if not parseRequestHeader(req,nil) then
+	  if not parseRequestHeader(req,nil) then
         collectgarbage()
         return nil
       end
@@ -333,3 +334,30 @@ function httpServer:listen(port)
     end)
   end)
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
