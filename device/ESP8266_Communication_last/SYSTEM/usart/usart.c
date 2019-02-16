@@ -127,12 +127,13 @@ void USART3_Putc(char ch)              	//串口3发送字符
 }
 void USART3_IRQHandler(void)                	//串口3中断服务程序
 {
-	//u8 recvByte;
+	u8 recvByte;
 	if(USART_GetITStatus(USART3, USART_IT_RXNE) != RESET)
 	{  
-		//recvByte =USART_ReceiveData(USART3);
+		recvByte =USART_ReceiveData(USART3);
 		//USART1_Putc(recvByte);
-	} 
+		printf("%c",recvByte);
+	}
 }
 
 void USART1_Send(char *data)                	//串口1发送

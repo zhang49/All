@@ -5,11 +5,66 @@
 #include "delay.h"
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include "timer.h"
+#include "dma.h"
 
-extern struct USART2_RD_QUEUE rdQueue;	//队列缓冲区
+//门数据等
+u8 is_lock_enabled=1;
+u16 open_stay_time=123;
+u16 lock_delay_time=456;
+u8 is_detect_enabled=1;
+u8 is_always_open=1;
+u8 is_double_group=1;
+u8 is_auto_close=1;
+float run_speed_ratio=0.2;
+float run_acc_speed_ratio=0.1;
+float study_speed_ratio=0.6;
+char token[24]="";
+
+
+extern struct USART2_RD_QUEUE rdQueue;	//接收队列缓冲区
+//timer
+const u8 Send_SingleLen = 20;//单次发送的数据长度
+u8 sendBuf[Send_SingleLen];
+u16 ESP8266sLen = 0;
+
+u8 RestoreFlag = 0;
+char SendBuf[512];//需要发送的数据
+char ESP8266sData[255];//DMA发送通道缓冲区
+u16 SendCursor = 0;//当前发送位
 
 void ESP8266_test()
 {
+		char recvData[1024]="{\"type\" : \"GetDoorConfig\",	\"data\" : \"\"}";
+	  json_t *injson,*outjson;
+		//json_error_t *jerror;
+		char *ostream;
+		char rjsonbuf[255];
+		char temp[10];
+		u8 error_code=0;
+		outjson=json_object();
+	injson=json_loads(recvData, JSON_DECODE_ANY,NULL);
+	
+	if(json_find(injson,"type",rjsonbuf))
+		{
+	if(strstr(rjsonbuf,"GetDoorConfig"))
+	{
+		printf("%s\r\n",ostream);
+	}
+}
+	strcpy(recvData,"{\"type\" : \"SetDoorConfig\",  	\"error_code\" : \"0\",	\"error_str\" : \"\",    \"data\" : {  		      \"is_lock_enabled\" : \"1\",      \"open_stay_time\" : \"66\",      \"lock_delay_time\" : \"66\",       \"is_detect_enabled\" : \"1\",      \"is_always_open\" : \"1\",      \"is_double_group\" : \"1\",      \"run_speed_ratio\" : \"6.66666\",      \"run_acc_speed_ratio\" : \"6.66666\",      \"study_speed_ratio\" : \"6.66666\"}}");
+	injson=json_loads(recvData, JSON_DECODE_ANY,NULL);
+	if(json_find(injson,"type",rjsonbuf))
+	{
+		if(strstr(rjsonbuf,"SetDoorConfig"))
+		{
+			
+			printf("%s\r\n",ostream);
+			
+		}
+	}
+	/*
 	char *out;
 	char rjsonbuf[255];
 	json_t *outjson,*injson;
@@ -81,6 +136,8 @@ void ESP8266_test()
 //	{
 //		printf("data.id not found\r\n");
 //	}
+
+*/
 }
 
 u8 ESP8266_Start()
@@ -88,12 +145,6 @@ u8 ESP8266_Start()
 	ESP8266_RecvProcess();
 	return 1;
 }
-/*
-*ESP8266 AP模式下，开启TCP服务器，接收数据
-*AT+ CIPSERVER=<mode>[,<port>]  必须AT+CIPMODE=0非透传
-*AT+ CIPMUX=1 时才能开启server模式
-*/
-
 u8 json_add(json_t *injson,char *key,char *value)
 {
 	if(strstr(key,"."))
@@ -194,18 +245,27 @@ u8 GetJsonType(json_t *injson,char *type)
 		return 1;
 }
 
-
 //开始接收网络数据
 u8 ESP8266_RecvProcess()
 {
 	char recvData[512];
+	//当需要发送数据
+	if(ESP8266_NeedSendData())return 1;
+	if(RestoreFlag == 1)
+	{
+		char *data = "restore";
+		ESP8266_SendCmd(data,strlen(data));
+		RestoreFlag = 0;
+	}
 	if(!ESP8266_ReadNetData(recvData,255))return 0;
-	do
+	if(1 == 1)
 	{
 		json_t *injson,*outjson;
 		//json_error_t *jerror;
 		char *ostream;
 		char rjsonbuf[255];
+		char temp[10];
+		u8 error_code=0;
 		printf("Recvice Data:%s\r\n",recvData);
 		//测试
 		//ESP8266_test();
@@ -213,69 +273,162 @@ u8 ESP8266_RecvProcess()
 		injson=json_loads(recvData, JSON_DECODE_ANY,NULL);
 		if(json_find(injson,"type",rjsonbuf))
 		{
-			printf("Message Type is:%s\r\n",rjsonbuf);
-			if(strstr(rjsonbuf,"Request_GetApiVersion"))
+			//printf("Message Type is:%s\r\n",rjsonbuf);
+			if(strstr(rjsonbuf,"GetApiVersion"))
 			{
 				if(json_find(injson,"data",rjsonbuf))
 				{
+					if(json_find(injson,"user_data",rjsonbuf))
+					{
+						json_add(outjson,"user_data",rjsonbuf);
+					}
+				
 					json_add(outjson,"type","Reply_GetApiVersion");
 					json_add(outjson,"api_version","2");
 					json_add(outjson,"app_version","3");
-					ostream=json_dumps(outjson, JSON_DECODE_ANY);
-					ESP8266_SendNetData(ostream);
-				}
-			}
-			else if(strstr(rjsonbuf,"Request_Hearbet"))
-			{
-				if(json_find(injson,"data.time_tick",rjsonbuf))
-				{
-					printf("data.time_tick :%s\r\n",rjsonbuf);
-				}
-			}
-			else if(strstr(rjsonbuf,"Request_Getconfig"))
-			{
-				json_add(outjson,"type","Reply_Getconfig");
-				json_add(outjson,"RunMode","0");
-				json_add(outjson,"has_lock","1");
-				json_add(outjson,"open_stay_time","3");
-				json_add(outjson,"lock_delay_time","4");
-				ostream=json_dumps(outjson, JSON_DECODE_ANY);
-				ESP8266_SendNetData(ostream);
-			}
-			else if(strstr(rjsonbuf,"Request_ESP8266SetConfig"))
-			{
-				if(json_find(injson,"data.mode",rjsonbuf))
-				{
 					
+					error_code=0;
+					sprintf(temp,"%d",error_code);
+					json_add(outjson,"error_code",temp);
+					json_add(outjson,"error_str","");
+					ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+					ESP8266_SendNetData(ostream,strlen(ostream));
 				}
-				//不需要保存至STM32 FALSH，ESP8266保存
 			}
-			else if(strstr(rjsonbuf,"Request_ESP8266SetRestore"))
+			else if(strstr(rjsonbuf,"Heartbeat"))
 			{
+				if(json_find(injson,"user_data",rjsonbuf))
+				{
+					json_add(outjson,"user_data",rjsonbuf);
+				}
+				json_add(outjson,"type","Heartbeat");
 				
+				error_code=0;
+				sprintf(temp,"%d",error_code);
+				json_add(outjson,"error_code",temp);
+				json_add(outjson,"error_str","");
+				ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+				ESP8266_SendNetData(ostream,strlen(ostream));
 			}
-			else if(strstr(rjsonbuf,"Request_SetConfig"))
+			else if(strstr(rjsonbuf,"GetDoorConfig"))
 			{
-				json_find(injson,"data.RunMode",rjsonbuf);
-				printf("data.RunMode :%s\r\n",rjsonbuf);
-				json_find(injson,"data.has_lock",rjsonbuf);
-				printf("data.has_lock :%s\r\n",rjsonbuf);
+				if(json_find(injson,"user_data",rjsonbuf))
+				{
+					json_add(outjson,"user_data",rjsonbuf);
+				}
+				
+				json_add(outjson,"type","Reply_GetDoorConfig");
+				
+				sprintf(temp,"%d",is_auto_close);
+				json_add(outjson,"data.is_auto_close",temp);
+				sprintf(temp,"%d",is_lock_enabled);
+				json_add(outjson,"data.is_lock_enabled",temp);
+				sprintf(temp,"%d",open_stay_time);
+				json_add(outjson,"data.open_stay_time",temp);
+				sprintf(temp,"%d",lock_delay_time);
+				json_add(outjson,"data.lock_delay_time",temp);
+				sprintf(temp,"%d",is_detect_enabled);
+				json_add(outjson,"data.is_detect_enabled",temp);
+				sprintf(temp,"%d",is_always_open);
+				json_add(outjson,"data.is_always_open",temp);
+				sprintf(temp,"%d",is_double_group);
+				json_add(outjson,"data.is_double_group",temp);
+				
+				sprintf(temp,"%.1f",run_speed_ratio);
+				json_add(outjson,"data.run_speed_ratio",temp);
+				sprintf(temp,"%.1f",run_acc_speed_ratio);
+				json_add(outjson,"data.run_acc_speed_ratio",temp);
+				sprintf(temp,"%.1f",study_speed_ratio);
+				json_add(outjson,"data.study_speed_ratio",temp);
+				
+				error_code=0;
+				sprintf(temp,"%d",error_code);
+				json_add(outjson,"error_code",temp);
+				json_add(outjson,"error_str","");
+				ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+				ESP8266_SendNetData(ostream,strlen(ostream));
+			}
+			else if(strstr(rjsonbuf,"SetDoorConfig"))
+			{
+				if(json_find(injson,"user_data",rjsonbuf))
+				{
+					json_add(outjson,"user_data",rjsonbuf);
+				}
+				
+				json_add(outjson,"type","Reply_SetDoorConfig");
+				
+				json_find(injson,"data.is_auto_close",rjsonbuf);
+				is_auto_close=atoi(rjsonbuf);
+				json_find(injson,"data.is_lock_enabled",rjsonbuf);
+				is_lock_enabled=atoi(rjsonbuf);
 				json_find(injson,"data.open_stay_time",rjsonbuf);
-				printf("data.open_stay_time :%s\r\n",rjsonbuf);
+				open_stay_time=atoi(rjsonbuf);
 				json_find(injson,"data.lock_delay_time",rjsonbuf);
-				printf("data.lock_delay_time :%s\r\n",rjsonbuf);
+				lock_delay_time=atoi(rjsonbuf);
+				json_find(injson,"data.is_detect_enabled",rjsonbuf);
+				is_detect_enabled=atoi(rjsonbuf);
+				json_find(injson,"data.is_always_open",rjsonbuf);
+				is_always_open=atoi(rjsonbuf);
+				json_find(injson,"data.is_double_group",rjsonbuf);
+				is_double_group=atoi(rjsonbuf);
 				
-				json_add(outjson,"type","Reply_SetConfig");
-				json_add(outjson,"data","");
-				ostream=json_dumps(outjson, JSON_DECODE_ANY);
-				ESP8266_SendNetData(ostream);
+				json_find(injson,"data.run_speed_ratio",rjsonbuf);
+				run_speed_ratio=atof(rjsonbuf);
+				json_find(injson,"data.run_acc_speed_ratio",rjsonbuf);
+				run_acc_speed_ratio=atof(rjsonbuf);
+				json_find(injson,"data.study_speed_ratio",rjsonbuf);
+				study_speed_ratio=atof(rjsonbuf);
+
+				/*printf("open_stay_time :%d\r\n",open_stay_time);
+				printf("lock_delay_time :%d\r\n",lock_delay_time);
+				printf("is_detect_enabled :%d\r\n",is_detect_enabled);
+				printf("is_always_open :%d\r\n",is_always_open);
+				printf("is_double_group :%d\r\n",is_double_group);
+				printf("open_stay_time :%d\r\n",open_stay_time);
+				
+				printf("run_speed_ratio :%f\r\n",run_speed_ratio);
+				printf("run_acc_speed_ratio :%f\r\n",run_acc_speed_ratio);
+				printf("study_speed_ratio :%f\r\n",study_speed_ratio);
+				*/
+				
+				error_code=0;
+				sprintf(temp,"%d",error_code);
+				json_add(outjson,"error_code",temp);
+				json_add(outjson,"error_str","");
+				ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+				ESP8266_SendNetData(ostream,strlen(ostream));
 			}
-			else if(strstr(rjsonbuf,"Request_Command"))
+			else if(strstr(rjsonbuf,"GetSafeConfig"))
 			{
+				if(json_find(injson,"user_data",rjsonbuf))
+				{
+					json_add(outjson,"user_data",rjsonbuf);
+				}
+				json_add(outjson,"type","Reply_GetSafeConfig");
+				json_add(outjson,"data.token",token);
+				
+				error_code=0;
+				sprintf(temp,"%d",error_code);
+				json_add(outjson,"error_code",temp);
+				json_add(outjson,"error_str","");
+				ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+				ESP8266_SendNetData(ostream,strlen(ostream));
+			}
+			else if(strstr(rjsonbuf,"Command"))
+			{
+				if(json_find(injson,"user_data",rjsonbuf))
+				{
+					json_add(outjson,"user_data",rjsonbuf);
+				}
 				json_add(outjson,"type","Reply_Command");
 				json_add(outjson,"data","");
-				ostream=json_dumps(outjson, JSON_DECODE_ANY);
-				ESP8266_SendNetData(ostream);
+				
+				error_code=0;
+				sprintf(temp,"%d",error_code);
+				json_add(outjson,"error_code",temp);
+				json_add(outjson,"error_str","");
+				ostream=json_dumps(outjson, JSON_ENCODE_ANY|JSON_COMPACT);
+				ESP8266_SendNetData(ostream,strlen(ostream));
 			}
 		}
 		else
@@ -286,14 +439,46 @@ u8 ESP8266_RecvProcess()
 		json_decref(injson);
 		json_decref(outjson);
 	}
-	while(0);
 	return 1;
 }
 
-extern struct USART2_RD_QUEUE rdQueue;	//队列缓冲区
-void ESP8266_Init(int baudRate)
+
+void ESP8266_Init(int baudRate,u32 sendInterval)
 {
-	USART1_Init(baudRate);	 	//串口1初始化为115200
+	u8 i,j;
+	char temp;
+	char str[3];
+	//ESP8266 使用串口1通信
+	USART1_Init(baudRate);
+	MYDMA_Config(DMA1_Channel4,(u32)&USART1->DR,(u32)ESP8266sData,512);
+	USART_DMACmd(USART1,USART_DMAReq_Tx,ENABLE); //使能串口1 DMA通道
+	
+	//timer
+	//TIM3_Int_Init(sendInterval*10-1,7199);//10Khz的计数频率，计数到5000为500ms
+	
+	//获取设备UID,Token
+	for(i=0;i<12;i++)
+	{
+	  j=*(u8*)(UID_BASE_ADDER+sizeof(u8)*i);
+		if(j<0x10)
+		{
+			sprintf(str,"0%x",j);
+		}
+		else
+		{
+			sprintf(str,"%x",j);
+		}
+		j=0;
+		while(*(str+j)!=0)
+		{
+		  if(*(str+j)>='a' && *(str+j)<='f')
+			{
+				*(str+j)-=32;
+			}
+			j++;
+		}
+		strcat(token,str);
+	}
 //	u8 i=0;
 //	for(i=0;i<SERVER_ACCEPT_MAX;i++)
 //	{
@@ -308,13 +493,13 @@ void ESP8266_Init(int baudRate)
 }
 /////////////AT+UART=115200,8,1,0,3设置波特率，待测
 
-//重启模块，硬重启？
+//重启模块，硬重启
 u8 ESP8266_RST()
 {
 	
 	return 0;
 }
-//软还原？
+//软还原
 u8 ESP8266_Restore()
 {
 	ESP8266_printf("");//restore command
@@ -332,9 +517,8 @@ u8 ESP8266_ReadNetData(char data[],u16 timeout)
 		tc+=1;
 	}
 	if(rdQueue.head==rdQueue.rear)return 0;//计时溢出，没有数据
-	
 	//printf("____tc:%d,timeout:%d\r\n",tc,tenMsTimes);
-	printf("head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
+	//printf("head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
 	if(data==NULL)return 1;
 	while(ch!=0 && rdQueue.head<rdQueue.rear)
 	{
@@ -344,18 +528,72 @@ u8 ESP8266_ReadNetData(char data[],u16 timeout)
 		data++;
 	}
 	*data=0;
-	printf("OVER...head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
+	//printf("OVER...head:%d,rear:%d\r\n",rdQueue.head,rdQueue.rear);
 	return 1;
 }
-
-void ESP8266_SendNetData(const char *ostream)
+//单次最多发送50个字节
+//单条数据发送完毕，结尾0xff +,否则结尾0xfe +,nodemcu检查接收+
+u8 ESP8266_NeedSendData()
 {
-	u16 len;
-	len=strlen(ostream);
-	ESP8266_Sendu8(len>>8);//先发高位
-	ESP8266_Sendu8(len);
-	ESP8266_printf("%s\r\n",ostream);
+	if(strlen(SendBuf))
+	{
+		u8 i=0;
+		u16 len = strlen(SendBuf);
+		for(;i<100 && SendCursor<len;i++)*(ESP8266sData+i)=*(SendBuf+(SendCursor++));
+		if(SendCursor>=strlen(SendBuf))
+		{
+			*(ESP8266sData+i++)='\n';
+			SendCursor = 0;
+			SendBuf[0] = 0;
+		}
+//		else
+//		{			
+//			*(ESP8266sData+i++)= 0xfe;
+//			*(ESP8266sData+i++)= '+';
+//		}
+		MYDMA_Enable(DMA1_Channel4,i);//开始一次DMA传输
+		//*(ESP8266sData+i)=0;
+		//printf("\r\n\t\tDMA SEND DATA TO NET:\r\n%s\r\n",ESP8266sData);
+		delay_ms(50);
+		return 1;
+	}
+	return 0;
 }
+
+void ESP8266_SendNetData(char *ostream,u16 len)
+{
+	u8 TotalCheck = 0;
+	u16 i;
+	memset(SendBuf,0,sizeof(SendBuf));
+	sprintf(SendBuf,"ZY%c%c%c%s",0,0,0,ostream);
+	*(SendBuf+2)=0x01;
+	if(len>>8==0)	*(SendBuf+3)=0xff;
+	else *(SendBuf+3)=len>>8;
+	*(SendBuf+4)=len%0x00ff;
+	for(i=0;i<5+len;i++)
+	{
+	  TotalCheck+=*(SendBuf+i);
+	}
+	sprintf(SendBuf,"%s%c",SendBuf,TotalCheck);
+}
+
+void ESP8266_SendCmd(char *ostream,u16 len)
+{
+	u8 TotalCheck = 0;
+	u16 i;
+	memset(SendBuf,0,sizeof(SendBuf));
+	sprintf(SendBuf,"ZY%c%c%c%s",0,0,0,ostream);
+	*(SendBuf+2)=0x00;
+	if(len>>8==0)	*(SendBuf+3)=0xff;
+	else *(SendBuf+3)=len>>8;
+	*(SendBuf+4)=len%0x00ff;
+	for(i=0;i<5+len;i++)
+	{
+	  TotalCheck+=*(SendBuf+i);
+	}
+	sprintf(SendBuf,"%s%c",SendBuf,TotalCheck);
+}
+
 /*
 * %d 发送的是 u32 ，转换成对应的字符发送！！！
 */
