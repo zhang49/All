@@ -65,7 +65,7 @@ static void config_wifi(){
     config.ssid_hidden=0;
     wifi_softap_set_config(&config);
 
-	char sta_ssid[]="H3C";
+	char sta_ssid[]="360WiFi-1AC8AE";
 	char sta_psw[]="12345678";
 
 	struct station_config sta_config;
@@ -98,7 +98,7 @@ void user_init(void)
 
 
     uart_init(BIT_RATE_115200,BIT_RATE_115200);
-    door_init();
+
     NODE_DBG("User Init");
 
     uint32_t size = flash_get_size_byte();
@@ -107,13 +107,13 @@ void user_init(void)
     config_wifi();
     
 	//relay_init();
-    
+    door_init();
     init_dns();
     init_http_server();
 
 
     //uncomment to send data to mqtt broker
-    //mqtt_app_init();
+    mqtt_app_init();
 
     //uncomment if you have sensors intalled
     //sensors_init();

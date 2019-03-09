@@ -174,7 +174,7 @@ flash:
 ifndef PDIR
 	$(MAKE) -C ./app flash
 else
-	$(ESPTOOL) --port $(ESPPORT) --baud 1152000 write_flash 0x00000 $(FIRMWAREDIR)0x00000.bin 0x10000 $(FIRMWAREDIR)0x10000.bin
+	$(ESPTOOL) --port $(ESPPORT) --baud 460800 write_flash 0x00000 $(FIRMWAREDIR)0x00000.bin 0x10000 $(FIRMWAREDIR)0x10000.bin
 endif
 
 openserial:

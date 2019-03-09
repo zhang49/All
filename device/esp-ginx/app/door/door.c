@@ -23,6 +23,8 @@
 #include "door/door_uart.h"
 #include "http/app.h"
 
+uint8 remarkId_set = 0;
+
 extern door_conf_buf configbuf;
 
 os_timer_t doorRequestTimer;

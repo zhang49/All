@@ -124,11 +124,6 @@ mqtt_tcpclient_recv(void *arg, char *pdata, unsigned short len)
 
 READPACKET:
 	MQTT_DBG("TCP: data received %d bytes", len);
-	int i=0;
-	while(i<len){
-		MQTT_DBG("_0x%x",*(pdata+i));
-		i++;
-	}
 
 	if(len < MQTT_BUF_SIZE && len > 0){
 		os_memcpy(client->mqtt_state.in_buffer, pdata, len);

@@ -33,6 +33,7 @@
 
 #include "json/cJson.h"
 
+extern uint8 remarkId_set;
 typedef struct{
 	char *type;
 	http_callback func;
@@ -47,13 +48,11 @@ typedef struct {
 	uint8_t tickcount;
 } api_cgi_status;
 
-static uint8_t remark_id=0;
-
 //NEEDTIMER is a timer to check data is received
 static door_def door_operator[]={
 		{"GetWiFiConfig",	http_wifi_config_api_read,		NULL},
-		{"GetSafeConfig",	http_safe_config_api_read,		NULL},
 		{"GetDoorConfig",	http_door_config_api_read,		NULL},
+		{"GetSafeConfig",	http_safe_config_api_read,		NULL},
 		{"SetWiFiConfig",	http_wifi_config_api_write,		NULL},
 		{"SetSafeConfig",	http_door_expect_ret,			NEEDTIMER},
 		{"SetDoorConfig",	http_door_expect_ret,			NEEDTIMER},
@@ -152,6 +151,7 @@ int ICACHE_FLASH_ATTR http_wifi_config_api_write(http_connection *c)
 	wifi_station_set_config(&sta_config);
 	uint8 work_mode=c_atoi(wm->valuestring);
 	work_mode+=1;
+	work_mode=work_mode<0x03?work_mode:0x03;
 	uint8 work_mode_cur=wifi_get_opmode();
 	if(work_mode!=work_mode_cur)
 	{
@@ -217,8 +217,8 @@ int ICACHE_FLASH_ATTR http_door_expect_ret(http_connection *c)
 	//send Header Message, touch send_cb
 	api_cgi_status * status = c->cgi.data;
 	if(status->remark_id==0){
-		remark_id++;
-		status->remark_id=remark_id;
+		remarkId_set++;
+		status->remark_id=remarkId_set;
 		send_message_to_master(status->remark_id,0x02,c->body.data,os_strlen(c->body.data));
 		return HTTPD_CGI_MORE;
 	}else{

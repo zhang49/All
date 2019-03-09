@@ -11,15 +11,23 @@
 #include "mqtt_msg.h"
 
 #include "driver/relay.h"
+#include "mqtt/mqtt_door.h"
 
 #include "sensor/sensors.h"
 
 #include "serial_number.h"
 
-#define MQTT_SERVER_IP "192.168.20.38"
+#include "json/cJson.h"
+
+#define MQTT_SERVER_IP "192.168.20.2"
 #define MQTT_RELAY_SET_SUFIX "/SET"
 
+extern uint8 remarkId_set;
+
 static os_timer_t mqtt_timer;
+
+static os_timer_t mqtt_test_timer;
+
 static MQTT_Client mqtt_client;
 
 static os_timer_t sensor_read_timer;
@@ -32,6 +40,41 @@ typedef struct mqtt_relay{
 }mqtt_relay;
 
 mqtt_relay relays[RELAY_COUNT];
+
+typedef struct{
+	char *sub_topic;
+	uint8 sub_qos;
+	char *pub_topic;
+	uint8 pub_qos;
+}mqtt_door;
+
+
+static mqtt_door door_topics[]={
+		{"/mymqtt/token/request",	0, 		"/mymqtt/token/response",	0},
+		{"/mymqtt/test_say",		0,		NULL,						0},
+		{NULL,						0,		NULL,						0}
+};
+
+
+typedef void(*mqtt_topic_callback)(MQTT_Client *client);
+
+typedef struct{
+	const char *type;
+	mqtt_topic_callback func;
+	int flag;
+}door_def;
+
+static door_def door_operator[]={
+		{"GetWiFiConfig",			mqtt_wifi_config_read,				NULL},
+		{"GetSafeConfig",			mqtt_safe_config_read,				NULL},
+		{"GetDoorConfig",			mqtt_door_config_read,				NULL},
+		{"SetWiFiConfig",			mqtt_wifi_config_write,				NULL},
+		{"SetSafeConfig",			mqtt_door_expect_ret,				NULL},
+		{"SetDoorConfig",			mqtt_door_expect_ret,				NULL},
+		{"Command",					mqtt_door_expect_ret,				NULL},
+		{NULL,						mqtt_door_expect_ret,				NULL}
+};
+
 
 static void mqtt_relay_change_cb(int id,int state){
 
@@ -61,7 +104,7 @@ static void ICACHE_FLASH_ATTR mqtt_app_timer_cb(void *arg){
 		
 		if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0){
         	MQTT_DBG("MQTT: Detected wifi network up,trying connect to :%s",MQTT_SERVER_IP);
-        	MQTT_Connect(&mqtt_client);       
+        	MQTT_Connect(&mqtt_client);
 	    }
 	    else{
 	    	MQTT_DBG("MQTT: Detected wifi network down");
@@ -72,7 +115,12 @@ static void ICACHE_FLASH_ATTR mqtt_app_timer_cb(void *arg){
 	    
 }
 
-
+static void mqtt_test_timer_cb(MQTT_Client* client)
+{
+	char data[]="mqtt_test";
+	MQTT_DBG("MQTT: Publish:%s,length:%d",data,os_strlen(data));
+	MQTT_Publish(client,"/mymqtt/set",data,os_strlen(data),1,0);
+}
 
 static void mqttConnectedCb(uint32_t *args)
 {
@@ -91,14 +139,19 @@ static void mqttConnectedCb(uint32_t *args)
 
 		mqtt_relay_change_cb(i,-1); //force 1st publish
 	}*/
-	MQTT_DBG("MQTT: Try send Subscribe :/sys/a16U9ZZ9jb5/NWOYa1LR2HNPV8hVyXeW/thing/service/property/set");
-	char data[]="test";
-	os_strlen(data);
-	MQTT_Publish(client,"/a16U9ZZ9jb5/NWOYa1LR2HNPV8hVyXeW/user/say",
-			data,os_strlen(data),1,0);
+	int i;
+	for(i=0;door_topics[i].sub_topic!=NULL;i++){
+		MQTT_Subscribe(client, door_topics[i].sub_topic, door_topics[i].sub_qos);
+	}
+	char data[]="Client Connected";
+	MQTT_DBG("MQTT: Publish:%s,length:%d",data,os_strlen(data));
+	MQTT_Publish(client,"/mymqtt/test_say",data,os_strlen(data),1,0);
 
-	
-	
+	//arm mqtt timer
+	os_memset(&mqtt_timer,0,sizeof(os_timer_t));
+	os_timer_disarm(&mqtt_timer);
+	os_timer_setfn(&mqtt_timer, (os_timer_func_t *)mqtt_test_timer_cb, client);
+	os_timer_arm(&mqtt_timer, 2000, 1);
 
 }
 
@@ -132,7 +185,46 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 	os_free(topicBuf);
 	os_free(dataBuf);
 
+
+	int i;
+	for(i=0;door_topics[i].sub_topic!=NULL;i++){
+		mqtt_door *md = &door_topics[i];
+		//compare topic
+		if(os_strncmp(topic,md->sub_topic,strlen(md->sub_topic))==0){
+			//parse json
+			cJSON *root = cJSON_Parse(data);
+			if(root==NULL){
+				uart_write_string(0,"http_door_command_api_read cJSON_Parse error\r\n");
+				cJSON_Delete(root);
+				return;
+			}
+			cJSON *type = cJSON_GetObjectItem(root,"type");
+			if(type==NULL){
+				uart_write_string(0,"http_door_command_api_read cJSON_GetObjectItem error\r\n");
+				cJSON_Delete(root);
+				return;
+			}
+			NODE_DBG("request type :%s",type->valuestring);
+			int index=0;
+			for(index=0;door_operator[index].type!=NULL;index++){
+				if(strcmp(type->valuestring,door_operator[index].type)==0){
+					cJSON_Delete(root);
+					remarkId_set++;
+					mqtt_door_comm_data *comm_data=(mqtt_door_comm_data*)os_malloc(sizeof(mqtt_door_comm_data));
+					comm_data->tickcount = 0;
+					comm_data->sub_topic = topic;
+					comm_data->pub_topic = door_topics[i].pub_topic;
+					comm_data->msg=data;
+					client->user_data=comm_data;
+					door_operator[index].func(client);
+					return;
+				}
+			}
+			cJSON_Delete(root);
+		}
+	}
 	// set relay
+	/*
 	int i;
 	for(i=0;i<relay_count();i++){
 
@@ -160,7 +252,7 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 			
 
 	}
-
+*/
 	
 }
 

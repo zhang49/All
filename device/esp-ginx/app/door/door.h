@@ -19,6 +19,9 @@ void ICACHE_FLASH_ATTR door_request_all_config();
 int ICACHE_FLASH_ATTR door_config_refresh_set(uint8 status);
 int ICACHE_FLASH_ATTR safe_config_isrefresh();
 int ICACHE_FLASH_ATTR door_config_isrefresh();
+char* ICACHE_FLASH_ATTR get_safe_config();
+char* ICACHE_FLASH_ATTR get_door_config();
+
 
 int ICACHE_FLASH_ATTR door_config_write_state();
 char* ICACHE_FLASH_ATTR get_door_config_write_ret();
@@ -29,10 +32,5 @@ void ICACHE_FLASH_ATTR set_command_write_state(uint8 state);
 int ICACHE_FLASH_ATTR door_databuf_remarkid_isExist(uint8 remarkId);
 char* ICACHE_FLASH_ATTR door_others_read(uint8 remarkId);
 int ICACHE_FLASH_ATTR door_others_getlength(uint8 remarkId);
-
-
-
-char* ICACHE_FLASH_ATTR get_safe_config();
-char* ICACHE_FLASH_ATTR get_door_config();
 
 #endif /* DOOR_H_ */
