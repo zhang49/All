@@ -51,7 +51,7 @@ typedef struct {
 } cgi_struct;
 
 struct http_connection{
-
+	uint8_t sign;
 	uint8_t type;
 
 	struct espconn *espConnection;

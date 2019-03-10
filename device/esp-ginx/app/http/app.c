@@ -17,10 +17,10 @@
 #include "osapi.h"
 #include "cgi.h"
 #include "cgi_wifi.h"
-#include "cgi_relay.h"
-#include "cgi_door.h"
 #include "user_config.h"
 #include "http_server.h"
+
+#include "door/door.h"
 
 #include "ws_app.h"
 
@@ -35,10 +35,7 @@ static http_server_url api_urls[]={
 	{"/api/wifi/connect",		http_wifi_api_connect_ap,		NULL,		HTTP_POST,			NEED_BODY},
 	{"/api/wifi/disconnect",	http_wifi_api_disconnect,		NULL,		HTTP_POST,			NO_FLAG},
 	{"/api/wifi/checkInternet",	http_wifi_api_check_internet,	NULL,		HTTP_POST,			NO_FLAG},
-	{"/api/relay/state",		http_relay_api_status,			NULL,		HTTP_POST,			NO_FLAG},
-	{"/api/relay/toggle",		http_relay_api_toggle,			NULL,		HTTP_POST,			NEED_BODY},
-	{"/api/dht/read",			http_dht_api_read,				NULL,		HTTP_POST,			NO_FLAG},
-	{"/command",				http_door_operator,				NULL,		HTTP_POST,			NEED_BODY},
+	{"/command",				http_door_operator_api,			NULL,		HTTP_POST,			NEED_BODY},
 	{NULL,						NULL,							NULL,		HTTP_ANY_METHOD,	NO_FLAG}
 		
 };

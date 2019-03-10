@@ -99,6 +99,7 @@ typedef void (*MqttCallback)(uint32_t *args);
 typedef void (*MqttDataCallback)(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t lengh);
 
 typedef struct  {
+	uint8_t sign;
 	struct espconn *pCon;
 	uint8_t security;
 	uint8_t* host;

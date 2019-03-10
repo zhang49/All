@@ -16,7 +16,6 @@
 #include "osapi.h"
 #include "cgi.h"
 #include "cgi_wifi.h"
-#include "cgi_relay.h"
 #include "user_config.h"
 
 #include "http.h"

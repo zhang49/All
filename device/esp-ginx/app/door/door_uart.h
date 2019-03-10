@@ -15,7 +15,12 @@
 #include "http/http.h"
 
 #define HEADLENGTH 6
-#define BUF_MAXSIZE 3
+#define OTHERS_BUF_MAXSIZE 3
+
+#define CONFIG_NOREFRESH 0
+#define CONFIG_REFRESHING 1
+#define CONFIG_REFRESHED 2
+
 enum UartRecvState{
 	URS_FLAGE1,
 	URS_FLAGE2,
@@ -45,21 +50,30 @@ typedef struct {
 	};
 }data_save;
 typedef struct {
-	data_save door_config;
-	data_save safe_config;
-	data_save others[BUF_MAXSIZE];
+	data_save door_config;		//save door_config
+	data_save safe_config;		//save safe_config
+	data_save others[OTHERS_BUF_MAXSIZE]; //except door and safe config
 
 }door_conf_buf;
-typedef struct {
-	int remarkId;
-	cgi_execute_function execute;
 
-}need_send_cgi;
 //////////////////////////////////remarkId, buf
 void ICACHE_FLASH_ATTR door_uart_init();
 void ICACHE_FLASH_ATTR send_message_to_master(uint8 remarkId,uint8 type,uint8 *data,int len);
 void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len);
 void ICACHE_FLASH_ATTR uart_recv_passcheck();
+
+
+int ICACHE_FLASH_ATTR safe_config_refresh_set(uint8 status);
+int ICACHE_FLASH_ATTR safe_config_refresh_get();
+char* ICACHE_FLASH_ATTR safe_config_read();
+
+int ICACHE_FLASH_ATTR door_config_refresh_set(uint8 status);
+int ICACHE_FLASH_ATTR door_config_refresh_get();
+char* ICACHE_FLASH_ATTR door_config_read();
+
+int ICACHE_FLASH_ATTR door_others_remarkid_isExist(uint8 remarkId);
+char* ICACHE_FLASH_ATTR door_others_read(uint8 remarkId);
+int ICACHE_FLASH_ATTR door_others_getlength(uint8 remarkId);
 
 
 

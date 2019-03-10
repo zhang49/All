@@ -22,8 +22,10 @@
 #include "json/cJson.h"
 
 enum UartRecvState ur_state=URS_FLAGE1;
-uart_recv uart_recv_raw={0,0,0,0,0,NULL};
-door_conf_buf configbuf;
+static uart_recv uart_recv_raw={0,0,0,0,0,NULL};
+static door_conf_buf configbuf;
+static uint8 others_buf_cursor = 0;
+
 void ICACHE_FLASH_ATTR door_uart_init()
 {
 	uart_register_data_callback(uart_recv_callback);
@@ -148,15 +150,12 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 {
 	//parse json
 	cJSON *root = cJSON_Parse(uart_recv_raw.data);
-	if(root==NULL)
-	{
+	if(root==NULL){
 		NODE_DBG("uart cJSON_Parse error");
 		goto badrecv;
 	}
-
 	cJSON *type = cJSON_GetObjectItem(root,"type");
-	if(type==NULL)
-	{
+	if(type==NULL){
 		NODE_DBG("uart cJSON_GetObjectItem error");
 		goto badrecv;
 	}
@@ -164,58 +163,46 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 	if(uart_recv_raw.type==0x01){	//master command
 
 	}else if(uart_recv_raw.type==0x02){	//master net data
+		data_save *ds_ptr=NULL;
 		if(os_strcmp(type->valuestring,"Reply_GetSafeConfig")==0){
-			if(configbuf.safe_config.buf==NULL)
-				configbuf.safe_config.buf=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
-			else if(configbuf.safe_config.length!=uart_recv_raw.length-HEADLENGTH-1)
-				configbuf.safe_config.buf=(uint8 *)os_realloc(configbuf.safe_config.buf,uart_recv_raw.length-HEADLENGTH);
-
-			configbuf.safe_config.length=uart_recv_raw.length-HEADLENGTH-1;
-			int i=0;
-			for(i=0;i<configbuf.safe_config.length;i++)
-				*(configbuf.safe_config.buf+i)=*(uart_recv_raw.data+i);
-			*(configbuf.safe_config.buf+i)=0;
-			configbuf.safe_config.refresh_state=2;
-			NODE_DBG("uart recv SafeConfig:%s",configbuf.safe_config.buf);
-
+			ds_ptr=&configbuf.safe_config;
+			ds_ptr->refresh_state=CONFIG_REFRESHED;
+			NODE_DBG("uart recv Reply_GetDoorConfig");
 		}else if(os_strcmp(type->valuestring,"Reply_GetDoorConfig")==0){
-			if(configbuf.door_config.buf==NULL)
-				configbuf.door_config.buf=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
-			else if(configbuf.door_config.length!=uart_recv_raw.length-HEADLENGTH-1)
-				configbuf.door_config.buf=(uint8 *)os_realloc(configbuf.door_config.buf,uart_recv_raw.length-HEADLENGTH);
-
-			configbuf.door_config.length=uart_recv_raw.length-HEADLENGTH-1;
-			int i=0;
-			for(i=0;i<configbuf.door_config.length;i++)
-				*(configbuf.door_config.buf+i)=*(uart_recv_raw.data+i);
-			*(configbuf.door_config.buf+i)=0;
-			configbuf.door_config.refresh_state=2;
-			NODE_DBG("uart recv DoorConfig:%s",configbuf.door_config.buf);
+			ds_ptr=&configbuf.door_config;
+			ds_ptr->refresh_state=CONFIG_REFRESHED;
+			NODE_DBG("uart recv Reply_GetDoorConfig");
 		}else{
-			int index=0,isfull=1;
-			for(index=0;index<BUF_MAXSIZE;index++){
-				if(configbuf.others[index].remarkId==NULL || configbuf.others[index].remarkId==0){
-					isfull=0;
-					break;
-				}
+			//when set some config,must change refresh state
+			if(os_strcmp(type->valuestring,"Reply_SetDoorConfig")==0){
+				door_config_refresh_set(0);
+			}else if(os_strcmp(type->valuestring,"Reply_SetSafeConfig")==0){
+				safe_config_refresh_set(0);
 			}
-			if(isfull)index=0;//cover the oldest solt
+			ds_ptr=&configbuf.others[others_buf_cursor%OTHERS_BUF_MAXSIZE];
+			others_buf_cursor++;
+			if(others_buf_cursor==0xff){
+				others_buf_cursor=0xff%OTHERS_BUF_MAXSIZE;
+			}
+			ds_ptr->remarkId=uart_recv_raw.remarkId;
+		}
+		if(ds_ptr!=NULL){
+			if(ds_ptr->buf==NULL)
+				ds_ptr->buf=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
+			else if(ds_ptr->length!=uart_recv_raw.length-HEADLENGTH-1)
+				ds_ptr->buf=(uint8 *)os_realloc(ds_ptr->buf,uart_recv_raw.length-HEADLENGTH);
 
-			configbuf.others[index].length=uart_recv_raw.length-HEADLENGTH-1;
-			if(configbuf.others[index].buf==NULL)
-				configbuf.others[index].buf=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
-			else if(configbuf.others[index].length!=uart_recv_raw.length-HEADLENGTH-1)
-				configbuf.others[index].buf=(uint8 *)os_realloc(configbuf.others[index].buf,uart_recv_raw.length-HEADLENGTH);
-			configbuf.others[index].length=uart_recv_raw.length-HEADLENGTH-1;
+			ds_ptr->length=uart_recv_raw.length-HEADLENGTH-1;
 			int i=0;
-			for(i=0;i<configbuf.others[index].length;i++)
-				*(configbuf.others[index].buf+i)=*(uart_recv_raw.data+i);
-			*(configbuf.others[index].buf+i)=0;
-			configbuf.others[index].remarkId=uart_recv_raw.remarkId;
+			for(i=0;i<ds_ptr->length;i++)
+				*(ds_ptr->buf+i)=*(uart_recv_raw.data+i);
+			*(ds_ptr->buf+i)=0;
 		}
 	}
 badrecv:
-	cJSON_Delete(root);
+	if(root!=NULL){
+		cJSON_Delete(root);
+	}
 	return;
 
 }
@@ -244,5 +231,50 @@ void ICACHE_FLASH_ATTR send_message_to_master(uint8 remarkId,uint8 type,uint8 *d
 		uart0_write_char(*(os+i));
 	}
 	os_free(os);
+}
+
+
+
+int ICACHE_FLASH_ATTR door_config_refresh_get(){
+	return configbuf.door_config.refresh_state;
+}
+int ICACHE_FLASH_ATTR door_config_refresh_set(uint8 status){
+	return configbuf.door_config.refresh_state=status;
+}
+char* ICACHE_FLASH_ATTR door_config_read(){
+	return configbuf.door_config.buf;
+}
+
+int ICACHE_FLASH_ATTR safe_config_refresh_get(){
+	return configbuf.safe_config.refresh_state;
+}
+int ICACHE_FLASH_ATTR safe_config_refresh_set(uint8 status){
+	return configbuf.safe_config.refresh_state=status;
+}
+char* ICACHE_FLASH_ATTR safe_config_read(){
+	return configbuf.safe_config.buf;
+}
+
+int ICACHE_FLASH_ATTR door_others_remarkid_isExist(uint8 remarkId){
+	int pos=0;
+	for(pos=0;pos<OTHERS_BUF_MAXSIZE;pos++){
+		if((configbuf.others+pos)->remarkId==remarkId)return 1;
+	}
+	return 0;
+}
+
+char* ICACHE_FLASH_ATTR door_others_read(uint8 remarkId){
+	int pos=0;
+	for(pos=0;pos<OTHERS_BUF_MAXSIZE;pos++){
+		if((configbuf.others+pos)->remarkId==remarkId)return (configbuf.others+pos)->buf;
+	}
+	return NULL;
+}
+int ICACHE_FLASH_ATTR door_others_getlength(uint8 remarkId){
+	int pos=0;
+	for(pos=0;pos<OTHERS_BUF_MAXSIZE;pos++){
+		if((configbuf.others+pos)->remarkId==remarkId)return (configbuf.others+pos)->length;
+	}
+	return 0;
 }
 
