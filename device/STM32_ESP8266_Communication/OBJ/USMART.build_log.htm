@@ -22,68 +22,78 @@ Dialog DLL:      TCM.DLL V1.14.6.0
  
 <h2>Project:</h2>
 D:\WorkGit\auto_door\device\STM32_ESP8266_Communication\USER\USMART.uvprojx
-Project File Date:  01/24/2019
+Project File Date:  03/12/2019
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 1 (build 61)', folder: 'D:\keil\ARM\ARMCC\Bin'
 Rebuild target 'Target 1'
-compiling delay.c...
-compiling stm32f10x_it.c...
-compiling led.c...
 compiling dma.c...
+compiling led.c...
+compiling stm32f10x_it.c...
+compiling delay.c...
 compiling main.c...
-..\PUBLIC\ESP8266\esp8266.h(21): warning:  #1295-D: Deprecated declaration ESP8266_SendNetDataAgain - give arg types
-  void ESP8266_SendNetDataAgain();
-..\PUBLIC\ESP8266\esp8266.h(27): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
+..\PUBLIC\ESP8266\esp8266.h(51): warning:  #1295-D: Deprecated declaration ESP8266_send_syn_status - give arg types
+  void ESP8266_send_syn_status();
+..\PUBLIC\ESP8266\esp8266.h(57): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
   u8 ESP8266_Restore();
-main.c(12): warning:  #177-D: variable "i" was declared but never referenced
+main.c(14): warning:  #177-D: variable "i" was declared but never referenced
   	u8 i,j;
-main.c(12): warning:  #177-D: variable "j" was declared but never referenced
+main.c(14): warning:  #177-D: variable "j" was declared but never referenced
   	u8 i,j;
-main.c(13): warning:  #177-D: variable "data" was declared but never referenced
+main.c(15): warning:  #177-D: variable "data" was declared but never referenced
   	char data[1024]="";
 main.c: 5 warnings, 0 errors
+compiling system_stm32f10x.c...
 compiling timer.c...
-..\PUBLIC\ESP8266\esp8266.h(21): warning:  #1295-D: Deprecated declaration ESP8266_SendNetDataAgain - give arg types
-  void ESP8266_SendNetDataAgain();
-..\PUBLIC\ESP8266\esp8266.h(27): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
+..\PUBLIC\ESP8266\esp8266.h(51): warning:  #1295-D: Deprecated declaration ESP8266_send_syn_status - give arg types
+  void ESP8266_send_syn_status();
+..\PUBLIC\ESP8266\esp8266.h(57): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
   u8 ESP8266_Restore();
 ..\HARDWARE\TIMER\timer.c: 2 warnings, 0 errors
-compiling system_stm32f10x.c...
-assembling startup_stm32f10x_hd.s...
-compiling core_cm3.c...
 compiling sys.c...
+assembling startup_stm32f10x_hd.s...
 compiling usart.c...
+compiling core_cm3.c...
 compiling stm32f10x_gpio.c...
-compiling stm32f10x_usart.c...
 compiling stm32f10x_rcc.c...
+compiling stm32f10x_usart.c...
 compiling misc.c...
-compiling jansson_config.c...
 compiling stm32f10x_dma.c...
+compiling cJSON_Utils.c...
 compiling stm32f10x_tim.c...
+compiling cJSON.c...
 compiling esp8266.c...
-..\PUBLIC\ESP8266\esp8266.h(21): warning:  #1295-D: Deprecated declaration ESP8266_SendNetDataAgain - give arg types
-  void ESP8266_SendNetDataAgain();
-..\PUBLIC\ESP8266\esp8266.h(27): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
+..\PUBLIC\ESP8266\esp8266.h(51): warning:  #1295-D: Deprecated declaration ESP8266_send_syn_status - give arg types
+  void ESP8266_send_syn_status();
+..\PUBLIC\ESP8266\esp8266.h(57): warning:  #1295-D: Deprecated declaration ESP8266_Restore - give arg types
   u8 ESP8266_Restore();
-..\PUBLIC\ESP8266\esp8266.c(78): warning:  #177-D: variable "injson" was declared but never referenced
-  	json_t *injson,*outjson;
-..\PUBLIC\ESP8266\esp8266.c(81): warning:  #177-D: variable "rjsonbuf" was declared but never referenced
-  	char rjsonbuf[255];
-..\PUBLIC\ESP8266\esp8266.c(133): warning:  #940-D: missing return statement at end of non-void function "json_add"
+..\PUBLIC\ESP8266\door_fortest.h(62): warning:  #1295-D: Deprecated declaration Door_Init - give arg types
+  void Door_Init();
+..\PUBLIC\ESP8266\door_fortest.h(66): warning:  #1295-D: Deprecated declaration to_json - give arg types
+  cJSON *to_json();
+..\PUBLIC\ESP8266\door_fortest.h(68): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\PUBLIC\ESP8266\esp8266.c(193): error:  #268: declaration may not appear after executable statement in block
+  	u8 sbuf[6];
+..\PUBLIC\ESP8266\esp8266.c(200): warning:  #167-D: argument of type "u8 *" is incompatible with parameter of type "char *"
+  	ESP8266_Send(sbuf,6,SYN_STATE,0);
+..\PUBLIC\ESP8266\esp8266.c(263): warning:  #177-D: variable "i" was declared but never referenced
+  	u8 i;
+..\PUBLIC\ESP8266\esp8266.c: 7 warnings, 1 error
+compiling jansson_config.c...
+compiling door_fortest.c...
+..\PUBLIC\ESP8266\door_fortest.h(62): warning:  #1295-D: Deprecated declaration Door_Init - give arg types
+  void Door_Init();
+..\PUBLIC\ESP8266\door_fortest.h(66): warning:  #1295-D: Deprecated declaration to_json - give arg types
+  cJSON *to_json();
+..\PUBLIC\ESP8266\door_fortest.h(68): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\PUBLIC\ESP8266\door_fortest.c(160): warning:  #1-D: last line of file ends without a newline
   }
-..\PUBLIC\ESP8266\esp8266.c(156): warning:  #1293-D: assignment in condition
-  				
-son_object_foreach(injson, k, v)
-..\PUBLIC\ESP8266\esp8266.c(560): warning:  #177-D: variable "temp" was declared but never referenced
-  	char temp;
-..\PUBLIC\ESP8266\esp8266.c(624): warning:  #177-D: variable "head" was declared but never referenced
-  	char *head=data;
-..\PUBLIC\ESP8266\esp8266.c: 8 warnings, 0 errors
-linking...
-Program Size: Code=29404 RO-data=504 RW-data=128 ZI-data=25016  
-FromELF: creating hex file...
-"..\OBJ\USMART.axf" - 0 Error(s), 15 Warning(s).
+..\PUBLIC\ESP8266\door_fortest.c(118): warning:  #177-D: variable "ret" was declared but never referenced
+  	u8 ret = 1;
+..\PUBLIC\ESP8266\door_fortest.c: 5 warnings, 0 errors
+"..\OBJ\USMART.axf" - 1 Error(s), 19 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -101,10 +111,11 @@ Package Vendor: Keil
 <h2>Collection of Component Files used:</h2>
 
    * Component: Keil::Data Exchange:JSON:Jansson:2.7.0
-      Include file:  src\jansson.h
-      Library file:  lib\jansson_CM3LE.lib
       Source file:   src\jansson_config.c
-Build Time Elapsed:  00:00:05
+      Library file:  lib\jansson_CM3LE.lib
+      Include file:  src\jansson.h
+Target not created.
+Build Time Elapsed:  00:00:04
 </pre>
 </body>
 </html>

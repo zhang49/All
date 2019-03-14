@@ -45,11 +45,9 @@ u8 DMA_SendData()
 	{
 		u8 i=0;
 		u16 len = 0;
-	  len=*(SendBuf+3);
-		if(len==0xff)len=0;
-		else len<<=8;
-		len|=*(SendBuf+4);
-		printf("length:%d\r\n",len);
+	  len=*(SendBuf+2);
+		len<<=8;
+		len|=*(SendBuf+3);
 		for(;i<(u8)DMA_SINGLE_LEN_MAX && SendCursor<len;i++)*(ESP8266sData+i)=*(SendBuf+(SendCursor++));
 		MYDMA_Enable(DMA1_Channel4,i);//开始一次DMA传输
 		
@@ -64,9 +62,13 @@ u8 DMA_SendData()
 	}
 	return 0;
 }
-
+u16 send_status_tick;
 void TIM3_IRQHandler(void)   //TIM3中断
 {
+	send_status_tick++;
+	if(send_status_tick>=1){
+		ESP8266_send_syn_status();
+	}
 	if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET) //检查指定的TIM中断发生与否:TIM 中断源 
 	{
 		//USART_DMA_checkAndSend();

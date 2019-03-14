@@ -30,7 +30,7 @@ struct USART2_RD_QUEUE{
 enum ComSlaveRecvState{
     CSRS_FLAG_1,
     CSRS_FLAG_2,
-	  CSRS_FLAG_ID,
+	  CSRS_REMARK_ID,
 		CSRS_LEN_1,
     CSRS_LEN_2,
     CSRS_TYPE,

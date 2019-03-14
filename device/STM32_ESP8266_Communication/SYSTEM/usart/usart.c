@@ -173,7 +173,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 					break;
 			case CSRS_FLAG_2:
 					if (recvByte == 'Y'){
-							m_state = CSRS_FLAG_ID;
+							m_state = CSRS_LEN_1;
 							m_total_check_calc += recvByte;
 					}else{
 							m_state = CSRS_FLAG_1;
@@ -183,19 +183,12 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 					}
 					break;
 					
-			case CSRS_FLAG_ID:
-				m_state = CSRS_LEN_1;
-				//2位存放长度
-				dataLen+=2;
-				dataLen++;
-			  rdQueue.data[(rdQueue.rear+dataLen)%USART_SLOT_SIZE]=recvByte;
-			  m_total_check_calc += recvByte;
-				break;
 			case CSRS_LEN_1:
+					//2位存放长度
+					dataLen+=2;
 					m_state = CSRS_LEN_2;
 					m_len = recvByte;
-					if(m_len==0xff)m_len=0;
-					else m_len<<=8;
+					m_len<<=8;
 					m_total_check_calc += recvByte;
 					break;
 			case CSRS_LEN_2:
@@ -206,7 +199,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 			case CSRS_TYPE:
 					m_type = recvByte;
 					if (1){
-						m_state = CSRS_DATA;
+						m_state = CSRS_REMARK_ID;
 						dataLen++;
 						rdQueue.data[(rdQueue.rear+dataLen)%USART_SLOT_SIZE]=recvByte;
 						m_total_check_calc += recvByte;
@@ -217,6 +210,13 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 							goto restart;
 					}
 					break;
+			case CSRS_REMARK_ID:
+				m_state = CSRS_DATA;
+				dataLen++;
+			  rdQueue.data[(rdQueue.rear+dataLen)%USART_SLOT_SIZE]=recvByte;
+			  m_total_check_calc += recvByte;
+				break;
+			
 			case CSRS_DATA:
 					//存入rdQueue
 					if(dataLen<m_len-3)

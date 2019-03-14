@@ -373,7 +373,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD,USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\PUBLIC\ESP8266;..\PUBLIC\Net;..\HARDWARE\TIMER;..\HARDWARE\DMA</IncludePath>
+              <IncludePath>..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\PUBLIC\Net;..\HARDWARE\TIMER;..\HARDWARE\DMA;..\PUBLIC\cjson;..\PUBLIC\ESP8266</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -540,6 +540,21 @@
               <FileName>esp8266.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\PUBLIC\ESP8266\esp8266.c</FilePath>
+            </File>
+            <File>
+              <FileName>cJSON.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\PUBLIC\cjson\cJSON.c</FilePath>
+            </File>
+            <File>
+              <FileName>cJSON_Utils.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\PUBLIC\cjson\cJSON_Utils.c</FilePath>
+            </File>
+            <File>
+              <FileName>door_fortest.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\PUBLIC\ESP8266\door_fortest.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -7,6 +7,8 @@
 #include "stdlib.h"
 #include "string.h"
 
+#define GET_LAST_STR(x) #x
+
 int main(void)
 { 
 	u8 i,j;
@@ -15,9 +17,10 @@ int main(void)
 	delay_init();	    	 		//延时函数初始化	 
 	LED_Init();							//初始化与LED连接的硬件接口
 	USART3_Init(115200);		//串口3初始化为115200
-	ESP8266_Init(115200,200);
+	ESP8266_Init(115200,500);
 	printf("start...\r\n");
 	ESP8266_test();
+	
 	while(1)
 	{
 		ESP8266_RecvProcess();
