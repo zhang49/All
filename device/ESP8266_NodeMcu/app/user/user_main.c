@@ -34,8 +34,8 @@
 	
 #define AP_SSID "ESP8266_"DEVICE_NAME
 #define AP_PWD ""
-#define STA_SSID "360WiFi-1AC8AE"
-#define STA_PWD "12345678"
+#define STA_SSID "Ares"
+#define STA_PWD "460204415"
 
 #ifdef DEVELOP_VERSION
 os_timer_t heapTimer;
@@ -100,9 +100,9 @@ void user_init(void)
     NODE_DBG("Flash size %d",size);
    
     config_wifi();
-    //door_init();
-    //init_dns();
-    //init_http_server();
+    comm_init();
+    init_dns();
+    init_http_server();
     mqtt_app_init();
 
     #ifdef DEVELOP_VERSION

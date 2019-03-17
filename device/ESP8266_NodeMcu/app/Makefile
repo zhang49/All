@@ -34,7 +34,7 @@ SUBDIRS=    \
     mqtt \
     smart \
     util \
-    #sensor \
+    sensor \
     spiffs
 
 endif # } PDIR
@@ -104,6 +104,7 @@ LINKFLAGS_eagle.app.v6 = \
 	-ljson	\
 	-lsmartconfig	\
 	-lssl	\
+	-lpwm	\
 	$(DEP_LIBS_eagle.app.v6)	\
 	-Wl,--end-group
 

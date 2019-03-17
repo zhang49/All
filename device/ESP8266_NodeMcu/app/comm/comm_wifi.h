@@ -18,6 +18,8 @@ int ICACHE_FLASH_ATTR comm_wifi_api_connect_ap(http_connection *c);
 int ICACHE_FLASH_ATTR comm_wifi_api_disconnect(http_connection *c);
 int ICACHE_FLASH_ATTR comm_wifi_api_check_internet(http_connection *c);
 
+int ICACHE_FLASH_ATTR comm_wifi_safe_read(void *client);
 int ICACHE_FLASH_ATTR comm_wifi_config_read(void *client);
 int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client);
+int ICACHE_FLASH_ATTR comm_wifi_connect_ap(char *ssid,char *password);
 #endif

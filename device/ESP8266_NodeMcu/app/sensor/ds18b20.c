@@ -12,7 +12,7 @@
 
 #include "ds18b20.h"
 
-#define DS18B20_DEBUG_ON
+#define DS18B20_DEBUG_OFF
 
 #ifdef DS18B20_DEBUG_ON
 #define DS18B20_DBG NODE_DBG
@@ -115,14 +115,15 @@ int ICACHE_FLASH_ATTR ds18b20_read(ds18b20_data *read) {
 	celsius = (float) raw / 16.0;
 	//fahrenheit = celsius * 1.8 + 32.0;
 	read->temp = celsius;
-
+/*
 	DS18B20_DBG("Temperature = ");
-
 	char *temp_string = (char*) os_zalloc(64);
-
 	c_sprintf(temp_string, "%f", read->temp);
 	DS18B20_DBG("  %s Celsius", temp_string);
 	os_free(temp_string);
+
+	*/
+
 
 	//DS18B20_DBG(" %2.2f Fahrenheit", fahrenheit);
 

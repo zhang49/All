@@ -27,8 +27,13 @@
 
 #include "json/cJson.h"
 
+#include "sensor/ds18b20.h"
+
 #include "comm/comm_uart.h"
 #include "comm/comm_wifi.h"
+#include "comm/comm_pwm.h"
+#include "comm/comm_light.h"
+#include "comm/comm_sensor.h"
 #include "http/app.h"
 
 typedef int (*comm_operator_func)(void *);
@@ -38,31 +43,94 @@ typedef struct{
 	enum MasterMsgType msg_type;
 	comm_operator_func func;
 	int flag;
-}door_def;
+}comm_def;
 
-
-static door_def comm_operator[]={
+static ErrorMsg error_msg[ErrorCodeSize]={
+		{EC_Normal,			""},
+		{EC_None,			"None Element"},
+		{EC_Unknown,		"Unknown Error"}
+};
+static comm_def comm_operator[]={
+		{"GetConnectSynData",	NULL,				comm_connect_syn,			NULL},
 		{"GetWiFiConfig",		NULL,				comm_wifi_config_read,		NULL},
 		{"SetWiFiConfig",		NULL,				comm_wifi_config_write,		NULL},
+		{"GetSafeConfig",		NULL,				comm_wifi_safe_read,		NULL},
+		{"GetLigthDuty",		NULL,				comm_led_pwm_duty_read,		NULL},
+		{"SetLigthDuty",		NULL,				comm_led_pwm_duty_write,	NULL},
+		{"GetRayValue",			NULL,				comm_ray_value_read,		NULL},
+		{"SetAlarmRayValue",	NULL,				comm_alarm_ray_value_write,	NULL},
 		{"GetWiFiScan",			NORMAL_WIFI_SCAN,	comm_expect_ret,			NEEDTIMER},
 		{"Control",				SYN_CONTROL,		comm_expect_ret,			NEEDTIMER},
-		{"GetStatus",			SYN_STATE,			door_syn_status_read,		NULL},
+		{"GetStatus",			SYN_STATE,			comm_syn_status_read,		NULL},
 		{NULL,					NULL,				NULL,						NULL},
 
 };
 //extern door_comm_buf comm_buf;
-
+uint16 ray_alarm_value=9999;
 os_timer_t doorRequestTimer;
+os_timer_t statusTimer;
 
 typedef int(*door_http_send)(http_connection *);
 typedef int(*door_mqtt_publish)(MQTT_Client *);
 
-void ICACHE_FLASH_ATTR door_init(){
-	door_uart_init();
+uint8 temperature_read_tick=0;
+static void statusTimerCb(void *arg){
+	temperature_read_tick++;
+	if(temperature_read_tick==3){
+		temperature_read_tick=0;
+		ds18b20_data ds18b20_read_data;
+		if(ds18b20_read(&ds18b20_read_data)==1){
+			syn_state.temperature_pre=(int)ds18b20_read_data.temp;
+			syn_state.temperature_back=(uint)((ds18b20_read_data.temp-syn_state.temperature_pre)*10);
+		}
+		comm_sensor_ray_value_read();
+	}
+	if(comm_ray_value_api_get()<ray_alarm_value){
+		light_alarm_close();
+	}else{
+		light_alarm_open();
+	}
+	syn_state.run_time++;
+}
+
+void ICACHE_FLASH_ATTR comm_init(){
+	comm_uart_init();
 	os_memset(&doorRequestTimer,0,sizeof(os_timer_t));
 	os_timer_disarm(&doorRequestTimer);
 	os_timer_setfn(&doorRequestTimer, (os_timer_func_t *)door_request_all_config, NULL);
 	os_timer_arm(&doorRequestTimer, 500, 1);
+
+    ds18b20_init(1);
+    comm_pwm_init();
+    os_memset(&statusTimer,0,sizeof(os_timer_t));
+    os_timer_disarm(&statusTimer);
+    os_timer_setfn(&statusTimer, (os_timer_func_t *)statusTimerCb, NULL);
+    os_timer_arm(&statusTimer, 1000, 1);
+}
+
+cJSON *ICACHE_FLASH_ATTR create_ret_json(char *ret_type){
+	cJSON *retroot=cJSON_CreateObject();
+	cJSON_AddStringToObject(retroot,"type",ret_type);
+	return retroot;
+}
+uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode error_code){
+	cJSON_AddNumberToObject(retroot, "error_code",error_code );
+	int i;
+	if(error_code==0)
+		cJSON_AddStringToObject(retroot, "error_str","" );
+	else{
+		for(i=0;i<ErrorCodeSize;i++){
+			if(error_msg[i].error_code==error_code){
+				cJSON_AddStringToObject(retroot, "error_str",error_msg[i].error_str);
+			}
+
+		}
+	}
+	char *ostream=cJSON_Print(retroot);
+	u8 ret=send_to_client(client,ostream);
+	os_free(ostream);
+	cJSON_Delete(retroot);
+	return ret;
 }
 
 int ICACHE_FLASH_ATTR http_operator_api(http_connection *c){
@@ -139,7 +207,7 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 						do{
 							cJSON *c_root=cJSON_Parse(data);
 							cJSON *c_data=cJSON_GetObjectItem(c_root,"data");
-							uint8 c_type=cJSON_GetObjectItem(c_data,"CommandType")->valueint;
+							uint8 c_type=cJSON_GetObjectItem(c_data,"control_type")->valueint;
 							uint8 typevaule=0;
 							switch(c_type){
 							case INPUT_FLAG_OPEN:
@@ -168,10 +236,10 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 			return comm_operator[index].func(client);
 		}
 	}
+	cJSON_Delete(root);
 	if(type_is_exist==0){
 		return send_to_client(client,"error");
 	}
-	cJSON_Delete(root);
 
 badJson:
 	if(root!=NULL){
@@ -197,48 +265,161 @@ int ICACHE_FLASH_ATTR send_to_client(void *client,char *message){
 			os_free(((MQTT_Client *)client)->user_data);
 	}else if(*(int *)client==CLIENT_IS_HTTP){
 		http_write(client,message);
-		http_connection *http_client=(http_connection *)client;
-		if(http_client->cgi.data!=NULL)
-			os_free(http_client->cgi.data);
+		if(((http_connection *)client)->cgi.data!=NULL)
+			os_free(((http_connection *)client)->cgi.data);
 		return HTTPD_CGI_DONE;
 	}
 	return 1;
 }
 
-int ICACHE_FLASH_ATTR door_door_config_read(void *client){
-	NODE_DBG("http_door_config_api_read");
-	if(door_config_refresh_get()==COMM_REFRESHED)
-	{
-		return send_to_client(client,door_config_read());
-	}
-	return send_to_client(client,"error");
+int ICACHE_FLASH_ATTR comm_connect_syn(void *client){
+	cJSON *retroot=create_ret_json("Reply_ConnectSynData");
+	cJSON *data,*d_alarm,*device_status,*item;
+	cJSON_AddItemToObject(retroot, "data",data=cJSON_CreateObject());
+
+
+
+	cJSON_AddItemToObject(data, "device-status",device_status=cJSON_CreateObject());
+	cJSON_AddNumberToObject(device_status, "test-1",0);
+	cJSON_AddNumberToObject(device_status, "test-1",1);
+
+	cJSON_AddItemToObject(data, "alarm",d_alarm=cJSON_CreateObject());
+	cJSON_AddNumberToObject(d_alarm,"ray-value",ray_alarm_value);
+
+	cJSON_AddNumberToObject(data, "duty",comm_led_pwm_duty_api_get());
+
+	return send_ret_json(client,retroot,EC_Normal);
 }
 
-int ICACHE_FLASH_ATTR door_syn_status_read(void *client){
+int ICACHE_FLASH_ATTR comm_syn_status_read(void *client){
 	int ret=HTTPD_CGI_DONE;
 	cJSON *retroot,*data;
-	retroot=cJSON_CreateObject();
-	cJSON_AddStringToObject(retroot,"type","Reply_GetStatus");
+	retroot=create_ret_json("Reply_GetStatus");
 	cJSON_AddItemToObject(retroot,"data",data=cJSON_CreateObject());
 	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.sm_state),syn_state.sm_state);
 	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.comm_state),syn_state.comm_state);
-	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.temperature),syn_state.temperature);
+	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.temperature_pre),syn_state.temperature_pre);
+	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.temperature_back),syn_state.temperature_back);
 	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.wetness),syn_state.wetness);
 	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.power),syn_state.power);
 	cJSON_AddNumberToObject(data,GET_LAST_STR(syn_state.run_time),syn_state.run_time);
-	char *ostream=cJSON_Print(retroot);
-	ret=send_to_client(client,ostream);
-	cJSON_Delete(retroot);
-	os_free(ostream);
-	return ret;
+	send_ret_json(client,retroot,EC_Normal);
 }
+
+
+
+int ICACHE_FLASH_ATTR comm_led_pwm_duty_read(void *client){
+	//parse json
+	cJSON *retroot=create_ret_json("Reply_GetLigthDuty");
+	cJSON *data;
+	cJSON_AddItemToObject(retroot, "data",data=cJSON_CreateObject() );
+	cJSON_AddNumberToObject(data, "duty",comm_led_pwm_duty_api_get() );
+	return send_ret_json(client,retroot,EC_Normal);
+}
+
+
+
+int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client){
+	char *data;
+	uint8 client_sign=*(int *)client;
+	http_connection *http_client;
+	mqtt_comm_data *mqtt_user_data;
+	if(client_sign==CLIENT_IS_MQTT){
+		MQTT_Client *mqtt_client=(MQTT_Client *)client;
+		mqtt_user_data=(mqtt_comm_data *)mqtt_client->user_data;
+		data = (char*)os_zalloc(mqtt_user_data->data_len+1);
+		os_memcpy(data, mqtt_user_data->msg, mqtt_user_data->data_len);
+		data[mqtt_user_data->data_len] = 0;
+	}else if(client_sign==CLIENT_IS_HTTP){
+		http_client=(http_connection *)client;
+		data=http_client->body.data;
+	}
+	enum ErrorCode error_code=EC_Normal;
+	cJSON *retroot=create_ret_json("Reply_SetLigthDuty");
+	cJSON *ret_data;
+	cJSON *root = cJSON_Parse(data);
+	cJSON *root_data = cJSON_GetObjectItem(root,"data");
+	if(root_data==NULL){
+		error_code=EC_None;
+		goto badJson;
+	}
+	cJSON *data_duty=cJSON_GetObjectItem(root_data,"duty");
+	if(data_duty==NULL){
+		error_code=EC_None;
+		goto badJson;
+	}
+	comm_led_pwm_duty_api_set(data_duty->valueint);
+	cJSON_AddItemToObject(retroot,"data",ret_data=cJSON_CreateObject());
+	cJSON_AddNumberToObject(ret_data,"duty",comm_led_pwm_duty_api_get());
+	//must limits
+badJson:
+	if(root!=NULL){
+		cJSON_Delete(root);
+	}
+	if(client_sign==CLIENT_IS_MQTT){
+		os_free(data);
+	}
+	return send_ret_json(client,retroot,error_code);
+}
+
+
+int ICACHE_FLASH_ATTR comm_ray_value_read(void *client){
+	//parse json
+	cJSON *retroot=create_ret_json("Reply_GetRayValue");
+	cJSON *data;
+	cJSON_AddItemToObject(retroot, "data",data=cJSON_CreateObject() );
+	cJSON_AddNumberToObject(data, "ray-value",comm_ray_value_api_get() );
+	return send_ret_json(client,retroot,EC_Normal);
+
+}
+int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client){
+	char *data;
+		uint8 client_sign=*(int *)client;
+		http_connection *http_client;
+		mqtt_comm_data *mqtt_user_data;
+		if(client_sign==CLIENT_IS_MQTT){
+			MQTT_Client *mqtt_client=(MQTT_Client *)client;
+			mqtt_user_data=(mqtt_comm_data *)mqtt_client->user_data;
+			data = (char*)os_zalloc(mqtt_user_data->data_len+1);
+			os_memcpy(data, mqtt_user_data->msg, mqtt_user_data->data_len);
+			data[mqtt_user_data->data_len] = 0;
+		}else if(client_sign==CLIENT_IS_HTTP){
+			http_client=(http_connection *)client;
+			data=http_client->body.data;
+		}
+		enum ErrorCode error_code=EC_Normal;
+		cJSON *retroot=create_ret_json("Reply_SetAlarmRayValue");
+		cJSON *root = cJSON_Parse(data);
+		cJSON *root_data = cJSON_GetObjectItem(root,"data");
+		if(root_data==NULL){
+			error_code=EC_None;
+			goto badJson;
+		}
+		cJSON *data_rav=cJSON_GetObjectItem(root_data,"alarm-ray-value");
+		if(data_rav==NULL){
+			error_code=EC_None;
+			goto badJson;
+		}
+		ray_alarm_value=data_rav->valueint;
+	badJson:
+		if(root!=NULL){
+			cJSON_Delete(root);
+		}
+		if(client_sign==CLIENT_IS_MQTT){
+			os_free(data);
+		}
+		return send_ret_json(client,retroot,error_code);
+
+}
+
+
 
 
 int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 	client_handle_timer *Timer;
-	if(*(int *)client==CLIENT_IS_HTTP){
-		http_connection *http_client=(http_connection *)client;
-		Timer=(client_handle_timer *)http_client->cgi.data;
+	uint8 c_sign=*(int *)client;
+	if(c_sign==CLIENT_IS_HTTP){
+		Timer=(client_handle_timer *)((http_connection *)client)->cgi.data;
 		if(Timer->tickcount==0){
 			os_memset(&Timer->timer,0,sizeof(os_timer_t));
 			os_timer_disarm(&Timer->timer);
@@ -248,22 +429,20 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 			http_SET_HEADER(client,HTTP_CONTENT_TYPE,JSON_CONTENT_TYPE);
 			http_response_OK(client);
 		}
-	}else if(*(int *)client==CLIENT_IS_MQTT){
-		MQTT_Client *mqtt_client=(MQTT_Client *)client;
-		mqtt_comm_data *mqtt_user_data=(mqtt_comm_data *)(mqtt_client->user_data);
-		Timer=&mqtt_user_data->timer;
+	}else if(c_sign==CLIENT_IS_MQTT){
+		Timer=&((mqtt_comm_data *)(((MQTT_Client *)client)->user_data))->timer;
 		if(Timer->tickcount==0){
 			os_memset(&Timer->timer,0,sizeof(os_timer_t));
 			os_timer_disarm(&Timer->timer);
 			os_timer_setfn(&Timer->timer, comm_expect_ret, client);
 			os_timer_arm(&Timer->timer, TIMER_SINGLETIME, 1);
 		}
-
 	}
 	Timer->tickcount++;
 	//recv refresh data or timeout
 	switch(Timer->msgtype){
 	case NORMAL_CONFIG:
+		/*
 		if(door_config_refresh_get()==COMM_REFRESHED || Timer->tickcount>TIMER_TIMEROUT){
 			os_timer_disarm(&Timer->timer);
 			//modify config, must request config
@@ -271,6 +450,7 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 			return send_to_client(client,door_config_read());
 		}
 		break;
+		*/
 	case SYN_CONTROL:
 		if(syn_control_refresh_get()==COMM_REFRESHED || Timer->tickcount>TIMER_TIMEROUT){
 			os_timer_disarm(&Timer->timer);
@@ -286,35 +466,31 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 				u8 ret=send_to_client(client,ret_jsonstr);
 				os_free(ret_jsonstr);
 				return ret;
-			}else if(Timer->tickcount>TIMER_TIMEROUT*10){
+			}else if(Timer->tickcount>TIMER_TIMEROUT*5){
 				os_timer_disarm(&Timer->timer);
 				send_to_client(client,"error");
 			}
 		}
 		break;
 	}
-	if(*(int *)client==CLIENT_IS_HTTP){
+	if(c_sign==CLIENT_IS_HTTP){
 		return HTTPD_CGI_MORE;
 	}
 	return 1;
 }
-
-void request_master_normal_config(){
-	door_config_refresh_set(COMM_REFRESHING);
-	send_message_to_master(NORMAL_CONFIG,0x00,1);
-}
-
 
 void ICACHE_FLASH_ATTR request_master_door_config(){
 
 	send_message_to_master(NORMAL_CONFIG,"",0);
 }
 void ICACHE_FLASH_ATTR door_request_all_config(){
-
+	/*
 	if(door_config_refresh_get()==COMM_NOREFRESH)
 		door_config_refresh_set(COMM_REFRESHING);
 	else  if(door_config_refresh_get()==COMM_REFRESHING)
 		request_master_door_config();
+		*/
+
 }
 
 
@@ -330,6 +506,15 @@ char *ICACHE_FLASH_ATTR get_struct_last_str(char *str){
 
 }
 
+
+int ICACHE_FLASH_ATTR door_door_config_read(void *client){
+	NODE_DBG("http_door_config_api_read");
+	if(door_config_refresh_get()==COMM_REFRESHED)
+	{
+		return send_to_client(client,door_config_read());
+	}
+	return send_to_client(client,"error");
+}
 
 
 

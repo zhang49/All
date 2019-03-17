@@ -9,7 +9,6 @@
 #include "driver/uart.h"
 // Platform specific includes
 
-static void pwms_init();
 
 
 void output_redirect(const char *str){
@@ -21,8 +20,6 @@ void output_redirect(const char *str){
 
 int platform_init()
 {
-  // Setup PWMs
-  pwms_init();
 
   cmn_platform_init();
   // All done
@@ -56,7 +53,7 @@ int platform_gpio_mode( unsigned pin, unsigned mode, unsigned pull )
     return 1;
   }
 
-  platform_pwm_close(pin);    // closed from pwm module, if it is used in pwm
+
 
   switch(pull){
     case PLATFORM_GPIO_PULLUP:
@@ -191,134 +188,6 @@ void platform_uart_send( unsigned id, u8 data )
 {
   uart_write_char(id, data);
 }
-
-// ****************************************************************************
-// PWMs
-
-static uint16_t pwms_duty[NUM_PWM] = {0};
-
-static void pwms_init()
-{
-  int i;
-  for(i=0;i<NUM_PWM;i++){
-    pwms_duty[i] = DUTY(0);
-  }
-  pwm_init(500, NULL);
-  // NODE_DBG("Function pwms_init() is called.");
-}
-
-// Return the PWM clock
-// NOTE: Can't find a function to query for the period set for the timer,
-// therefore using the struct.
-// This may require adjustment if driver libraries are updated.
-uint32_t platform_pwm_get_clock( unsigned pin )
-{
-  // NODE_DBG("Function platform_pwm_get_clock() is called.");
-  if( pin >= NUM_PWM)
-    return 0;
-  if(!pwm_exist(pin))
-    return 0;
-
-  return (uint32_t)pwm_get_freq(pin);
-}
-
-// Set the PWM clock
-uint32_t platform_pwm_set_clock( unsigned pin, uint32_t clock )
-{
-  // NODE_DBG("Function platform_pwm_set_clock() is called.");
-  if( pin >= NUM_PWM)
-    return 0;
-  if(!pwm_exist(pin))
-    return 0;
-
-  pwm_set_freq((uint16_t)clock, pin);
-  pwm_start();
-  return (uint32_t)pwm_get_freq( pin );
-}
-
-uint32_t platform_pwm_get_duty( unsigned pin )
-{
-  // NODE_DBG("Function platform_pwm_get_duty() is called.");
-  if( pin < NUM_PWM){
-    if(!pwm_exist(pin))
-      return 0;
-    // return NORMAL_DUTY(pwm_get_duty(pin));
-    return pwms_duty[pin];
-  }
-  return 0;
-}
-
-// Set the PWM duty
-uint32_t platform_pwm_set_duty( unsigned pin, uint32_t duty )
-{
-  // NODE_DBG("Function platform_pwm_set_duty() is called.");
-  if ( pin < NUM_PWM)
-  {
-    if(!pwm_exist(pin))
-      return 0;
-    pwm_set_duty(DUTY(duty), pin);
-  } else {
-    return 0;
-  }
-  pwm_start();
-  pwms_duty[pin] = NORMAL_DUTY(pwm_get_duty(pin));
-  return pwms_duty[pin];
-}
-
-uint32_t platform_pwm_setup( unsigned pin, uint32_t frequency, unsigned duty )
-{
-  uint32_t clock;
-  if ( pin < NUM_PWM)
-  {
-    platform_gpio_mode(pin, PLATFORM_GPIO_OUTPUT, PLATFORM_GPIO_FLOAT);  // disable gpio interrupt first
-    if(!pwm_add(pin)) 
-      return 0;
-    // pwm_set_duty(DUTY(duty), pin);
-    pwm_set_duty(0, pin);
-    pwms_duty[pin] = duty;
-    pwm_set_freq((uint16_t)frequency, pin);
-  } else {
-    return 0;
-  }
-  clock = platform_pwm_get_clock( pin );
-  pwm_start();
-  return clock;
-}
-
-void platform_pwm_close( unsigned pin )
-{
-  // NODE_DBG("Function platform_pwm_stop() is called.");
-  if ( pin < NUM_PWM)
-  {
-    pwm_delete(pin);
-    pwm_start();
-  }
-}
-
-void platform_pwm_start( unsigned pin )
-{
-  // NODE_DBG("Function platform_pwm_start() is called.");
-  if ( pin < NUM_PWM)
-  {
-    if(!pwm_exist(pin))
-      return;
-    pwm_set_duty(DUTY(pwms_duty[pin]), pin);
-    pwm_start();
-  }
-}
-
-void platform_pwm_stop( unsigned pin )
-{
-  // NODE_DBG("Function platform_pwm_stop() is called.");
-  if ( pin < NUM_PWM)
-  {
-    if(!pwm_exist(pin))
-      return;
-    pwm_set_duty(0, pin);
-    pwm_start();
-  }
-}
-
 // *****************************************************************************
 // I2C platform interface
 

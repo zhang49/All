@@ -5,9 +5,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <title>控制台</title>
-    <link rel="stylesheet" type="text/css" href="./door.css">
+    <link rel="stylesheet" type="text/css" href="./index.css">
 </head>
 <body>
+
+
 <div class="slidiedoor">
     <!-- -------------内容块------------- -->
 
@@ -28,7 +30,7 @@
                         <div><i class="iconfont">&#xe62b;</i></div>
                         <div class="st_line">
                             <span>状态：</span>
-                            <span class="s-status">开门正常</span>
+                            <span class="s-status">正常</span>
                         </div>
                     </div>
                 </div>
@@ -94,21 +96,25 @@
             </div>
             <div class="side_btn">
                 <ul>
-                    <li class="o-door" data-type="0">1</li>
-                    <li class="o-door" data-type="1">2</li>
-                    <li class="o-door" data-type="2">3</li>
-                    <li class="o-door" data-type="3">4</li>
+                    <li class="op-control-closed left" data-type="0">1</li>
+                    <li class="op-control-closed" data-type="1">2</li>
+                    <li class="op-control-closed" data-type="2">3</li>
+                    <li class="op-control-closed" data-type="3">4</li>
                 </ul>
             </div>
         </div>
-
+		<section>
+			<div id="js-example-change-value" >
+			   <input id="lightDutyValue" type="range" min="0" max="100" value="1" data-rangeslider>
+			</div>
+		</section>
         <div class="peiz">
             <!-- -------------是否可读可写--------------- -->
             <div class="write">
                 <div class="deploy_title">
                     <div class="wr_tit">
                         <i class="iconfont">&#xe619;</i>
-                        <span>配置是否可写</span>
+                        <span>防触摸</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="writer_ch">
@@ -129,7 +135,7 @@
                 <div class="deploy_token deploy_con" style="display:none;">
                     <div class="dt_title">
                         <div>
-                            <span>TOKEN：</span>
+                            <span>唯一标识符：</span>
                         </div>
                         <!--<i class="iconfont dep_t_icon bian">&#xe68e;</i>-->
                     </div>
@@ -232,7 +238,7 @@
                     <i class="iconfont dep_t_icon">&#xe650;</i>
                 </div>
                 <div class="deploy_con"  style="display:none;">
-                 
+    
                     <div class="deploy_i03">
                         <div class="deploy_i02 i032">
                             <div class="i01_l">
@@ -285,7 +291,7 @@
                 <div class="deploy_title">
                     <div class="wr_tit">
                         <i class="iconfont">&#xe619;</i>
-                        <span>工程参数是否可写</span>
+                        <span>测试2</span>
                     </div>
                     <label class="switch" id="in_enginer" data-status="0">
                         <input type="checkbox" class="in_enginer">
@@ -294,62 +300,12 @@
                 </div>
             </div>
             <!-- 参数 -->
-            <div class="deploy">
-                <div class="deploy_title">
-                    <div>
-                        <i class="iconfont">&#xe672;</i>
-                        <span>工程参数配置</span>
-                    </div>
-                    <i class="iconfont dep_t_icon">&#xe650;</i>
-                </div>
-                <div class="deploy_con engpy" style="display:none;">
-                    <div class="deploy_i04">
-                        <div>
-                            <i class="iconfont">&#xe673;</i>
-                            <span>两组hall之间的距离：</span>
-                        </div>
-                        <div class="ipd">
-                            <input type="text" class="hall_distance"  placeholder="请输入两组hall之间的距离" value="300">
-                        </div>
-                    </div>
-                    <div class="deploy_i04">
-                        <div>
-                            <i class="iconfont">&#xe623;</i>
-                            <span>电机模组长度：</span>
-                        </div>
-                        <div class="ipd">
-                            <input type="text" class="motor_len" placeholder="请输入电机模组长度" value="300">
-                        </div>
-                    </div>
-                    <div class="deploy_i04">
-                        <div>
-                            <i class="iconfont">&#xe61c;</i>
-                            <span>最大电流：</span>
-                        </div>
-                        <div class="ipd">
-                            <input type="text" class="max_current" placeholder="请输入最大电流" value="4000">
-                        </div>
-                    </div>
-                    <div class="deploy_i04">
-                        <div>
-                            <i class="iconfont">&#xe63f;</i>
-                            <span>限制电流：</span>
-                        </div>
-                        <div class="ipd">
-                            <input type="text" class="limit_current" placeholder="请输入限制电流" value="3000">
-                        </div>
-                    </div>
-                    <div class="ds p-btn">
-                        <div class="deploy_save">保存配置</div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
 <!-- -----------对话框------------ -->
-<div class="en_diak" style="display: none;">
+<div class="en_diak config_frame" style="display: none;">
     <div class="enda">
         <div class="endi_title">配置密码</div>
         <div class="en_mima">
@@ -361,7 +317,6 @@
         </div>
     </div>
 </div>
-<div class="en_dialog" style="display: none;"></div>
 
 <!-- -----------正在加载------------ -->
 <div class="spinner_con a-load" style="display: none;">
@@ -411,37 +366,30 @@
 	<!-- 参数 -->
 	<div class="">
 		<div class="" style="display:block;">
-			<ul>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item2---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item3---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item4---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item5---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item6---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item7---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item8---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-				<li class="wifi-infro-item"><i class="iconfont">&#xe673;</i><span class="wifi-infro-ssid">--------item1---------</span></li>
-			</ul>
+			<div class="wifi-infro-item-topic"><span class="wifi-infro-ssid">WiFi列表</span></div>
+			<ul class="wifi_scan_ret_list-ul"></ul>
 		</div>
 	</div>
 </div>
 
-
+<!-- -----------wifi密码输入框-------frame----- -->
+<div class="en_diak wifi_pwd_input_fram" style="display: none;">
+    <div class="enda">
+        <div class="endi_title wifi_pwd_input_frame_title">WiFi密码</div>
+        <div class="en_mima">
+            <input type="text" class="wifi_pwd_input_text" placeholder="请输入密码">
+        </div>
+        <div class="endia_btn">
+            <div class="wifi_pwd_put-btn">确定</div>
+            <div class="wifi_pwd_cancel-btn">取消</div>
+        </div>
+    </div>
 </div>
-
-
-
-
-
+<!-- -----------输入框背景层-------frame----- -->
+<div class="en_dialog" style="display: none;"></div>
 </body>
-
 <script type="text/javascript" src="./jquery-3.2.1.min.js"></script>
-<script type="text/javascript" src="https://cdn.bootcss.com/jquery.nicescroll/3.7.6/jquery.nicescroll.js" ></script>
+<script type="text/javascript" src="./jquery.nicescroll.js" ></script>
 <script type="text/javascript" src="./index.js"></script>
 
 </html>

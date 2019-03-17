@@ -38,10 +38,11 @@ enum MasterMsgType{
 typedef struct {
 	uint8 sm_state;
 	uint8 comm_state;
-	uint8 temperature;
+	int temperature_pre;
+	uint8 temperature_back;
 	uint8 wetness;
 	uint8 power;
-	uint8 run_time;
+	uint32 run_time;
 }SynState;
 SynState syn_state;
 
@@ -72,7 +73,7 @@ typedef struct {
 	uint8 door_config_write_state;
 }door_comm_buf;
 
-void ICACHE_FLASH_ATTR door_uart_init();
+void ICACHE_FLASH_ATTR comm_uart_init();
 void ICACHE_FLASH_ATTR send_message_to_master(enum MasterMsgType msg_type,uint8 *data,int len);
 void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len);
 void ICACHE_FLASH_ATTR uart_recv_passcheck();

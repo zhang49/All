@@ -25,8 +25,14 @@ enum UartRecvState ur_state=URS_FLAGE1;
 static uart_recv uart_recv_raw={0,0,0,0,0,NULL};
 static door_comm_buf comm_buf;
 
-void ICACHE_FLASH_ATTR door_uart_init()
+void ICACHE_FLASH_ATTR comm_uart_init()
 {
+	//fro test;
+	comm_buf.syn_control.refresh_state=COMM_REFRESHED;
+	comm_buf.syn_control.buf=(uint8 *)os_malloc(20);
+	os_memset(comm_buf.syn_control.buf,0,20);
+	os_strcpy(comm_buf.syn_control.buf,"{\"error_code\":0}");
+
 	uart_register_data_callback(uart_recv_callback);
 }
 void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len)
@@ -155,7 +161,8 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 	case SYN_STATE:
 		syn_state.sm_state=*(uart_recv_raw.data+0);
 		syn_state.comm_state=*(uart_recv_raw.data+1);
-		syn_state.temperature=*(uart_recv_raw.data+2);
+		//remark
+		//syn_state.temperature=*(uart_recv_raw.data+2);
 		syn_state.wetness=*(uart_recv_raw.data+3);
 		syn_state.power=*(uart_recv_raw.data+4);
 		syn_state.run_time=*(uart_recv_raw.data+5);

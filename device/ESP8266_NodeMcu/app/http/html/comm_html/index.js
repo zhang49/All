@@ -2,19 +2,21 @@ $(function(){
     var flag = true;                                                                                                   //判断是否继续获取配置
     var getSafeConfigCount = 0;
     var getWifiConfigCount = 0;
-    var getDoorConfigCount = 0;                                                                                         //本地json数据
+    var getNormalConfigCount = 0;                                                                                         //本地json数据
     var onLineSpeed = {};                                                                                               //速度配置（线上）
     var isEdit = false;                                                                                                //判断是否可编辑门配置
     var isProjectEdit = false;                                                                                         //判断是否可编辑工程参数
-    var pwd = 'c92a116ace0e1f1900dc4df0d1e910d1';
-
+    var pwd = '123456789';
+	var choice_ssid = "";
+	var lightDutyIsWriting=0;
+	var lightDutyTouchValue=0;
     /**
      * 初始化
      */
     init();
 
     /**
-     * 选择门配置是否可写
+     * 选择配置是否可写
      */
     $("#writer_ch").on('click', function(){
         if ($("#writer_ch").is(":checked")){
@@ -29,7 +31,7 @@ $(function(){
     });
 
     /**
-     * 选择工程配置是否可写
+     * 选择部分配置是否可写，需要密码验证
      */
     $("#in_enginer").on('click', function(){
         var status = $(this).data('status');
@@ -39,12 +41,12 @@ $(function(){
             var scrollHeight = $(document).scrollTop(),
                 dh = $(document).height(),
                 windowHeight = $(window).height(),
-                popupHeight = $(".en_diak").height(),
+                popupHeight = $(".en_diak.config_frame").height(),
                 posiTop = (windowHeight - popupHeight)/2 + scrollHeight;
 
-            $(".en_diak").css("top",posiTop);
+            $(".en_diak.config_frame").css("top",posiTop);
             $(".en_dialog").css("min-height",dh);
-            $(".en_diak,.en_dialog").fadeIn(100);
+            $(".en_diak.config_frame,.en_dialog").fadeIn(100);
             $(".p-password").focus();
         } else {
             $('.enginer .slider1').removeClass("intro");
@@ -73,7 +75,7 @@ $(function(){
         if (res){
             showSuccessMsg('验证成功');
 
-            $(".en_diak,.en_dialog").fadeOut();
+            $(".en_diak.config_frame,.en_dialog").fadeOut();
             $(".p-password").val("");
             $('.enginer .slider1').addClass("intro");
             $('.enginer .slider1 span').addClass("infot");
@@ -93,15 +95,19 @@ $(function(){
      */
     $('.en_cancel').on('click', function(){
         $('.p-password').val('');
-        $(".en_diak,.en_dialog").fadeOut();
+        $(".en_diak.config_frame,.en_dialog").fadeOut();
     });
 
     /**
      * 操作
      */
-    $('.o-door').on('click', function(){
+    $('.op-control-closed').on('click', function(){
         var type = $(this).data('type');
-        control(type);
+        control(type,"open");
+    });
+    $('.op-control-opened').on('click', function(){
+        var type = $(this).data('type');
+        control(type,"close");
     });
 
     /**
@@ -165,26 +171,53 @@ $(function(){
     $('.wifiscan-btn').on('click', function(){
         startScanfWiFi();
     });
+	
+    /**
+     * wifi连接密码输入，确认
+     */
+    $('.wifi_pwd_put-btn').on('click', function(){
+        var password = $('.wifi_pwd_input_text').val();
+        if (password == ''){
+			
+        }else if(password.length<8){
+            showMsg('请输入密码(至少八位)');
+			return false;
+		}
+		setWiFiConfig(1,choice_ssid,password);
+		document.body.removeEventListener('touchmove',bodyScroll,false);   
+		$("body").css({"position":"initial","height":"auto"});
+		$('.wifi_scan_ret_list').hide();
+        $(".en_diak,.en_dialog").fadeOut();
+    });
 
     /**
-     * 保存门配置
+     * wifi密码输入，取消
+     */
+    $('.wifi_pwd_cancel-btn').on('click', function(){
+        $('.wifi_pwd_input_text').val('');
+        $(".wifi_pwd_input_fram").fadeOut();
+        $(".wifi_scan_ret_list").fadeIn(50);
+    });
+	
+	/**
+	 * 点击弹窗外的区域
+	 */
+    $('.en_dialog').on('click', function(){
+		document.body.removeEventListener('touchmove',bodyScroll,false);   
+		$("body").css({"position":"initial","height":"auto"});
+		$('.en_diak,.wifi_scan_ret_list,.en_dialog').fadeOut(50);
+    });
+	 
+		
+    /**
+     * 保存配置
      */
     $('.d-btn').on('click', function(){
         setDoorConfig();
     });
-	
-    /**
-     * wifi列表名称获取
-     */
-	
-	$(".wifi-infro-item").click(function(){
-		//方法一 find查找所有的子元素，会一直查找，跨层级查找 
-		var choose_name_1= $(this).find(".wifi-infro-ssid").html();
-		console.log("choose_name_1-------"+choose_name_1);
-	});
 
     /**
-     * 保存门配置
+     * 保存配置
      */
     $('.p-btn').on('click', function(){
         setDoorConfig();
@@ -203,14 +236,15 @@ $(function(){
      * 初始化
      */
     function init(){
+		//初始化滑动列表
 		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc"});
 		
-        //getSafeConfig();
+        getSafeConfig();
         getWiFiConfig();
-        //getDoorConfig();
+        //getNormalConfigCount();
 
         setInterval(function(){
-            //getStatus();
+            getStatus();
         }, 2000)
     }
 
@@ -241,7 +275,7 @@ $(function(){
                 }
 
                 getSafeConfigCount = 0;
-                $('.s-token').text(res.data.token);
+                $('.s-token').text(res.data.mac);
             },
             'error' : function(){
                 if (getSafeConfigCount < 1){
@@ -308,19 +342,25 @@ $(function(){
         });
     }
 
+
+	
     /**
      * 修改WiFi配置
      */
-    function setWiFiConfig(){
+    function setWiFiConfig(flag,sta_ssid,sta_pwd){
         var arr = {};
-        arr['type'] = 'SetWiFiConfig';
+		arr['type'] = 'SetWiFiConfig';
         arr['data'] = {};
+		if(flag==1){
+			arr['data']['wifi_station_ssid'] = sta_ssid;
+			arr['data']['wifi_station_pwd'] = sta_pwd;
+		}else{
+			arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                              //本地模式下路由的名称
+			arr['data']['wifi_ap_pwd'] = $('.wa-pwd').val();                                                       //本地模式下路由的名称
+			arr['data']['wifi_station_ssid'] = $('.ws-ssid').val();                                             //云端模式下连接的WiFi名称
+			arr['data']['wifi_station_pwd'] = $('.ws-pwd').val();                                                //云端模式下连接的WiFi密码
+		}
         arr['data']['work_mode'] = $('.w-mode').val();                                                                  //工作模式
-        arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                              //本地模式下路由的名称
-        arr['data']['wifi_ap_pwd'] = $('.run_speed_ratio').val();                                                       //本地模式下路由的名称
-        arr['data']['wifi_station_ssid'] = $('.run_acc_speed_ratio').val();                                             //云端模式下连接的WiFi名称
-        arr['data']['wifi_station_pwd'] = $('.study_speed_ratio').val();                                                //云端模式下连接的WiFi密码
-
         showLoad();
         $.ajax({
             'url' : '/command',
@@ -341,27 +381,138 @@ $(function(){
             }
         });
     }
+	
+	function startScanfWiFitest(){
+    	var jsonstr="{	\"type\":	\"Reply_GetWiFiScan\",	\"data\":	{		\"ap_count\":	24,		\"ap\":	[{				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	170,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	167,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"v10\",				\"rssi\":	161,				\"enc\":	3,				\"channel\":	1			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	172,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	181,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"Ares\",				\"rssi\":	209,				\"enc\":	3,				\"channel\":	6			}, {				\"ssid\":	\"ChinaNet\",				\"rssi\":	199,				\"enc\":	0,				\"channel\":	4			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	176,				\"enc\":	0,				\"channel\":	6			}]	}}"
+    	var res=JSON.parse(jsonstr);
+    	if (res.type != 'Reply_GetWiFiScan'){
+    		flag = false;
+    		error_str = res.error_str || '获取无线配置失败';
+    		showMsg(error_str);
+    		return false;
+    	}
+    	$(".wifi_scan_ret_list-ul").empty();
+    	for(i=0;i<res.data.ap.length;i++){
+    	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
+    	}
+    	$(".wifi-infro-item").click(function(){
+    		//find查找所有的子元素，会一直查找，跨层级查找 
+    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
+    		console.log("wifi-infro-item choose_name : "+choice_ssid);
+			var windowHeight = $(window).height();
+			popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+			var posiTop = (windowHeight - popupHeight)/2;
+			
+    		$('.wifi_scan_ret_list,en_dialog').fadeOut();
+			 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
+			$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
+			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
+            $(".wifi_pwd_input_text").focus();    		
+    	});
+		var windowHeight = $(window).height();
+		popupHeight = $(".wifi_scan_ret_list").height();
+		var posiTop = (windowHeight - popupHeight)/2;
+		$(".wifi_scan_ret_list").css("top",posiTop);
+    	$('.wifi_scan_ret_list').fadeIn(100);
+    	$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
+    	$('.en_dialog').fadeIn(100);
+    	
+    	document.body.addEventListener('touchmove',bodyScroll,false);  
+    	$('body').css({'position':'fixed',"width":"100%"});
+
+    }
+
+    function bodyScroll(event){  
+        event.preventDefault();  
+    } 
+
+	
 	/**
 	 *扫描wifi
 	 */
 	 function startScanfWiFi(){
-        $('.wifi_scan_ret_list').show();
-        setTimeout(function(){
-            $('.wifi_scan_ret_list').hide()
-        }, 8000);
-		 
-	 }
+        showLoad();
+        var arr = {
+            "type" : "GetWiFiScan",
+            "data" : ""
+        };
+        $.ajax({
+            'url' : '/command',
+            'type' : 'post',
+            'dataType' : 'json',
+            'data' : JSON.stringify(arr),
+            'success' : function(res){
+				hideLoad();
+                if (res.type != 'Reply_GetWiFiScan' || res.error_code != 0){
+                    flag = false;
+                    error_str = res.error_str || '获取无线列表失败';
+                    showMsg(error_str);
+                    return false;
+                }
+
+				$(".wifi_scan_ret_list-ul").empty();
+				for(i=0;i<res.data.ap.length;i++){
+				  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
+				}
+				$(".wifi-infro-item").click(function(){
+					//find查找所有的子元素，会一直查找，跨层级查找 
+					choice_ssid= $(this).find(".wifi-infro-ssid").html();
+					console.log("wifi-infro-item choose_name : "+choice_ssid);
+					var windowHeight = $(window).height();
+					popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+					var posiTop = (windowHeight - popupHeight)/2;
+					
+					$('.wifi_scan_ret_list,en_dialog').fadeOut();
+					 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
+					$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
+					$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
+					$(".wifi_pwd_input_text").focus();    		
+				});
+				var windowHeight = $(window).height();
+				popupHeight = $(".wifi_scan_ret_list").height();
+				var posiTop = (windowHeight - popupHeight)/2;
+				$(".wifi_scan_ret_list").css("top",posiTop);
+				$('.wifi_scan_ret_list').fadeIn(100);
+				$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
+				$('.en_dialog').fadeIn(100);
+				
+				document.body.addEventListener('touchmove',bodyScroll,false);  
+				$('body').css({'position':'fixed',"width":"100%"});
+            },
+            'error' : function(){
+				hideLoad();
+                if (getWifiConfigCount < 1){
+                    getWiFiConfig();
+                    getWifiConfigCount++;
+                    return false;
+                }
+                flag = false;
+                showMsg('扫描失败');
+            }
+        });
+    }
     /**
      * 一般操作
      */
-    function control(type){
+    function control(type,op){
         var arr = {};
         arr['type'] = 'Control';
         arr['data'] = {};
-        arr['data']['ControlType'] = type;
-
-        showLoad();
-
+        arr['data']['control_type'] = type;
+		var c_name={};
+		if(op=="open"){
+			c_name[0]="op-control-opened";
+			c_name[1]="op-control-closed";
+			arr['data']['operator'] = 1;
+		}
+		else if(op=="close"){
+			c_name[0]="op-control-closed";
+			c_name[1]="op-control-opened";
+			arr['data']['operator'] = 0;
+		}
+		
+        //showLoad();
+		//$(".op-control[data-type=" + type + "]").css("background","#00cc00");
         $.ajax({
             'url' : '/command',
             'type' : 'post',
@@ -371,9 +522,31 @@ $(function(){
                 hideLoad();
                 var msg = type == 0 ? '1' : (type == 1 ? '2' : (type == 2 ? '3' : '4'));
                 if (res.error_code == 0){
+						
+					if(op=="open"){
+						$(".op-control-closed[data-type=" + type + "]").unbind("click");
+						$(".op-control-closed[data-type=" + type + "]").toggleClass("op-control-opened");
+						
+						$(".op-control-opened[data-type=" + type + "]").removeClass("op-control-closed");
+						$(".op-control-opened[data-type=" + type + "]").delegate($(this),'click', function(){
+							var type = $(this).data('type');
+							control(type,"close");
+						});
+					}
+					else if(op=="close"){
+						$(".op-control-opened[data-type=" + type + "]").unbind("click");
+						$(".op-control-opened[data-type=" + type + "]").toggleClass("op-control-closed");
+						
+						$(".op-control-closed[data-type=" + type + "]").removeClass("op-control-opened");
+						$(".op-control-closed[data-type=" + type + "]").delegate($(this),'click', function(){
+							var type = $(this).data('type');
+							control(type,"open");
+						});
+					}
                     msg = msg + '成功';
                     showSuccessMsg(msg);
                 } else {
+
                     msg = msg + '失败';
                     showMsg(msg);
                 }
@@ -383,6 +556,7 @@ $(function(){
                 showMsg('网络错误');
             }
         });
+		
     }
 
     /**
@@ -399,6 +573,10 @@ $(function(){
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
+				if (res.error_code != 0){
+					$('.s-status').text(res.error_str);
+					return false;
+				}
                 reply_status(res.data);
             },
             'error' : function(){
@@ -411,87 +589,71 @@ $(function(){
     /**
      * 处理状态
      */
-    function reply_status(result){
-        if (result.error_code != 0){
-            $('.s-status').text(result.error_msg);
-            return false;
-        }
+    function reply_status(data){
 
         //处理参数
         var smstateMsg = '';
-        switch (result.data.SMState) {
-            case "0":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "1":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "2":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "3":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "4":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "5":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "6":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "7":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "8":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "9":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "10":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "11":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "12":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "13":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "14":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "15":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "16":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "17":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "18":
-                smstateMsg = '上电就绪状态';
-                break;
-            case "19":
-                smstateMsg = '上电就绪状态';
+        switch (data.sm_state) {
+            case 0:
+                smstateMsg = '运行中';
+				break;
+			case 1:
+			smstateMsg = '设备异常';
                 break;
             default:
                 break;
         }
 
         $('.s-status').text(smstateMsg);                                                                                //运行状态
-        $('.c-status').text(result.data.CommState);                                                                     //通信状态
-        $('.t-degree').text(result.data.Temperature);                                                                   //温度
-        $('.w-degree').text(result.data.Wetness);                                                                       //湿度
-        $('.p-rate').text(result.data.Power);                                                                           //功率比
-        $('.r-time').text(getTime(result.data.RunTime));                                                                //运行时间
+        $('.c-status').text(data.comm_state);                                                                     //通信状态
+        $('.t-degree').text(data.temperature_pre+"."+data.temperature_back+"℃");                                                                   //温度
+        $('.w-degree').text(data.wetness);                                                                       //湿度
+        $('.p-rate').text(data.power);                                                                           //功率比
+        $('.r-time').text(getTime(data.run_time));                                                                //运行时间
     }
-
+	/**
+	 *设置灯Duty
+	 */
+	function setLigthDuty(value){
+		var arr = {};
+		arr['type'] = 'SetLigthDuty';
+        arr['data'] = {};
+		arr['data']['duty'] = value-0;
+        $.ajax({
+            'url' : '/command',
+            'type' : 'post',
+            'dataType' : 'json',
+            'data' : JSON.stringify(arr),
+            'success' : function(res){
+				return res.data.duty;
+            },
+            'error' : function(){
+                showMsg('设置失败');
+				return -1;
+            }
+        });
+	}
+	/**
+	 *获取灯Duty
+	 */
+	function getLigthDuty(value){
+		var arr = {};
+		arr['type'] = 'GetLigthDuty';
+        arr['data'] = {};
+		arr['data']['duty'] = value;
+        $.ajax({
+            'url' : '/command',
+            'type' : 'post',
+            'dataType' : 'json',
+            'data' : JSON.stringify(arr),
+            'success' : function(res){
+				res.data.duty
+            },
+            'error' : function(){
+                showMsg('设置失败');
+            }
+        });
+	}
     /**
      * 密码验证
      */
@@ -545,10 +707,57 @@ $(function(){
         s = (t - h * 60 * 60) - (m * 60) > 10 ? (t - h * 60 * 60) - (m * 60) : '0' + (t - h * 60 * 60) - (m * 60);
         return h + ':' + m + ':' + s;
     }
+	/**
+	 *滑动条
+	 */
+    $(function() {
+        var $document   = $(document);
+        var selector    = '[data-rangeslider]';
+        var $inputRange = $(selector);
+
+        // Example functionality to demonstrate a value feedback
+        // and change the output's value.
+        function valueOutput(element) {
+            var value = element.value;
+            var output = element.parentNode.getElementsByTagName('output')[0];
+            return value;
+        }
+        // Update value output
+        $document.on('input', selector, function(e) {
+			if($(this).attr('id')=="lightDutyValue"){
+				var value=valueOutput(e.target);
+				lightDutyTouchValue=value;
+				if(lightDutyIsWriting==0){			
+					lightDutyIsWriting=1;
+					var $inputRange = $('#lightDutyValue', e.target.parentNode);					
+					var ret=setLigthDuty(lightDutyTouchValue);
+					if(ret==-1){
+						//failed							
+					}else{
+						//set duty text							
+					}
+					setTimeout(function(){
+						$inputRange.val(lightDutyTouchValue).change();
+						console.log(lightDutyTouchValue);
+						lightDutyIsWriting=0}
+					,500);
+				}
+			}
+            
+        });
+
+        // Initialize the elements
+        $inputRange.rangeslider({
+            polyfill: false
+        });
+
+
+    });
+
+
 
 });
 
-	
 	/**
 	 * jQuery MD5 hash algorithm function
 	 * 
@@ -885,3 +1094,7 @@ $(function(){
         }
     ]
 }
+
+/*! rangeslider.js - v1.2.1 | (c) 2015 @andreruffert | MIT license | https://github.com/andreruffert/rangeslider.js */
+!function(a){"use strict";"function"==typeof define&&define.amd?define(["jquery"],a):a("object"==typeof exports?require("jquery"):jQuery)}(function(a){"use strict";function b(){var a=document.createElement("input");return a.setAttribute("type","range"),"text"!==a.type}function c(a,b){var c=Array.prototype.slice.call(arguments,2);return setTimeout(function(){return a.apply(null,c)},b)}function d(a,b){return b=b||100,function(){if(!a.debouncing){var c=Array.prototype.slice.apply(arguments);a.lastReturnVal=a.apply(window,c),a.debouncing=!0}return clearTimeout(a.debounceTimeout),a.debounceTimeout=setTimeout(function(){a.debouncing=!1},b),a.lastReturnVal}}function e(a){return a&&(0===a.offsetWidth||0===a.offsetHeight||a.open===!1)}function f(a){for(var b=[],c=a.parentNode;e(c);)b.push(c),c=c.parentNode;return b}function g(a,b){function c(a){"undefined"!=typeof a.open&&(a.open=a.open?!1:!0)}var d=f(a),e=d.length,g=[],h=a[b];if(e){for(var i=0;e>i;i++)g[i]=d[i].style.cssText,d[i].style.display="block",d[i].style.height="0",d[i].style.overflow="hidden",d[i].style.visibility="hidden",c(d[i]);h=a[b];for(var j=0;e>j;j++)d[j].style.cssText=g[j],c(d[j])}return h}function h(b,e){if(this.$window=a(window),this.$document=a(document),this.$element=a(b),this.options=a.extend({},l,e),this.polyfill=this.options.polyfill,this.onInit=this.options.onInit,this.onSlide=this.options.onSlide,this.onSlideEnd=this.options.onSlideEnd,this.polyfill&&k)return!1;this.identifier="js-"+i+"-"+j++,this.startEvent=this.options.startEvent.join("."+this.identifier+" ")+"."+this.identifier,this.moveEvent=this.options.moveEvent.join("."+this.identifier+" ")+"."+this.identifier,this.endEvent=this.options.endEvent.join("."+this.identifier+" ")+"."+this.identifier,this.toFixed=(this.step+"").replace(".","").length-1,this.$fill=a('<div class="'+this.options.fillClass+'" />'),this.$handle=a('<div class="'+this.options.handleClass+'" />'),this.$range=a('<div class="'+this.options.rangeClass+'" id="'+this.identifier+'" />').insertAfter(this.$element).prepend(this.$fill,this.$handle),this.$element.css({position:"absolute",width:"1px",height:"1px",overflow:"hidden",opacity:"0"}),this.handleDown=a.proxy(this.handleDown,this),this.handleMove=a.proxy(this.handleMove,this),this.handleEnd=a.proxy(this.handleEnd,this),this.init();var f=this;this.$window.on("resize."+this.identifier,d(function(){c(function(){f.update()},300)},20)),this.$document.on(this.startEvent,"#"+this.identifier+":not(."+this.options.disabledClass+")",this.handleDown),this.$element.on("change."+this.identifier,function(a,b){if(!b||b.origin!==f.identifier){var c=a.target.value,d=f.getPositionFromValue(c);f.setPosition(d)}})}var i="rangeslider",j=0,k=b(),l={polyfill:!0,rangeClass:"rangeslider",disabledClass:"rangeslider--disabled",fillClass:"rangeslider__fill",handleClass:"rangeslider__handle",startEvent:["mousedown","touchstart","pointerdown"],moveEvent:["mousemove","touchmove","pointermove"],endEvent:["mouseup","touchend","pointerup"]};h.prototype.init=function(){this.update(!0),this.$element[0].value=this.value,this.onInit&&"function"==typeof this.onInit&&this.onInit()},h.prototype.update=function(a){a=a||!1,a&&(this.min=parseFloat(this.$element[0].getAttribute("min")||0),this.max=parseFloat(this.$element[0].getAttribute("max")||100),this.value=parseFloat(this.$element[0].value||this.min+(this.max-this.min)/2),this.step=parseFloat(this.$element[0].getAttribute("step")||1)),this.handleWidth=g(this.$handle[0],"offsetWidth"),this.rangeWidth=g(this.$range[0],"offsetWidth"),this.maxHandleX=this.rangeWidth-this.handleWidth,this.grabX=this.handleWidth/2,this.position=this.getPositionFromValue(this.value),this.$element[0].disabled?this.$range.addClass(this.options.disabledClass):this.$range.removeClass(this.options.disabledClass),this.setPosition(this.position)},h.prototype.handleDown=function(a){if(a.preventDefault(),this.$document.on(this.moveEvent,this.handleMove),this.$document.on(this.endEvent,this.handleEnd),!((" "+a.target.className+" ").replace(/[\n\t]/g," ").indexOf(this.options.handleClass)>-1)){var b=this.getRelativePosition(a),c=this.$range[0].getBoundingClientRect().left,d=this.getPositionFromNode(this.$handle[0])-c;this.setPosition(b-this.grabX),b>=d&&b<d+this.handleWidth&&(this.grabX=b-d)}},h.prototype.handleMove=function(a){a.preventDefault();var b=this.getRelativePosition(a);this.setPosition(b-this.grabX)},h.prototype.handleEnd=function(a){a.preventDefault(),this.$document.off(this.moveEvent,this.handleMove),this.$document.off(this.endEvent,this.handleEnd),this.$element.trigger("change",{origin:this.identifier}),this.onSlideEnd&&"function"==typeof this.onSlideEnd&&this.onSlideEnd(this.position,this.value)},h.prototype.cap=function(a,b,c){return b>a?b:a>c?c:a},h.prototype.setPosition=function(a){var b,c;b=this.getValueFromPosition(this.cap(a,0,this.maxHandleX)),c=this.getPositionFromValue(b),this.$fill[0].style.width=c+this.grabX+"px",this.$handle[0].style.left=c+"px",this.setValue(b),this.position=c,this.value=b,this.onSlide&&"function"==typeof this.onSlide&&this.onSlide(c,b)},h.prototype.getPositionFromNode=function(a){for(var b=0;null!==a;)b+=a.offsetLeft,a=a.offsetParent;return b},h.prototype.getRelativePosition=function(a){var b=this.$range[0].getBoundingClientRect().left,c=0;return"undefined"!=typeof a.pageX?c=a.pageX:"undefined"!=typeof a.originalEvent.clientX?c=a.originalEvent.clientX:a.originalEvent.touches&&a.originalEvent.touches[0]&&"undefined"!=typeof a.originalEvent.touches[0].clientX?c=a.originalEvent.touches[0].clientX:a.currentPoint&&"undefined"!=typeof a.currentPoint.x&&(c=a.currentPoint.x),c-b},h.prototype.getPositionFromValue=function(a){var b,c;return b=(a-this.min)/(this.max-this.min),c=b*this.maxHandleX},h.prototype.getValueFromPosition=function(a){var b,c;return b=a/(this.maxHandleX||1),c=this.step*Math.round(b*(this.max-this.min)/this.step)+this.min,Number(c.toFixed(this.toFixed))},h.prototype.setValue=function(a){a!==this.value&&this.$element.val(a).trigger("input",{origin:this.identifier})},h.prototype.destroy=function(){this.$document.off("."+this.identifier),this.$window.off("."+this.identifier),this.$element.off("."+this.identifier).removeAttr("style").removeData("plugin_"+i),this.$range&&this.$range.length&&this.$range[0].parentNode.removeChild(this.$range[0])},a.fn[i]=function(b){var c=Array.prototype.slice.call(arguments,1);return this.each(function(){var d=a(this),e=d.data("plugin_"+i);e||d.data("plugin_"+i,e=new h(this,b)),"string"==typeof b&&e[b].apply(e,c)})}});
+

@@ -6,7 +6,6 @@
 #include "cpu_esp8266.h"
 
 #include "c_types.h"
-#include "driver/pwm.h"
 // Error / status codes
 enum
 {
@@ -145,29 +144,6 @@ int platform_uart_recv( unsigned id, unsigned timer_id, timer_data_type timeout 
 int platform_s_uart_recv( unsigned id, timer_data_type timeout );
 int platform_uart_set_flow_control( unsigned id, int type );
 int platform_s_uart_set_flow_control( unsigned id, int type );
-
-// *****************************************************************************
-// PWM subsection
-
-// There are 16 "virtual" PWM channels (PWM0...PWM15)
-#define PLATFORM_PWM_TOTAL                    16
-// TODO: PLATFORM_PWM_TOTAL is not used - figure out purpose, or remove?
-
-#define NORMAL_PWM_DEPTH  PWM_DEPTH
-#define NORMAL_DUTY(d) (((unsigned)(d)*NORMAL_PWM_DEPTH) / PWM_DEPTH)
-#define DUTY(d) ((uint16_t)( ((unsigned)(d)*PWM_DEPTH) / NORMAL_PWM_DEPTH) )
-
-// The platform PWM functions
-int platform_pwm_exists( unsigned id );
-uint32_t platform_pwm_setup( unsigned id, uint32_t frequency, unsigned duty );
-void platform_pwm_close( unsigned id );
-void platform_pwm_start( unsigned id );
-void platform_pwm_stop( unsigned id );
-uint32_t platform_pwm_set_clock( unsigned id, uint32_t data );
-uint32_t platform_pwm_get_clock( unsigned id );
-uint32_t platform_pwm_set_duty( unsigned id, uint32_t data );
-uint32_t platform_pwm_get_duty( unsigned id );
-
 
 // *****************************************************************************
 // The platform ADC functions

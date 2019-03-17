@@ -314,8 +314,10 @@ void ICACHE_FLASH_ATTR http_server_start(){
 	espconn_regist_connectcb(&server_config.server_conn, http_server_connect_callback);	
 	espconn_accept(&server_config.server_conn);
 
-	espconn_tcp_set_max_con_allow(&server_config.server_conn,10);
-	NODE_DBG("Http server max conn = %d", espconn_tcp_get_max_con_allow(&server_config.server_conn));
+	if(espconn_tcp_set_max_con_allow(&server_config.server_conn,20)==ESPCONN_OK){
+		os_printf("Http server Set max conn.");
+	}
+	os_printf("Http server max conn = %d", espconn_tcp_get_max_con_allow(&server_config.server_conn));
 
 	
 }

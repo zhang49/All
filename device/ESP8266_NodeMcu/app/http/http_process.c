@@ -312,7 +312,7 @@ static int ICACHE_FLASH_ATTR on_message_begin(http_parser *parser){
 static int ICACHE_FLASH_ATTR on_url(http_parser *parser, const char *url, size_t length)
 {	
 	NODE_DBG("\nhttp_parser url: ");
-	nprintf(url,length);
+	//nprintf(url,length);
 
 	NODE_DBG("http_parser method: %d",parser->method);
 		
@@ -336,7 +336,7 @@ static int ICACHE_FLASH_ATTR on_url(http_parser *parser, const char *url, size_t
 static int ICACHE_FLASH_ATTR on_status(http_parser *parser, const char *url, size_t length)
 {	
 	NODE_DBG("http_parser status: ");
-	nprintf(url,length);
+	//nprintf(url,length);
 
 	//grab the connection
 	http_connection * conn = (http_connection *)parser->data;
@@ -353,7 +353,7 @@ static int ICACHE_FLASH_ATTR on_status(http_parser *parser, const char *url, siz
 static int ICACHE_FLASH_ATTR on_header_field(http_parser *parser, const char *at, size_t length)
 {
 	NODE_DBG("http_parser header: ");
-	nprintf(at,length);
+	//nprintf(at,length);
 
 	//grab the connection
 	http_connection * conn = (http_connection *)parser->data;
@@ -378,7 +378,7 @@ static int ICACHE_FLASH_ATTR on_header_field(http_parser *parser, const char *at
 static int ICACHE_FLASH_ATTR on_header_value(http_parser *parser, const char *at, size_t length)
 {
 	NODE_DBG("http_parser header value: ");
-	nprintf(at,length);
+	//nprintf(at,length);
 	
 	//grab the connection
 	http_connection * conn = (http_connection *)parser->data;
@@ -421,7 +421,7 @@ static int ICACHE_FLASH_ATTR on_headers_complete(http_parser *parser){
 static int ICACHE_FLASH_ATTR on_body(http_parser *parser, const char *at, size_t length)
 {
 	NODE_DBG("\nhttp_parser body: ");
-	nprintf(at,length);
+	//nprintf(at,length);
 
 	//grab the connection
 	http_connection * conn = (http_connection *)parser->data;
