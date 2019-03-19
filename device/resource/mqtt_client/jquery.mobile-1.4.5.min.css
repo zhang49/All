@@ -1,0 +1,16 @@
+.ui-content{border-width:0;overflow:visible;overflow-x:hidden;padding:1em}
+.ui-content:first-child,.ui-corner-all>.ui-footer:first-child{-webkit-border-top-left-radius:inherit;border-top-left-radius:inherit;-webkit-border-top-right-radius:inherit;border-top-right-radius:inherit}
+.ui-content:last-child,.ui-corner-all>.ui-footer:last-child{-webkit-border-bottom-left-radius:inherit;border-bottom-left-radius:inherit;-webkit-border-bottom-right-radius:inherit;border-bottom-right-radius:inherit}
+.ui-content,.ui-page-footer-fullscreen>.ui-content{padding:0}
+.ui-content .ui-navbar li:last-child .ui-btn,.ui-content .ui-navbar .ui-grid-duo .ui-block-b .ui-btn{border-right-width:1px;margin-right:0}
+.ui-content .ui-navbar li:last-child .ui-btn:after,.ui-content .ui-navbar .ui-grid-duo .ui-block-b .ui-btn:after{margin-right:0}
+.ui-content,.ui-dialog-contain>.ui-footer{display:block;position:relative;width:auto;margin:0}
+.ui-content,.ui-popup .ui-content{overflow:visible}
+.ui-content>p,.ui-popup-container .ui-content>h1,.ui-popup-container .ui-content>h2,.ui-popup-container .ui-content>h3,.ui-popup-container .ui-content>h4,.ui-popup-container .ui-content>h5,.ui-popup-container .ui-content>h6{margin:.5em 0}
+.ui-content>span{margin:0}
+.ui-content>p:first-child,.ui-popup-container .ui-content>h1:first-child,.ui-popup-container .ui-content>h2:first-child,.ui-popup-container .ui-content>h3:first-child,.ui-popup-container .ui-content>h4:first-child,.ui-popup-container .ui-content>h5:first-child,.ui-popup-container .ui-content>h6:first-child{margin-top:0}
+.ui-content>p:last-child,.ui-popup-container .ui-content>h1:last-child,.ui-popup-container .ui-content>h2:last-child,.ui-popup-container .ui-content>h3:last-child,.ui-popup-container .ui-content>h4:last-child,.ui-popup-container .ui-content>h5:last-child,.ui-popup-container .ui-content>h6:last-child{margin-bottom:0}
+.ui-content)>img:only-child,.ui-popup:not(.ui-content)>.ui-btn-left:first-child+img:last-child,.ui-popup:not(.ui-content)>.ui-btn-right:first-child+img:last-child{-webkit-border-radius:inherit;border-radius:inherit}
+.ui-content{overflow:visible;z-index:1}
+.ui-content .ui-listview,.ui-panel-inner>.ui-listview{margin:-1em}
+.ui-content .ui-listview-inset,.ui-panel-inner>.ui-listview-inset{margin:1em 0}
