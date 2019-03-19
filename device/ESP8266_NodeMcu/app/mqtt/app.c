@@ -117,7 +117,7 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 	dataBuf[data_len] = 0;
 
 	MQTT_DBG("Receive topic: %s, data: %s ", topicBuf, dataBuf);
-
+	MQTT_DBG("MQTT: client is:%d",&client);
 	os_free(topicBuf);
 	os_free(dataBuf);
 	//undecision
@@ -140,7 +140,11 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 		}
 	}
 }
+void ICACHE_FLASH_ATTR mqtt_publish_api(const char* topic, const char* data, int data_length, int qos, int retain){
 
+	MQTT_DBG("MQTT: client is:%d",&mqtt_client);
+	MQTT_Publish(&mqtt_client,topic,data,data_length,qos,retain);
+}
 void ICACHE_FLASH_ATTR mqtt_app_init(){
 	MQTT_InitConnection(&mqtt_client, MQTT_SERVER_IP, MQTT_SERVER_PORT, 0);
 	MQTT_InitClient(&mqtt_client, MQTT_CLIENT_ID, "", "", 120, 1);

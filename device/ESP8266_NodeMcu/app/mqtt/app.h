@@ -3,7 +3,9 @@
 
 #define STATUS_PUB_TOPIC "autodoor/status/"SERIAL_NUMBER
 
-void ICACHE_FLASH_ATTR mqtt_app_init();
+void ICACHE_FLASH_ATTR mqtt_publish_api(const char* topic, const char* data, int data_length, int qos, int retain);
+
+void ICACHE_FLASH_ATTR mqtt_publish_api();
 
 
 #endif

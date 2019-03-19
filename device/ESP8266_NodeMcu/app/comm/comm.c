@@ -34,6 +34,9 @@
 #include "comm/comm_pwm.h"
 #include "comm/comm_light.h"
 #include "comm/comm_sensor.h"
+#include "comm/comm_espnow.h"
+
+#include "mqtt/app.h"
 #include "http/app.h"
 
 typedef int (*comm_operator_func)(void *);
@@ -108,6 +111,18 @@ void ICACHE_FLASH_ATTR comm_init(){
     os_timer_arm(&statusTimer, 1000, 1);
 }
 
+int ICACHE_FLASH_ATTR http_operator_api(http_connection *c){
+	//wait for whole body
+	if(c->state < HTTPD_STATE_BODY_END)
+		return HTTPD_CGI_MORE;
+	c->sign=CLIENT_IS_HTTP;
+	return common_operator_api(c);
+}
+
+int ICACHE_FLASH_ATTR mqtt_operator_api(MQTT_Client *c){
+	return common_operator_api(c);
+}
+
 cJSON *ICACHE_FLASH_ATTR create_ret_json(char *ret_type){
 	cJSON *retroot=cJSON_CreateObject();
 	cJSON_AddStringToObject(retroot,"type",ret_type);
@@ -133,31 +148,29 @@ uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode
 	return ret;
 }
 
-int ICACHE_FLASH_ATTR http_operator_api(http_connection *c){
-	//wait for whole body
-	if(c->state < HTTPD_STATE_BODY_END)
-		return HTTPD_CGI_MORE;
-	c->sign=CLIENT_IS_HTTP;
-	return common_operator_api(c);
-}
+//mqtt_publish_api(const char* topic, const char* data, int data_length, int qos, int retain);
 
-int ICACHE_FLASH_ATTR mqtt_operator_api(MQTT_Client *c){
-	return common_operator_api(c);
-}
 
 int ICACHE_FLASH_ATTR common_operator_api(void *client){
 	char *data;
-	uint8 client_sign=*(int *)client;
+	MqttUserData *mqtt_user_data;
+	uint8_t client_sign=*(uint8_t *)client;
 	http_connection *http_client;
-	mqtt_comm_data *mqtt_user_data;
+	mqtt_comm_data *udata;
 	if(client_sign==CLIENT_IS_MQTT){
 		MQTT_Client *mqtt_client=(MQTT_Client *)client;
-		//malloc??????
-		mqtt_user_data=(mqtt_comm_data *)mqtt_client->user_data;
+		udata=(mqtt_comm_data *)mqtt_client->user_data;
 		//must copy
-		data = (char*)os_zalloc(mqtt_user_data->data_len+1);
-		os_memcpy(data, mqtt_user_data->msg, mqtt_user_data->data_len);
-		data[mqtt_user_data->data_len] = 0;
+		mqtt_user_data=(MqttUserData *)os_zalloc(sizeof(MqttUserData));
+		mqtt_user_data->data = (char*)os_zalloc(udata->data_len+1);
+
+		mqtt_user_data->sign=CLIENT_IS_MQTT;
+		os_memcpy(mqtt_user_data->data, udata->msg, udata->data_len);
+		mqtt_user_data->data[udata->data_len] = 0;
+		data=mqtt_user_data->data;
+		mqtt_user_data->ptopic=udata->pub_topic;
+		mqtt_user_data->pqos=udata->pub_qos;
+		client=(void *)mqtt_user_data;
 	}else if(client_sign==CLIENT_IS_HTTP){
 		http_client=(http_connection *)client;
 		data=http_client->body.data;
@@ -189,8 +202,8 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 			}else if(comm_operator[index].flag==NEEDTIMER){
 				client_handle_timer *Timer;
 				if(client_sign==CLIENT_IS_MQTT){
-					os_free(data);
-					Timer=&mqtt_user_data->timer;
+					Timer=&mqtt_user_data->Timer;
+					NODE_DBG("NEEDTIMER timer is:%d",mqtt_user_data->Timer);
 				}else if(client_sign==CLIENT_IS_HTTP){
 					Timer=(client_handle_timer *)os_malloc(sizeof(client_handle_timer));
 					http_client->cgi.data=Timer;
@@ -223,8 +236,9 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 								typevaule=0x40;
 								break;
 							}
-							syn_control_refresh_set(COMM_NOREFRESH);
-							send_message_to_master(SYN_CONTROL,&typevaule,1);
+
+							//syn_control_refresh_set(COMM_NOREFRESH);
+							//send_message_to_master(SYN_CONTROL,&typevaule,1);
 						}while(0);
 						break;
 					case NORMAL_WIFI_SCAN:
@@ -250,20 +264,24 @@ badJson:
 		return HTTPD_CGI_DONE;
 	}
 	if(client_sign==CLIENT_IS_MQTT){
-		send_to_client(client,"error");
-		os_free(data);
+		//send_to_client(client,"error");
+		if(mqtt_user_data->data!=NULL)os_free(mqtt_user_data->data);
+		if(mqtt_user_data!=NULL)os_free(mqtt_user_data);
 	}
 	return 1;
 }
 
 int ICACHE_FLASH_ATTR send_to_client(void *client,char *message){
-	if(*(int *)client==CLIENT_IS_MQTT){
-		MQTT_Client *mqtt_client=(MQTT_Client *)client;
-		mqtt_comm_data *mqtt_user_data=(mqtt_comm_data *)(mqtt_client->user_data);
-		MQTT_Publish(client,mqtt_user_data->pub_topic,message,os_strlen(message),mqtt_user_data->pub_qos,0);
-		if(mqtt_client->user_data!=NULL)
-			os_free(((MQTT_Client *)client)->user_data);
-	}else if(*(int *)client==CLIENT_IS_HTTP){
+	NODE_DBG("send_to_client....");
+	if(*(uint8_t *)client==CLIENT_IS_MQTT){
+		MqttUserData *mqtt_user_data=(MqttUserData *)client;
+		NODE_DBG("send_to_client public.");
+		mqtt_publish_api(mqtt_user_data->ptopic,message,os_strlen(message),mqtt_user_data->pqos,0);
+		if(mqtt_user_data->data!=NULL)
+			os_free(mqtt_user_data->data);
+		if(mqtt_user_data!=NULL)
+			os_free(mqtt_user_data);
+	}else if(*(uint8_t *)client==CLIENT_IS_HTTP){
 		http_write(client,message);
 		if(((http_connection *)client)->cgi.data!=NULL)
 			os_free(((http_connection *)client)->cgi.data);
@@ -321,15 +339,12 @@ int ICACHE_FLASH_ATTR comm_led_pwm_duty_read(void *client){
 
 int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client){
 	char *data;
-	uint8 client_sign=*(int *)client;
+	uint8 client_sign=*(uint8_t *)client;
 	http_connection *http_client;
-	mqtt_comm_data *mqtt_user_data;
+	MqttUserData *mqtt_user_data;
 	if(client_sign==CLIENT_IS_MQTT){
-		MQTT_Client *mqtt_client=(MQTT_Client *)client;
-		mqtt_user_data=(mqtt_comm_data *)mqtt_client->user_data;
-		data = (char*)os_zalloc(mqtt_user_data->data_len+1);
-		os_memcpy(data, mqtt_user_data->msg, mqtt_user_data->data_len);
-		data[mqtt_user_data->data_len] = 0;
+		mqtt_user_data=(MqttUserData *)client;
+		data = mqtt_user_data->data;
 	}else if(client_sign==CLIENT_IS_HTTP){
 		http_client=(http_connection *)client;
 		data=http_client->body.data;
@@ -356,9 +371,6 @@ badJson:
 	if(root!=NULL){
 		cJSON_Delete(root);
 	}
-	if(client_sign==CLIENT_IS_MQTT){
-		os_free(data);
-	}
 	return send_ret_json(client,retroot,error_code);
 }
 
@@ -374,7 +386,7 @@ int ICACHE_FLASH_ATTR comm_ray_value_read(void *client){
 }
 int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client){
 	char *data;
-		uint8 client_sign=*(int *)client;
+		uint8 client_sign=*(uint8_t *)client;
 		http_connection *http_client;
 		mqtt_comm_data *mqtt_user_data;
 		if(client_sign==CLIENT_IS_MQTT){
@@ -416,8 +428,9 @@ int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client){
 
 
 int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
+	NODE_DBG("comm_expect_ret");
 	client_handle_timer *Timer;
-	uint8 c_sign=*(int *)client;
+	uint8 c_sign=*(uint8_t *)client;
 	if(c_sign==CLIENT_IS_HTTP){
 		Timer=(client_handle_timer *)((http_connection *)client)->cgi.data;
 		if(Timer->tickcount==0){
@@ -430,7 +443,10 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 			http_response_OK(client);
 		}
 	}else if(c_sign==CLIENT_IS_MQTT){
-		Timer=&((mqtt_comm_data *)(((MQTT_Client *)client)->user_data))->timer;
+
+		NODE_DBG("CLIENT_IS_MQTT");
+		NODE_DBG(" timer is:%d",&((MqttUserData *)client)->Timer);
+		Timer=&((MqttUserData *)client)->Timer;
 		if(Timer->tickcount==0){
 			os_memset(&Timer->timer,0,sizeof(os_timer_t));
 			os_timer_disarm(&Timer->timer);
@@ -439,8 +455,11 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 		}
 	}
 	Timer->tickcount++;
+	NODE_DBG("Timer->tickcount is %d",Timer->tickcount);
 	//recv refresh data or timeout
 	switch(Timer->msgtype){
+
+	NODE_DBG("Timer->msgtype is %d",Timer->msgtype);
 	case NORMAL_CONFIG:
 		/*
 		if(door_config_refresh_get()==COMM_REFRESHED || Timer->tickcount>TIMER_TIMEROUT){
@@ -454,6 +473,8 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 	case SYN_CONTROL:
 		if(syn_control_refresh_get()==COMM_REFRESHED || Timer->tickcount>TIMER_TIMEROUT){
 			os_timer_disarm(&Timer->timer);
+			NODE_DBG("case SYN_CONTROL");
+			os_printf("ret tickcount is %d\r\n",Timer->tickcount);
 			return send_to_client(client,syn_control_read());
 		}
 		break;

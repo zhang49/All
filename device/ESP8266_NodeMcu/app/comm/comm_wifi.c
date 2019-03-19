@@ -271,16 +271,10 @@ int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client){
 		char *data;
 		uint8 client_sign=*(int *)client;
 		http_connection *http_client;
-		mqtt_comm_data *mqtt_user_data;
 		if(client_sign==CLIENT_IS_MQTT){
-			MQTT_Client *mqtt_client=(MQTT_Client *)client;
-			mqtt_user_data=(mqtt_comm_data *)mqtt_client->user_data;
-			data = (char*)os_zalloc(mqtt_user_data->data_len+1);
-			os_memcpy(data, mqtt_user_data->msg, mqtt_user_data->data_len);
-			data[mqtt_user_data->data_len] = 0;
+			data =((MqttUserData *)client)->data;
 		}else if(client_sign==CLIENT_IS_HTTP){
-			http_client=(http_connection *)client;
-			data=http_client->body.data;
+			data=((http_connection *)client)->body.data;
 		}
 		//parse json
 		cJSON *retroot=create_ret_json("Reply_SetWiFiConfig");
@@ -316,9 +310,6 @@ int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client){
 		}
 badJson:
 	cJSON_Delete(root);
-	if(client_sign==CLIENT_IS_MQTT){
-		os_free(data);
-	}
 	return send_ret_json(client,retroot,error_code);
 
 }
@@ -333,10 +324,12 @@ int ICACHE_FLASH_ATTR comm_wifi_connect_ap(char *ssid,char *password){
 	wifi_station_get_config(&sta_config);
 	NODE_DBG("Putting STATION UP");
 	uint8 status = wifi_station_get_connect_status();
+	//save last station config?
 	strcpy(wifi_status.station_config.ssid,sta_config.ssid);
 	strcpy(wifi_status.station_config.password,sta_config.password);
 	if(status!=STATION_CONNECTING && status!=STATION_GOT_IP)
 	{
+		os_printf("Try to connecting to %s\r\n",sta_config.ssid,ssid);
 		wifi_status.connecting=1;
 		wifi_station_disconnect();
 		strcpy(sta_config.ssid,ssid);
@@ -344,6 +337,9 @@ int ICACHE_FLASH_ATTR comm_wifi_connect_ap(char *ssid,char *password){
 		//don't write in flash;
 		wifi_station_set_config_current(&sta_config);
 		wifi_station_connect();
+	}else{
+
+		os_printf("status==STATION_CONNECTING || status==STATION_GOT_IP\r\n");
 	}
 	wifi_status.connecting=Done;
 	return Done;

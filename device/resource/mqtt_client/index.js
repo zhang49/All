@@ -619,7 +619,7 @@ $(function(){
 			arr['data']['operator'] = 0;
 		}
 		mqtt_send(JSON.stringify(arr));
-		
+		console.log(JSON.stringify(arr));
     }
 	
 	function Reply_Control(res){

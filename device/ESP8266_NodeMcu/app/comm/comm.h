@@ -18,7 +18,7 @@
 #include "json/cJson.h"
 
 #define NEEDTIMER 1
-#define TIMER_SINGLETIME 50
+#define TIMER_SINGLETIME 200
 #define TIMER_TIMEROUT 20
 
 #define CLIENT_IS_HTTP 1
@@ -41,8 +41,16 @@ typedef struct {
 	uint32 data_len;
 	const char *pub_topic;
 	uint8 pub_qos;
-	client_handle_timer timer;
 } mqtt_comm_data;
+
+typedef struct {
+	uint8 sign;
+	client_handle_timer Timer;
+	char *data;
+	const char *ptopic;
+	uint8 pqos;
+}MqttUserData;
+
 #define ErrorCodeSize 3
 enum ErrorCode{
 	EC_Normal,

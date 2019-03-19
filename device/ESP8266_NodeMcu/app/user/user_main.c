@@ -101,8 +101,8 @@ void user_init(void)
    
     config_wifi();
     comm_init();
-    init_dns();
-    init_http_server();
+    //init_dns();
+    //init_http_server();
     mqtt_app_init();
 
     #ifdef DEVELOP_VERSION

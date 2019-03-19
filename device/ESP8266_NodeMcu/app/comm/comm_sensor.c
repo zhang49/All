@@ -18,5 +18,5 @@ uint32 ICACHE_FLASH_ATTR comm_ray_value_api_get(){
 }
 uint32 comm_sensor_ray_value_read(){
 	comm_seneors.ray_value=system_adc_read();
-	os_printf("ray value is:%d\r\n",comm_seneors.ray_value);
+	//os_printf("ray value is:%d\r\n",comm_seneors.ray_value);
 }
