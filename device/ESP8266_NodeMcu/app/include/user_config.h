@@ -7,8 +7,10 @@
  * such element is ready for Aliyun mqtt
  * */
 #define PRODUCT_KEY     "a16U9ZZ9jb5"
-#define DEVICE_NAME     "NWOYa1LR2HNPV8hVyXeW"
+//#define DEVICE_NAME     "NWOYa1LR2HNPV8hVyXeW"
 #define DEVICE_SECRET   "8d5lHgQT87U1SPe9I0DX8y7r6y6EUsrW"
+
+#define DEVICE_NAME     "IOTClient1"
 
 #define WIFI_SSID       "360WiFi-1AC8AE"
 #define WIFI_PASS       "12345678"
@@ -26,7 +28,7 @@
 // #define FLASH_4M
 //#define FLASH_AUTOSIZE
 
-//#define DEVELOP_VERSION
+#define DEVELOP_VERSION
 #define FULL_VERSION_FOR_USER
 
 #define USE_OPTIMIZE_PRINTF

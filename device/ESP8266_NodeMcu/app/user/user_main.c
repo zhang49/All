@@ -103,7 +103,7 @@ void user_init(void)
     comm_init();
     //init_dns();
     //init_http_server();
-    mqtt_app_init();
+    //mqtt_app_init();
 
     #ifdef DEVELOP_VERSION
 

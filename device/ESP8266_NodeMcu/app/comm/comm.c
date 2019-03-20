@@ -105,6 +105,7 @@ void ICACHE_FLASH_ATTR comm_init(){
 
     ds18b20_init(1);
     comm_pwm_init();
+    comm_espnow_init();
     os_memset(&statusTimer,0,sizeof(os_timer_t));
     os_timer_disarm(&statusTimer);
     os_timer_setfn(&statusTimer, (os_timer_func_t *)statusTimerCb, NULL);
