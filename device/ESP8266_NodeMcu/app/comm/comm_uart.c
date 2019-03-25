@@ -28,11 +28,6 @@ static door_comm_buf comm_buf;
 void ICACHE_FLASH_ATTR comm_uart_init()
 {
 	//fro test;
-	comm_buf.syn_control.refresh_state=COMM_REFRESHED;
-	comm_buf.syn_control.buf=(uint8 *)os_malloc(20);
-	os_memset(comm_buf.syn_control.buf,0,sizeof(char)*20);
-	os_strcpy(comm_buf.syn_control.buf,"{\"error_code\":0}");
-
 	uart_register_data_callback(uart_recv_callback);
 }
 void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len)

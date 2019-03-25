@@ -11,6 +11,11 @@
 #define RELAY1_PIN 4
 #define RELAY2_PIN 5
 
+#define RELAYSIZE 3
+
+typedef struct {
+	uint8 relay[RELAYSIZE];
+}CommRelay;
 
 
 #endif /* COMM_RELAY_H_ */

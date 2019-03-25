@@ -71,7 +71,6 @@ int ICACHE_FLASH_ATTR mqtt_operator_api(MQTT_Client *);
 
 int ICACHE_FLASH_ATTR comm_connect_syn(void *client);
 
-int ICACHE_FLASH_ATTR comm_led_pwm_duty_read(void *client);
 int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client);
 int ICACHE_FLASH_ATTR comm_ray_value_read(void *client);
 int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client);

@@ -10,6 +10,8 @@ $(function(){
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
+	var rayIsWriting=0;
+	var rayTouchValue=0;
 	var replyGetStatusCount=0;
 	if(typeof RS == "undefined"){
 		var RS = {
@@ -20,6 +22,7 @@ $(function(){
 		}
 	}
 	var runStatus=RS.Waiting;
+	var lastscrollHeight;
 	/**
 	 *
 	 *mqtt(websocket)服务器
@@ -105,6 +108,8 @@ $(function(){
 			case "Reply_GetStatus":
 				Reply_GetStatus(res);
 				break;
+			case "Reply_GetConnectSynData":
+				Reply_GetConnectSynData(res);
 			case "Reply_GetSafeConfig":
 				Reply_GetSafeConfig(res);
 				break;
@@ -123,8 +128,8 @@ $(function(){
 			case "Reply_SetLigthDuty":
 				Reply_SetLigthDuty(res);
 				break;
-			case "Reply_GetLigthDuty":
-				Reply_GetLigthDuty(res);
+			case "Reply_SetRayAlarmValue":
+				Reply_SetRayAlarmValue(res);
 				break;
 		};
 	}
@@ -181,18 +186,21 @@ $(function(){
      */
     $("#in_enginer").on('click', function(){
         var status = $(this).data('status');
-
         if (status == 0){
-            //弹出层设置
-            var scrollHeight = $(document).scrollTop(),
-                dh = $(document).height(),
-                windowHeight = $(window).height(),
-                popupHeight = $(".en_diak.config_frame").height(),
-                posiTop = (windowHeight - popupHeight)/2 + scrollHeight;
-
-            $(".en_diak.config_frame").css("top",posiTop);
-            $(".en_dialog").css("min-height",dh);
-            $(".en_diak.config_frame,.en_dialog").fadeIn(100);
+			var windowHeight = $(window).height();
+			var windowWidth = $(window).width();
+			var popupHeight = $(".wifi_scan_ret_list").height();
+			var posiTop = (windowHeight - popupHeight)/2;
+			lastscrollHeight = $(document).scrollTop();
+			$(".en_diak.config_frame").css({'top':posiTop+lastscrollHeight});
+			
+			$('.en_diak.config_frame,.en_dialog').fadeIn(100);
+			ShowShandowBg();
+			var bwidth = $("body").width();
+			document.body.style.overflow='hidden';
+			document.addEventListener('touchmove',bodyScroll,false);
+			bwidth = windowWidth-$(window).width();
+			if(bwidth!=0)$("body").css({'marginLeft':bwidth});
             $(".p-password").focus();
         } else {
             $('.enginer .slider1').removeClass("intro");
@@ -241,7 +249,7 @@ $(function(){
      */
     $('.en_cancel').on('click', function(){
         $('.p-password').val('');
-        $(".en_diak.config_frame,.en_dialog").fadeOut();
+		$('.en_dialog').click();
     });
 
     /**
@@ -331,9 +339,7 @@ $(function(){
 		}
 		setWiFiConfig(1,choice_ssid,password);
 		document.body.removeEventListener('touchmove',bodyScroll,false);   
-		$("body").css({"position":"initial","height":"auto"});
-		$('.wifi_scan_ret_list').hide();
-        $(".en_diak,.en_dialog").fadeOut();
+		$('.en_dialog').click();
     });
 
     /**
@@ -341,16 +347,21 @@ $(function(){
      */
     $('.wifi_pwd_cancel-btn').on('click', function(){
         $('.wifi_pwd_input_text').val('');
-        $(".wifi_pwd_input_fram").fadeOut();
-        $(".wifi_scan_ret_list").fadeIn(50);
+		$(".en_diak.wifi_pwd_input_fram").fadeOut(50);
+		$('.wifi_scan_ret_list').fadeIn(100);
     });
-	
+	function ShowShandowBg(){
+		$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
+    	$('.en_dialog').fadeIn(100);
+	}
 	/**
-	 * 点击弹窗外的区域
+	 * 点击弹窗外的区域(遮蔽层)
 	 */
     $('.en_dialog').on('click', function(){
-		document.body.removeEventListener('touchmove',bodyScroll,false);   
-		$("body").css({"position":"initial","height":"auto"});
+		document.body.removeEventListener('touchmove',bodyScroll,false);
+		$("body").css({"position":"initial","height":"auto",'marginLeft':0});
+		document.body.style.overflow='';
+		document.documentElement.scrollTop = lastscrollHeight;
 		$('.en_diak,.wifi_scan_ret_list,.en_dialog').fadeOut(50);
     });
 	 
@@ -383,14 +394,15 @@ $(function(){
      */
     function init(){
 		//初始化滑动列表
-		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc"});
+		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
 		client.connect(options);
 		setTimeout(
-				function(){
-					getSafeConfig();
-					getWiFiConfig();
-					//getNormalConfigCount();
-				},500);
+			function(){
+				GetConnectSynData()
+				getSafeConfig();
+				getWiFiConfig();
+				//getNormalConfigCount();
+		},500);
         
         setInterval(function(){
 			switch(runStatus){
@@ -418,8 +430,33 @@ $(function(){
     }
 	
 	 
+	/**
+     * 获取同步配置
+     */
+	 function GetConnectSynData(){
+		if (!flag){
+			return false;
+		}
+		var arr = {
+			"type" : "GetConnectSynData",
+			"data" : ""
+		};
+		mqtt_send(JSON.stringify(arr));
+	}
 	 
-	 
+	function Reply_GetConnectSynData(res){
+		getSafeConfigCount = 0;
+		var $lightinputRange = $('#lightDutyValue');
+		var $lightinputRange = $('#lightDutyValue');
+		$lightinputRange.val(res.data.duty).change();
+		
+		var $rayinputRange = $('#rayAlarmValue');
+		var $rayinputRange = $('#rayAlarmValue');
+		$rayinputRange.val(res.data.alarm['ray-value']).change();
+		console.log("+++"+res.data.alarm['ray-value']);
+        $('.s-token').text(res.data.mac);
+	}
+	
     /**
      * 获取安全配置
      */
@@ -525,28 +562,30 @@ $(function(){
     		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
     		console.log("wifi-infro-item choose_name : "+choice_ssid);
 			var windowHeight = $(window).height();
-			popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
 			var posiTop = (windowHeight - popupHeight)/2;
-			
-    		$('.wifi_scan_ret_list,en_dialog').fadeOut();
-			 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
-			$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
+			lastscrollHeight = $(document).scrollTop();
+    		$('.wifi_scan_ret_list').fadeOut();
+			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
 			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-            $(".wifi_pwd_input_text").focus();    		
+            $(".wifi_pwd_input_text").focus();
     	});
+		
 		var windowHeight = $(window).height();
-		popupHeight = $(".wifi_scan_ret_list").height();
+		var windowWidth = $(window).width();
+		var popupHeight = $(".wifi_scan_ret_list").height();
 		var posiTop = (windowHeight - popupHeight)/2;
-		$(".wifi_scan_ret_list").css("top",posiTop);
+		lastscrollHeight = $(document).scrollTop();
+		$(".wifi_scan_ret_list").css({'top':posiTop+lastscrollHeight});
+		$(".wifi_scan_ret_list").niceScroll({railoffset:true});
     	$('.wifi_scan_ret_list').fadeIn(100);
-    	$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
-    	$('.en_dialog').fadeIn(100);
-    	
-    	document.body.addEventListener('touchmove',bodyScroll,false);  
-    	$('body').css({'position':'fixed',"width":"100%"});
+    	ShowShandowBg();
+		document.body.style.overflow='hidden';
+    	document.addEventListener('touchmove',bodyScroll,false);
+		$("body").css({'marginLeft':windowWidth-$(window).width()});
 
     }
-
     function bodyScroll(event){  
         event.preventDefault();  
     } 
@@ -574,33 +613,36 @@ $(function(){
 		}
 
 		$(".wifi_scan_ret_list-ul").empty();
-		for(i=0;i<res.data.ap.length;i++){
-		  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
-		}
-		$(".wifi-infro-item").click(function(){
-			//find查找所有的子元素，会一直查找，跨层级查找 
-			choice_ssid= $(this).find(".wifi-infro-ssid").html();
-			console.log("wifi-infro-item choose_name : "+choice_ssid);
+    	for(i=0;i<res.data.ap.length;i++){
+    	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
+    	}
+    	$(".wifi-infro-item").click(function(){
+    		//find查找所有的子元素，会一直查找，跨层级查找 
+    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
+    		console.log("wifi-infro-item choose_name : "+choice_ssid);
 			var windowHeight = $(window).height();
-			popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
 			var posiTop = (windowHeight - popupHeight)/2;
-			
-			$('.wifi_scan_ret_list,en_dialog').fadeOut();
-			 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
-			$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
+			lastscrollHeight = $(document).scrollTop();
+    		$('.wifi_scan_ret_list').fadeOut();
+			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
 			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-			$(".wifi_pwd_input_text").focus();    		
-		});
-		var windowHeight = $(window).height();
-		popupHeight = $(".wifi_scan_ret_list").height();
-		var posiTop = (windowHeight - popupHeight)/2;
-		$(".wifi_scan_ret_list").css("top",posiTop);
-		$('.wifi_scan_ret_list').fadeIn(100);
-		$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
-		$('.en_dialog').fadeIn(100);
+            $(".wifi_pwd_input_text").focus();
+    	});
 		
-		document.body.addEventListener('touchmove',bodyScroll,false);  
-		$('body').css({'position':'fixed',"width":"100%"});
+		var windowHeight = $(window).height();
+		var windowWidth = $(window).width();
+		var popupHeight = $(".wifi_scan_ret_list").height();
+		var posiTop = (windowHeight - popupHeight)/2;
+		lastscrollHeight = $(document).scrollTop();
+		$(".wifi_scan_ret_list").css({'top':posiTop+lastscrollHeight});
+		$(".wifi_scan_ret_list").niceScroll({railoffset:true});
+    	$('.wifi_scan_ret_list').fadeIn(100);
+    	ShowShandowBg();
+		document.body.style.overflow='hidden';
+    	document.addEventListener('touchmove',bodyScroll,false);
+		$("body").css({'marginLeft':windowWidth-$(window).width()});
 	}
 	
     /**
@@ -624,20 +666,20 @@ $(function(){
 	
 	function Reply_Control(res){
 		hideLoad();
+		var type = res.data.control_type;
+		var op = res.data.operator;
 		var msg = type == 0 ? '1' : (type == 1 ? '2' : (type == 2 ? '3' : '4'));
 		if (res.error_code == 0){
-				
-			if(op=="open"){
+			if(op==1){
 				$(".op-control-closed[data-type=" + type + "]").unbind("click");
 				$(".op-control-closed[data-type=" + type + "]").toggleClass("op-control-opened");
-				
 				$(".op-control-opened[data-type=" + type + "]").removeClass("op-control-closed");
 				$(".op-control-opened[data-type=" + type + "]").delegate($(this),'click', function(){
 					var type = $(this).data('type');
 					control(type,"close");
 				});
 			}
-			else if(op=="close"){
+			else if(op==0){
 				$(".op-control-opened[data-type=" + type + "]").unbind("click");
 				$(".op-control-opened[data-type=" + type + "]").toggleClass("op-control-closed");
 				
@@ -691,19 +733,35 @@ $(function(){
             default:
                 break;
         }
-        $('.s-status').text(smstateMsg);                                                                                //运行状态
-        $('.c-status').text(data.comm_state);                                                                     //通信状态
-        $('.t-degree').text(data.temperature_pre+"."+data.temperature_back+"℃");                                                                   //温度
-        $('.w-degree').text(data.wetness);                                                                       //湿度
-        $('.p-rate').text(data.power);                                                                           //功率比
-        $('.r-time').text(getTime(data.run_time));                                                                //运行时间
+        $('.s-status').text(smstateMsg);                         //运行状态
+        $('.c-status').text(data.comm_state);                   //通信状态
+        $('.t-degree').text(data.temperature_pre+"."+data.temperature_back+"℃");  //温度
+        $('.w-degree').text(data.wetness);                         //湿度
+        //$('.p-rate').text(data.power);                           //功率比
+		$('.r-degree').text(data['ray-value']);
+        $('.r-time').text(getTime(data.run_time));            //运行时间
     }
-	
+	/**
+	 *设置光强报警值
+	 */
+	function SetRayAlarmValue(value){
+		var arr = {};
+		arr['type'] = 'SetRayAlarmValue';
+        arr['data'] = {};
+		arr['data']['ray-value'] = value-0;
+		mqtt_send(JSON.stringify(arr));
+	}
+	function Reply_SetRayAlarmValue(res){
+		var $rayinputRange = $('#rayAlarmValue');
+		var $rayinputRange = $('#rayAlarmValue');
+		$rayinputRange.val(res.data['ray-value']).change();
+		return res.data['ray-value'];
+	}
 	
 	/**
 	 *设置灯Duty
 	 */
-	function setLigthDuty(value){
+	function SetLigthDuty(value){
 		var arr = {};
 		arr['type'] = 'SetLigthDuty';
         arr['data'] = {};
@@ -712,23 +770,12 @@ $(function(){
         
 	}
 	function Reply_SetLigthDuty(res){
+		var $lightinputRange = $('#lightDutyValue');
+		var $lightinputRange = $('#lightDutyValue');
+		$lightinputRange.val(res.data.duty).change();
 		return res.data.duty;
 	}
 	
-	/**
-	 *获取灯Duty
-	 */
-	function getLigthDuty(value){
-		var arr = {};
-		arr['type'] = 'GetLigthDuty';
-        arr['data'] = {};
-		arr['data']['duty'] = value;
-		mqtt_send(JSON.stringify(arr));
-		
-	}
-	function Reply_GetLigthDuty(res){
-		return res.data.duty;
-	}
     /**
      * 密码验证
      */
@@ -805,7 +852,7 @@ $(function(){
 				if(lightDutyIsWriting==0){			
 					lightDutyIsWriting=1;
 					var $inputRange = $('#lightDutyValue', e.target.parentNode);					
-					var ret=setLigthDuty(lightDutyTouchValue);
+					var ret=SetLigthDuty(lightDutyTouchValue);
 					if(ret==-1){
 						//failed							
 					}else{
@@ -815,7 +862,25 @@ $(function(){
 						$inputRange.val(lightDutyTouchValue).change();
 						console.log(lightDutyTouchValue);
 						lightDutyIsWriting=0}
-					,500);
+					,300);
+				}
+			}else if($(this).attr('id')=="rayAlarmValue"){
+				var value=valueOutput(e.target);
+				rayTouchValue=value;
+				if(rayIsWriting==0){			
+					rayIsWriting=1;
+					var $inputRange = $('#rayAlarmValue', e.target.parentNode);					
+					var ret=SetRayAlarmValue(rayTouchValue);
+					if(ret==-1){
+						//failed							
+					}else{
+						//set text							
+					}
+					setTimeout(function(){
+						$inputRange.val(rayTouchValue).change();
+						console.log(rayTouchValue);
+						rayIsWriting=0}
+					,300);
 				}
 			}
             
