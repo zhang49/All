@@ -10,10 +10,20 @@
 
 typedef struct {
 	uint16 ray_value;
-	uint16 temptdsdsdsdasdas;
+	int temp;
+	int hum;
 }SensorUnio;
-SensorUnio comm_seneors;
+
+
 uint32 ICACHE_FLASH_ATTR comm_ray_value_api_get();
 uint32 comm_sensor_ray_value_read();
+
+void comm_dht22_espnow_read();
+u16  ICACHE_FLASH_ATTR comm_temperature_value_read_api();
+u16  ICACHE_FLASH_ATTR comm_humidity_value_read_api();
+
+void ICACHE_FLASH_ATTR comm_temperature_value_write_api(int temp);
+void ICACHE_FLASH_ATTR comm_humidity_value_write_api(int hum);
+
 
 #endif /* COMM_SENSOR_H_ */

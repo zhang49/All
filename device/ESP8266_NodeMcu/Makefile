@@ -154,7 +154,7 @@ endef
 $(BINODIR)/%.bin: $(IMAGEODIR)/%.out
 	@mkdir -p $(BINODIR)
 	python2 $(ESPTOOL) elf2image $< -o $(FIRMWAREDIR)
-	cp $(FIRMWAREDIR)*.bin /mnt/hgfs/P/project/bin/
+	cp $(FIRMWAREDIR)*.bin /mnt/hgfs/D/ESP8266/bin
 #############################################################
 # Rules base
 # Should be done in top-level makefile only
@@ -180,7 +180,7 @@ endif
 openserial:
 	python3 $(PYTHONSERIAL)
 html:
-	$(MKFSTOOL) -s app/http/html/ -d app/http/rofs_data.c
+	$(MKFSTOOL) -s app/resource -d app/http/rofs_data.c
 
 .subdirs:
 	@set -e; $(foreach d, $(SUBDIRS), $(MAKE) -C $(d);)

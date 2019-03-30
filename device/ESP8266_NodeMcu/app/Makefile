@@ -105,6 +105,7 @@ LINKFLAGS_eagle.app.v6 = \
 	-lsmartconfig	\
 	-lssl	\
 	-lpwm	\
+	-lespnow	\
 	$(DEP_LIBS_eagle.app.v6)	\
 	-Wl,--end-group
 

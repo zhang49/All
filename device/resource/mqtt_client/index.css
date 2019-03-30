@@ -39,8 +39,8 @@ input[disabled]{background:#fff;}
 
 html{font-size:50.18px !important;font-size:13.3333333333333vw !important;}
 @media screen and (min-width: 540px){html {font-size: 70px !important;}}
-body{margin: 0 auto;min-width: 320px;max-width: 540px;font-family:"Microsoft YaHei";}
-.slidiedoor{position:relative;overflow-x: hidden;}
+body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
+.slidiedoor{position:relative;overflow-x: hidden;max-width: 540px;margin:0 auto;}
 .slidiedoor .container {position: relative; transition: all 0.25s; width: 100%;background:#fdfdfd;}
 .sidenav { position: absolute; top: 0; left: 0; bottom: 0; background: linear-gradient(rgba(50,60,60, 1), rgba(50,60,60, 0.7));transition: all 0.25s; overflow: hidden; padding-top: 100px;}
 .sidenav li { overflow: hidden;padding: 0.4rem 0.2rem 0.4rem 0.2rem;border-bottom: 1px dashed #797979;box-sizing: border-box; }
@@ -73,7 +73,7 @@ body{margin: 0 auto;min-width: 320px;max-width: 540px;font-family:"Microsoft YaH
 .s-green{background:#13b75c;}
 .s-red{background:red;}
 .side_btn{padding: 0.35rem 0.05rem 0.05rem 0.4rem;padding-right:0.5rem}
-.side_btn ul li{width:50px;height:50px;line-height: 50px;border-radius:20px;box-shadow: 25px 15px 20px rgba(219,219,219,.9);text-align:center;color:#6A6A6A;}
+.side_btn ul li{width:50px;height:50px;line-height: 50px;border-radius:20px;box-shadow: 18px 15px 10px rgba(219,219,219,.9);text-align:center;color:#6A6A6A;}
 .op-control-closed{background:#c3c3c3;}
 .op-control-opened{background:#13b75c;}
 /*-------------选择方案----------------*/
@@ -141,8 +141,8 @@ body{margin: 0 auto;min-width: 320px;max-width: 540px;font-family:"Microsoft YaH
 .slider1{background: #ccc;position: absolute;top: 0;bottom: 0;left: 0;right: 0;transition: all .4s;cursor: pointer;}
 .switch .slider1 span{width: 0.5rem;height: 0.5rem;display: block;border-radius: 50%;background-color: #FFFFFF;position: absolute;top: 4px;left: 4px;transition: all .4s;}
 /*-------对话框------*/
-.en_dialog{width: 100%;margin: 0 auto;min-width: 320px;max-width: 540px;background-color: rgba(0,0,0,.4);position:absolute;top:0;}
-.en_diak{z-index:1001;width:100%;position:absolute;display: -webkit-flex;justify-content:center;min-width: 320px;max-width: 540px;}
+.en_dialog{width: 100%;margin: 0 auto;min-width: 320px;;background-color: rgba(0,0,0,.4);position:absolute;top:0;}
+.en_diak{;z-index:1001;width:100%;position:absolute;display: -webkit-flex;justify-content:center;min-width: 320px;max-width: 540px;}
 .enda{width:80%;background:#EDEDED;font-size:0.28rem;border-radius:5px;}
 .en_diak .endi_title{padding:0.55rem 0;text-align:center;font-size:0.34rem;}
 .en_diak .en_mima{padding:0 8% 0.45rem 8%;}
@@ -242,7 +242,13 @@ body{margin: 0 auto;min-width: 320px;max-width: 540px;font-family:"Microsoft YaH
   -webkit-border-radius: 10px;
   border-radius: 10px;
 }
-
+.rayAlarmValueCt{
+	margin:0 auto;
+  width: 85%;
+}
+.rayAlarmValueCt .rangeslider__fill {
+  background: #f00;
+}
 .rangeslider {
   position: relative;
 }

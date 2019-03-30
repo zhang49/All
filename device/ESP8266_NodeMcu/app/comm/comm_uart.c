@@ -15,7 +15,7 @@
 #include "user_config.h"
 
 #include "driver/uart.h"
-
+#include "comm/comm_pub_def.h"
 #include "comm/comm_uart.h"
 #include "http/app.h"
 
@@ -28,11 +28,6 @@ static door_comm_buf comm_buf;
 void ICACHE_FLASH_ATTR comm_uart_init()
 {
 	//fro test;
-	comm_buf.syn_control.refresh_state=COMM_REFRESHED;
-	comm_buf.syn_control.buf=(uint8 *)os_malloc(20);
-	os_memset(comm_buf.syn_control.buf,0,sizeof(char)*20);
-	os_strcpy(comm_buf.syn_control.buf,"{\"error_code\":0}");
-
 	uart_register_data_callback(uart_recv_callback);
 }
 void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len)
@@ -159,14 +154,16 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 		ds_ptr=&comm_buf.syn_control;
 		break;
 	case SYN_STATE:
+		break;
+		/*
 		syn_state.sm_state=*(uart_recv_raw.data+0);
 		syn_state.comm_state=*(uart_recv_raw.data+1);
-		//remark
-		//syn_state.temperature=*(uart_recv_raw.data+2);
+		syn_state.temperature=*(uart_recv_raw.data+2);
 		syn_state.wetness=*(uart_recv_raw.data+3);
 		syn_state.power=*(uart_recv_raw.data+4);
 		syn_state.run_time=*(uart_recv_raw.data+5);
 		break;
+		*/
 	}
 	if(ds_ptr!=NULL){
 		ds_ptr->refresh_state=COMM_REFRESHED;

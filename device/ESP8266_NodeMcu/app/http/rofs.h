@@ -38,10 +38,10 @@ typedef struct {
 
 	const RO_FILE_ENTRY *file;
 	uint32_t readPos;
-	uint32_t writePos;
 	uint8_t eof;
 
 } RO_FILE;
+
 
 RO_FILE* ICACHE_FLASH_ATTR f_open(const char *fileName);
 int ICACHE_FLASH_ATTR f_read(RO_FILE *file,char * buff,int len);

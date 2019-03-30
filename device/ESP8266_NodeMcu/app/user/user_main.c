@@ -34,8 +34,8 @@
 	
 #define AP_SSID "ESP8266_"DEVICE_NAME
 #define AP_PWD ""
-#define STA_SSID "Ares"
-#define STA_PWD "460204415"
+#define STA_SSID "H3C_GUEST"
+#define STA_PWD ""
 
 #ifdef DEVELOP_VERSION
 os_timer_t heapTimer;
@@ -87,7 +87,7 @@ static void config_wifi(){
  * Returns      : none
 *******************************************************************************/
 void user_init(void)
-{   
+{
     
     system_update_cpu_freq(160); //overclock :)
 
@@ -98,7 +98,8 @@ void user_init(void)
 
     uint32_t size = flash_get_size_byte();
     NODE_DBG("Flash size %d",size);
-   
+
+    user_esp_now_set_mac_current();
     config_wifi();
     comm_init();
     //init_dns();

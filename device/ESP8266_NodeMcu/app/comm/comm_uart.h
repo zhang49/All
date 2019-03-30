@@ -15,9 +15,7 @@
 
 #define HEADLENGTH 5
 
-#define COMM_NOREFRESH 0
-#define COMM_REFRESHING 1
-#define COMM_REFRESHED 2
+
 
 enum UartRecvState{
 	URS_FLAGE1,
@@ -35,15 +33,17 @@ enum MasterMsgType{
 	SYN_STATE = 0x03,			//synchronization state
 	NORMAL_WIFI_SCAN = 0x99
 }master_msg_type;
+
 typedef struct {
 	uint8 sm_state;
 	uint8 comm_state;
-	int temperature_pre;
-	uint8 temperature_back;
-	uint8 wetness;
+	int temperature;
+	int humidity;
+	int ray;
 	uint8 power;
 	uint32 run_time;
 }SynState;
+
 SynState syn_state;
 
 enum SynControl{

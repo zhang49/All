@@ -117,7 +117,6 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 	dataBuf[data_len] = 0;
 
 	MQTT_DBG("Receive topic: %s, data: %s ", topicBuf, dataBuf);
-	MQTT_DBG("MQTT: client is:%d",&client);
 	os_free(topicBuf);
 	os_free(dataBuf);
 	//undecision
@@ -127,7 +126,7 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 		mqtt_tipic_pair *md = &topics_pair[i];
 		//compare topic
 		if(os_strncmp(topic,md->sub_topic,strlen(md->sub_topic))==0){
-			mqtt_comm_data *comm_data=(mqtt_comm_data*)os_malloc(sizeof(mqtt_comm_data));
+			mqtt_comm_data *comm_data=(mqtt_comm_data*)os_zalloc(sizeof(mqtt_comm_data));
 			client->sign=CLIENT_IS_MQTT;
 			comm_data->sub_topic = topic;
 			comm_data->pub_topic = md->pub_topic;
