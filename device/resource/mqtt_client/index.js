@@ -1,15 +1,16 @@
 $(function(){
-    var flag = true;                                                                                                   //判断是否继续获取配置
+    var flag = true;       			   //判断是否继续获取配置
     var getSafeConfigCount = 0;
     var getWifiConfigCount = 0;
-    var getNormalConfigCount = 0;                                                                                         //本地json数据
-    var onLineSpeed = {};                                                                                               //速度配置（线上）
-    var isEdit = false;                                                                                                //判断是否可编辑门配置
-    var isProjectEdit = false;                                                                                         //判断是否可编辑工程参数
+    var getNormalConfigCount = 0;      //本地json数据
+    var onLineSpeed = {};      		   //速度配置（线上）
+    var isEdit = false;      		   //判断是否可编辑门配置
+    var isProjectEdit = false;         //判断是否可编辑工程参数
     var pwd = '123456789';
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
+	
 	var rayIsWriting=0;
 	var rayTouchValue=0;
 	var replyGetStatusCount=0;
@@ -23,6 +24,7 @@ $(function(){
 	}
 	var runStatus=RS.Waiting;
 	var lastscrollHeight;
+	
 	/**
 	 *
 	 *mqtt(websocket)服务器
@@ -32,15 +34,15 @@ $(function(){
 	/**
 	 *mqtt客户端相关配置
 	 */
-	var hostname = '119.23.207.135', //'192.168.1.2',
+	var hostname = '119.23.207.135',
 		port = 9001,
-		clientId = 'client-mao2080',
+		clientId = 'appClient',
 		timeout = 5,
 		keepAlive = 100,
 		cleanSession = false,
 		ssl = false,
-		//userName = 'mao2080',  
-		//password = '123',  
+		//userName = '',  
+		//password = '',  
 		pub_topic = '/ESP8266/user/app/request',
 		sub_topic = '/ESP8266/user/wireless/upload',
 		client = new Paho.MQTT.Client(hostname, port, clientId);
@@ -141,25 +143,6 @@ $(function(){
 		message.destinationName = pub_topic;
 		client.send(message);		
 	}
-	/**
-	 *格式化时间，便于调试
-	 */ 
-	Date.prototype.Format = function (fmt) { //author: meizz 
-		var o = {
-			"M+": this.getMonth() + 1, //月份 
-			"d+": this.getDate(), //日 
-			"h+": this.getHours(), //小时 
-			"m+": this.getMinutes(), //分 
-			"s+": this.getSeconds(), //秒 
-			"q+": Math.floor((this.getMonth() + 3) / 3), //季度 
-			"S": this.getMilliseconds() //毫秒 
-		};
-		if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
-		for (var k in o)
-			if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[
-				k]) : (("00" + o[k]).substr(("" + o[k]).length)));
-		return fmt;
-	}	
 	
     /**
      * 初始化
@@ -396,6 +379,8 @@ $(function(){
 		//初始化滑动列表
 		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
 		client.connect(options);
+		
+		//获取配置
 		setTimeout(
 			function(){
 				GetConnectSynData()
@@ -403,7 +388,7 @@ $(function(){
 				getWiFiConfig();
 				//getNormalConfigCount();
 		},500);
-        
+        //获取状态（心跳包）
         setInterval(function(){
 			switch(runStatus){
 				case RS.Normal:
@@ -506,8 +491,9 @@ $(function(){
         };
 		mqtt_send(JSON.stringify(arr));
     }
+	
 	function Reply_GetWiFiConfig(res){
-		if (res.type != 'Reply_GetWiFiConfig' || res.error_code != 0){
+		if (res.error_code != 0){
 			flag = false;
 			error_str = res.error_str || '获取无线配置失败';
 			showMsg(error_str);
@@ -562,6 +548,9 @@ $(function(){
 		}
 	}
 	
+	/**
+     * 扫描WiFi测试
+     */
 	function startScanfWiFitest(){
     	var jsonstr="{	\"type\":	\"Reply_GetWiFiScan\",	\"data\":	{		\"ap_count\":	24,		\"ap\":	[{				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	170,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	167,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"v10\",				\"rssi\":	161,				\"enc\":	3,				\"channel\":	1			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	172,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	181,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"Ares\",				\"rssi\":	209,				\"enc\":	3,				\"channel\":	6			}, {				\"ssid\":	\"ChinaNet\",				\"rssi\":	199,				\"enc\":	0,				\"channel\":	4			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	176,				\"enc\":	0,				\"channel\":	6			}]	}}"
     	var res=JSON.parse(jsonstr);
@@ -674,7 +663,6 @@ $(function(){
 		//0 - relay
         arr['data']['device_type'] = 0;
         arr['data']['index'] = index;
-		var c_name={};
 		if(op=="open"){
 			arr['data']['op'] = 1;
 		}
@@ -803,7 +791,7 @@ $(function(){
      * 密码验证
      */
     function verify_password(password){
-        var res = $.md5($.md5(password) + 'o11OiwOI0I0PPJmKrKtJgKg7Yc1U');
+        var res = $.md5($.md5(password) + '123456789');
         return res == pwd
     }
 
@@ -916,7 +904,26 @@ $(function(){
 
 
     });
-
+	
+	/**
+	 *格式化时间，便于调试
+	 */ 
+	Date.prototype.Format = function (fmt) { //author: meizz 
+		var o = {
+			"M+": this.getMonth() + 1, //月份 
+			"d+": this.getDate(), //日 
+			"h+": this.getHours(), //小时 
+			"m+": this.getMinutes(), //分 
+			"s+": this.getSeconds(), //秒 
+			"q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+			"S": this.getMilliseconds() //毫秒 
+		};
+		if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+		for (var k in o)
+			if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[
+				k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+		return fmt;
+	}	
 
 
 });

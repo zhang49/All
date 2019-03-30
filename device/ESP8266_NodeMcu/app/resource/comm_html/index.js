@@ -1,15 +1,29 @@
 $(function(){
-    var flag = true;                                                                                                   //判断是否继续获取配置
+    var flag = true;       			   //判断是否继续获取配置
     var getSafeConfigCount = 0;
     var getWifiConfigCount = 0;
-    var getNormalConfigCount = 0;                                                                                         //本地json数据
-    var onLineSpeed = {};                                                                                               //速度配置（线上）
-    var isEdit = false;                                                                                                //判断是否可编辑门配置
-    var isProjectEdit = false;                                                                                         //判断是否可编辑工程参数
+    var getNormalConfigCount = 0;      //本地json数据
+    var onLineSpeed = {};      		   //速度配置（线上）
+    var isEdit = false;      		   //判断是否可编辑门配置
+    var isProjectEdit = false;         //判断是否可编辑工程参数
     var pwd = '123456789';
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
+	
+	var rayIsWriting=0;
+	var rayTouchValue=0;
+	var replyGetStatusCount=0;
+	if(typeof RS == "undefined"){
+		var RS = {
+			Normal : 0,
+			Waiting : 1,
+			Unknow : 2,
+			Error : 3
+		}
+	}
+	var runStatus=RS.Waiting;
+	var lastscrollHeight;
     /**
      * 初始化
      */
@@ -35,18 +49,21 @@ $(function(){
      */
     $("#in_enginer").on('click', function(){
         var status = $(this).data('status');
-
         if (status == 0){
-            //弹出层设置
-            var scrollHeight = $(document).scrollTop(),
-                dh = $(document).height(),
-                windowHeight = $(window).height(),
-                popupHeight = $(".en_diak.config_frame").height(),
-                posiTop = (windowHeight - popupHeight)/2 + scrollHeight;
-
-            $(".en_diak.config_frame").css("top",posiTop);
-            $(".en_dialog").css("min-height",dh);
-            $(".en_diak.config_frame,.en_dialog").fadeIn(100);
+			var windowHeight = $(window).height();
+			var windowWidth = $(window).width();
+			var popupHeight = $(".wifi_scan_ret_list").height();
+			var posiTop = (windowHeight - popupHeight)/2;
+			lastscrollHeight = $(document).scrollTop();
+			$(".en_diak.config_frame").css({'top':posiTop+lastscrollHeight});
+			
+			$('.en_diak.config_frame,.en_dialog').fadeIn(100);
+			ShowShandowBg();
+			var bwidth = $("body").width();
+			document.body.style.overflow='hidden';
+			document.addEventListener('touchmove',bodyScroll,false);
+			bwidth = windowWidth-$(window).width();
+			if(bwidth!=0)$("body").css({'marginLeft':bwidth});
             $(".p-password").focus();
         } else {
             $('.enginer .slider1').removeClass("intro");
@@ -95,7 +112,7 @@ $(function(){
      */
     $('.en_cancel').on('click', function(){
         $('.p-password').val('');
-        $(".en_diak.config_frame,.en_dialog").fadeOut();
+		$('.en_dialog').click();
     });
 
     /**
@@ -169,7 +186,7 @@ $(function(){
      * 扫描wifi
      */
     $('.wifiscan-btn').on('click', function(){
-        startScanfWiFi();
+        startScanfWiFitest();
     });
 	
     /**
@@ -185,9 +202,7 @@ $(function(){
 		}
 		setWiFiConfig(1,choice_ssid,password);
 		document.body.removeEventListener('touchmove',bodyScroll,false);   
-		$("body").css({"position":"initial","height":"auto"});
-		$('.wifi_scan_ret_list').hide();
-        $(".en_diak,.en_dialog").fadeOut();
+		$('.en_dialog').click();
     });
 
     /**
@@ -195,16 +210,21 @@ $(function(){
      */
     $('.wifi_pwd_cancel-btn').on('click', function(){
         $('.wifi_pwd_input_text').val('');
-        $(".wifi_pwd_input_fram").fadeOut();
-        $(".wifi_scan_ret_list").fadeIn(50);
+		$(".en_diak.wifi_pwd_input_fram").fadeOut(50);
+		$('.wifi_scan_ret_list').fadeIn(100);
     });
-	
+	function ShowShandowBg(){
+		$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
+    	$('.en_dialog').fadeIn(100);
+	}
 	/**
-	 * 点击弹窗外的区域
+	 * 点击弹窗外的区域(遮蔽层)
 	 */
     $('.en_dialog').on('click', function(){
-		document.body.removeEventListener('touchmove',bodyScroll,false);   
-		$("body").css({"position":"initial","height":"auto"});
+		document.body.removeEventListener('touchmove',bodyScroll,false);
+		$("body").css({"position":"initial","height":"auto",'marginLeft':0});
+		document.body.style.overflow='';
+		document.documentElement.scrollTop = lastscrollHeight;
 		$('.en_diak,.wifi_scan_ret_list,.en_dialog').fadeOut(50);
     });
 	 
@@ -237,17 +257,101 @@ $(function(){
      */
     function init(){
 		//初始化滑动列表
-		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc"});
+		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
 		
-        getSafeConfig();
-        getWiFiConfig();
-        //getNormalConfigCount();
-
+		//获取配置
+		setTimeout(
+			function(){
+				//GetConnectSynData()
+				//getSafeConfig();
+				//getWiFiConfig();
+				//getNormalConfigCount();
+		},500);
+        //获取状态（心跳包）
         setInterval(function(){
-            getStatus();
+			switch(runStatus){
+				case RS.Normal:
+					$('.conn-indicator').css('background','#00ff00');
+				break;
+				case RS.Waiting:
+					$('.conn-indicator').css('background','#0000ff');
+				break;
+				case RS.Unknow:
+					$('.conn-indicator').css('background','#000000');
+				break;
+				case RS.Error:
+					$('.conn-indicator').css('background','#ff0000');
+				break;
+			}
+			replyGetStatusCount++;
+			if(replyGetStatusCount>=4){
+				runStatus=RS.Error;
+			}else if(replyGetStatusCount>=2){
+				runStatus=RS.Waiting;
+			}
+            //getStatus();
         }, 2000)
     }
 
+	
+	/**
+     * 获取同步配置
+     */
+	 function GetConnectSynData(){
+		if (!flag){
+			return false;
+		}
+		var arr = {
+			"type" : "GetConnectSynData",
+			"data" : ""
+		};
+
+        $.ajax({
+            'url' : '/command',
+            'type' : 'post',
+            'dataType' : 'json',
+            'data' : JSON.stringify(arr),
+            'success' : function(res){
+				Reply_GetConnectSynData(res);
+            },
+            'error' : function(){
+                //showMsg('获取配置网络错误');
+            }
+        });
+		
+	}
+	
+	function Reply_GetConnectSynData(res){
+		getSafeConfigCount = 0;
+		var $lightinputRange = $('#lightDutyValue');
+		var $lightinputRange = $('#lightDutyValue');
+		$lightinputRange.val(res.data.duty).change();
+		
+		var $rayinputRange = $('#rayAlarmValue');
+		var $rayinputRange = $('#rayAlarmValue');
+		$rayinputRange.val(res.data.alarm['ray-value']).change();
+		console.log("+++"+res.data.alarm['ray-value']);
+        $('.s-token').text(res.data.mac);
+		
+		var control_type = res.data.control_type;
+		var index = res.data.index;
+		var op = res.data.op;
+		
+		var i;
+		var relays=[];
+		relays=res.data.relays;
+		for(i=0;i<relays.length;i++){
+			var temp = [];
+			temp.data=[];
+			temp.data.device_type = relays[i].device_type;
+			temp.data.index = relays[i].index;
+			temp.data.op = relays[i].op;
+			temp.error_code=0;
+			console.log(temp);
+			Reply_Control(temp,1);
+		}
+	}
+	
     /**
      * 获取安全配置
      */
@@ -382,6 +486,9 @@ $(function(){
         });
     }
 	
+	/**
+     * 扫描WiFi测试
+     */
 	function startScanfWiFitest(){
     	var jsonstr="{	\"type\":	\"Reply_GetWiFiScan\",	\"data\":	{		\"ap_count\":	24,		\"ap\":	[{				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	170,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	167,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"v10\",				\"rssi\":	161,				\"enc\":	3,				\"channel\":	1			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	172,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	181,				\"enc\":	0,				\"channel\":	1			}, {				\"ssid\":	\"Ares\",				\"rssi\":	209,				\"enc\":	3,				\"channel\":	6			}, {				\"ssid\":	\"ChinaNet\",				\"rssi\":	199,				\"enc\":	0,				\"channel\":	4			}, {				\"ssid\":	\"GCUWIFI\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	188,				\"enc\":	0,				\"channel\":	6			}, {				\"ssid\":	\"CMCC-WEB\",				\"rssi\":	176,				\"enc\":	0,				\"channel\":	6			}]	}}"
     	var res=JSON.parse(jsonstr);
@@ -400,25 +507,28 @@ $(function(){
     		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
     		console.log("wifi-infro-item choose_name : "+choice_ssid);
 			var windowHeight = $(window).height();
-			popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
 			var posiTop = (windowHeight - popupHeight)/2;
-			
-    		$('.wifi_scan_ret_list,en_dialog').fadeOut();
-			 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
-			$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
+			lastscrollHeight = $(document).scrollTop();
+    		$('.wifi_scan_ret_list').fadeOut();
+			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
 			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-            $(".wifi_pwd_input_text").focus();    		
+            $(".wifi_pwd_input_text").focus();
     	});
+		
 		var windowHeight = $(window).height();
-		popupHeight = $(".wifi_scan_ret_list").height();
+		var windowWidth = $(window).width();
+		var popupHeight = $(".wifi_scan_ret_list").height();
 		var posiTop = (windowHeight - popupHeight)/2;
-		$(".wifi_scan_ret_list").css("top",posiTop);
+		lastscrollHeight = $(document).scrollTop();
+		$(".wifi_scan_ret_list").css({'top':posiTop+lastscrollHeight});
+		$(".wifi_scan_ret_list").niceScroll({railoffset:true});
     	$('.wifi_scan_ret_list').fadeIn(100);
-    	$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
-    	$('.en_dialog').fadeIn(100);
-    	
-    	document.body.addEventListener('touchmove',bodyScroll,false);  
-    	$('body').css({'position':'fixed',"width":"100%"});
+    	ShowShandowBg();
+		document.body.style.overflow='hidden';
+    	document.addEventListener('touchmove',bodyScroll,false);
+		$("body").css({'marginLeft':windowWidth-$(window).width()});
 
     }
 
@@ -442,115 +552,82 @@ $(function(){
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
-				hideLoad();
-                if (res.type != 'Reply_GetWiFiScan' || res.error_code != 0){
-                    flag = false;
-                    error_str = res.error_str || '获取无线列表失败';
-                    showMsg(error_str);
-                    return false;
-                }
-
-				$(".wifi_scan_ret_list-ul").empty();
-				for(i=0;i<res.data.ap.length;i++){
-				  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
-				}
-				$(".wifi-infro-item").click(function(){
-					//find查找所有的子元素，会一直查找，跨层级查找 
-					choice_ssid= $(this).find(".wifi-infro-ssid").html();
-					console.log("wifi-infro-item choose_name : "+choice_ssid);
-					var windowHeight = $(window).height();
-					popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
-					var posiTop = (windowHeight - popupHeight)/2;
-					
-					$('.wifi_scan_ret_list,en_dialog').fadeOut();
-					 $(".en_diak.wifi_pwd_input_fram").css("top",posiTop);
-					$(".en_diak.wifi_pwd_input_fram,en_dialog").fadeIn(100);
-					$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-					$(".wifi_pwd_input_text").focus();    		
-				});
-				var windowHeight = $(window).height();
-				popupHeight = $(".wifi_scan_ret_list").height();
-				var posiTop = (windowHeight - popupHeight)/2;
-				$(".wifi_scan_ret_list").css("top",posiTop);
-				$('.wifi_scan_ret_list').fadeIn(100);
-				$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
-				$('.en_dialog').fadeIn(100);
-				
-				document.body.addEventListener('touchmove',bodyScroll,false);  
-				$('body').css({'position':'fixed',"width":"100%"});
-            },
+				Reply_GetWiFiScan(res);
+				},
             'error' : function(){
 				hideLoad();
-                if (getWifiConfigCount < 1){
-                    getWiFiConfig();
-                    getWifiConfigCount++;
-                    return false;
-                }
-                flag = false;
                 showMsg('扫描失败');
             }
         });
     }
+	
+	function Reply_GetWiFiScan(res){
+		hideLoad();
+		if (res.type != 'Reply_GetWiFiScan' || res.error_code != 0){
+			flag = false;
+			error_str = res.error_str || '获取无线列表失败';
+			showMsg(error_str);
+			return false;
+		}
+
+		$(".wifi_scan_ret_list-ul").empty();
+    	for(i=0;i<res.data.ap.length;i++){
+    	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
+    	}
+    	$(".wifi-infro-item").click(function(){
+    		//find查找所有的子元素，会一直查找，跨层级查找 
+    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
+    		console.log("wifi-infro-item choose_name : "+choice_ssid);
+			var windowHeight = $(window).height();
+			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+			var posiTop = (windowHeight - popupHeight)/2;
+			lastscrollHeight = $(document).scrollTop();
+    		$('.wifi_scan_ret_list').fadeOut();
+			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
+			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
+            $(".wifi_pwd_input_text").focus();
+    	});
+		
+		var windowHeight = $(window).height();
+		var windowWidth = $(window).width();
+		var popupHeight = $(".wifi_scan_ret_list").height();
+		var posiTop = (windowHeight - popupHeight)/2;
+		lastscrollHeight = $(document).scrollTop();
+		$(".wifi_scan_ret_list").css({'top':posiTop+lastscrollHeight});
+		$(".wifi_scan_ret_list").niceScroll({railoffset:true});
+    	$('.wifi_scan_ret_list').fadeIn(100);
+    	ShowShandowBg();
+		document.body.style.overflow='hidden';
+    	document.addEventListener('touchmove',bodyScroll,false);
+		$("body").css({'marginLeft':windowWidth-$(window).width()});
+	}
+	
     /**
      * 一般操作
      */
-    function control(type,op){
+    function control(index,op){
+        showLoad();
         var arr = {};
         arr['type'] = 'Control';
         arr['data'] = {};
-        arr['data']['control_type'] = type;
-		var c_name={};
+		//0 - relay
+        arr['data']['device_type'] = 0;
+        arr['data']['index'] = index;
 		if(op=="open"){
-			c_name[0]="op-control-opened";
-			c_name[1]="op-control-closed";
-			arr['data']['operator'] = 1;
+			arr['data']['op'] = 1;
 		}
 		else if(op=="close"){
-			c_name[0]="op-control-closed";
-			c_name[1]="op-control-opened";
-			arr['data']['operator'] = 0;
+			arr['data']['op'] = 0;
 		}
-		
-        //showLoad();
-		//$(".op-control[data-type=" + type + "]").css("background","#00cc00");
         $.ajax({
             'url' : '/command',
             'type' : 'post',
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
-                hideLoad();
-                var msg = type == 0 ? '1' : (type == 1 ? '2' : (type == 2 ? '3' : '4'));
-                if (res.error_code == 0){
-						
-					if(op=="open"){
-						$(".op-control-closed[data-type=" + type + "]").unbind("click");
-						$(".op-control-closed[data-type=" + type + "]").toggleClass("op-control-opened");
-						
-						$(".op-control-opened[data-type=" + type + "]").removeClass("op-control-closed");
-						$(".op-control-opened[data-type=" + type + "]").delegate($(this),'click', function(){
-							var type = $(this).data('type');
-							control(type,"close");
-						});
-					}
-					else if(op=="close"){
-						$(".op-control-opened[data-type=" + type + "]").unbind("click");
-						$(".op-control-opened[data-type=" + type + "]").toggleClass("op-control-closed");
-						
-						$(".op-control-closed[data-type=" + type + "]").removeClass("op-control-opened");
-						$(".op-control-closed[data-type=" + type + "]").delegate($(this),'click', function(){
-							var type = $(this).data('type');
-							control(type,"open");
-						});
-					}
-                    msg = msg + '成功';
-                    showSuccessMsg(msg);
-                } else {
-
-                    msg = msg + '失败';
-                    showMsg(msg);
-                }
-            },
+				Reply_Control(res);
+			},
             'error' : function(){
                 hideLoad();
                 showMsg('网络错误');
@@ -558,6 +635,41 @@ $(function(){
         });
 		
     }
+	
+	function Reply_Control(res,noShowMsg){
+		hideLoad();
+		var control_type = res.data.control_type;
+		var index = res.data.index;
+		var op = res.data.op;
+		var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
+		if (res.error_code == 0){
+			if(op==1){
+				$(".op-control-closed[data-type=" + index + "]").unbind("click");
+				$(".op-control-closed[data-type=" + index + "]").toggleClass("op-control-opened");
+				$(".op-control-opened[data-type=" + index + "]").removeClass("op-control-closed");
+				$(".op-control-opened[data-type=" + index + "]").delegate($(this),'click', function(){
+					var index = $(this).data('type');
+					control(index,"close");
+				});
+			}
+			else if(op==0){
+				$(".op-control-opened[data-type=" + index + "]").unbind("click");
+				$(".op-control-opened[data-type=" + index + "]").toggleClass("op-control-closed");
+				
+				$(".op-control-closed[data-type=" + index + "]").removeClass("op-control-opened");
+				$(".op-control-closed[data-type=" + index + "]").delegate($(this),'click', function(){
+					var index = $(this).data('type');
+					control(index,"open");
+				});
+			}
+			msg = msg + '成功';
+			if(!noShowMsg)showSuccessMsg(msg);
+		} else {
+			msg = msg + '失败';
+			if(!noShowMsg)showMsg(msg);
+		}
+	}
+	
 
     /**
      * 获取运行状态
@@ -573,11 +685,7 @@ $(function(){
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
-				if (res.error_code != 0){
-					$('.s-status').text(res.error_str);
-					return false;
-				}
-                reply_status(res.data);
+                Reply_GetStatus(res);
             },
             'error' : function(){
                 $('.s-status').text('网络错误');
@@ -585,12 +693,19 @@ $(function(){
             }
         });
     }
-
-    /**
-     * 处理状态
-     */
-    function reply_status(data){
-
+	function Reply_GetStatus(res){
+		if (res.error_code != 0){
+			$('.s-status').text(res.error_str);
+			runStatus=RS.Unknow;
+			return false;
+		}
+		replyGetStatusCount--;
+		if(runStatus!=RS.Normal){
+			runStatus=RS.Normal;
+			replyGetStatusCount=0;
+		}
+		
+		data=res.data;
         //处理参数
         var smstateMsg = '';
         switch (data.sm_state) {
@@ -603,18 +718,51 @@ $(function(){
             default:
                 break;
         }
-
-        $('.s-status').text(smstateMsg);                                                                                //运行状态
-        $('.c-status').text(data.comm_state);                                                                     //通信状态
-        $('.t-degree').text(data.temperature_pre+"."+data.temperature_back+"℃");                                                                   //温度
-        $('.w-degree').text(data.wetness);                                                                       //湿度
-        $('.p-rate').text(data.power);                                                                           //功率比
-        $('.r-time').text(getTime(data.run_time));                                                                //运行时间
+        $('.s-status').text(smstateMsg);                         //运行状态
+        $('.c-status').text(data.comm_state);                   //通信状态
+		
+        $('.t-degree').text(data.temperatur/100+" ℃");  //温度
+        $('.w-degree').text(data.humidity+" %");                         //湿度
+        //$('.p-rate').text(data.power);                           //功率比
+		$('.r-degree').text(data['ray-value']);
+        $('.r-time').text(getTime(data.run_time));            //运行时间
+		
     }
+   
+   /**
+	 *设置光强报警值
+	 */
+	function SetRayAlarmValue(value){
+		var arr = {};
+		arr['type'] = 'SetRayAlarmValue';
+        arr['data'] = {};
+		arr['data']['ray-value'] = value-0;
+		$.ajax({
+			'url' : '/command',
+			'type' : 'post',
+			'dataType' : 'json',
+			'data' : JSON.stringify(arr),
+			'success' : function(res){
+				return Reply_SetRayAlarmValue(res);
+			},
+			'error' : function(){
+                showMsg('网络错误');
+				return -1;
+			}
+		});
+		
+	}
+	function Reply_SetRayAlarmValue(res){
+		var $rayinputRange = $('#rayAlarmValue');
+		var $rayinputRange = $('#rayAlarmValue');
+		$rayinputRange.val(res.data['ray-value']).change();
+		return res.data['ray-value'];
+	}
+	
 	/**
 	 *设置灯Duty
 	 */
-	function setLigthDuty(value){
+	function SetLigthDuty (value){
 		var arr = {};
 		arr['type'] = 'SetLigthDuty';
         arr['data'] = {};
@@ -625,13 +773,19 @@ $(function(){
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
-				return res.data.duty;
+				return Reply_SetLigthDuty(res);
             },
             'error' : function(){
-                showMsg('设置失败');
+                showMsg('网络错误');
 				return -1;
             }
         });
+	}
+	function Reply_SetLigthDuty(res){
+		var $lightinputRange = $('#lightDutyValue');
+		var $lightinputRange = $('#lightDutyValue');
+		$lightinputRange.val(res.data.duty).change();
+		return res.data.duty;
 	}
 	/**
 	 *获取灯Duty
@@ -658,7 +812,7 @@ $(function(){
      * 密码验证
      */
     function verify_password(password){
-        var res = $.md5($.md5(password) + 'o11OiwOI0I0PPJmKrKtJgKg7Yc1U');
+        var res = $.md5($.md5(password) + '123456789');
         return res == pwd
     }
 
@@ -730,7 +884,7 @@ $(function(){
 				if(lightDutyIsWriting==0){			
 					lightDutyIsWriting=1;
 					var $inputRange = $('#lightDutyValue', e.target.parentNode);					
-					var ret=setLigthDuty(lightDutyTouchValue);
+					var ret=SetLigthDuty(lightDutyTouchValue);
 					if(ret==-1){
 						//failed							
 					}else{
@@ -740,7 +894,25 @@ $(function(){
 						$inputRange.val(lightDutyTouchValue).change();
 						console.log(lightDutyTouchValue);
 						lightDutyIsWriting=0}
-					,500);
+					,300);
+				}
+			}else if($(this).attr('id')=="rayAlarmValue"){
+				var value=valueOutput(e.target);
+				rayTouchValue=value;
+				if(rayIsWriting==0){			
+					rayIsWriting=1;
+					var $inputRange = $('#rayAlarmValue', e.target.parentNode);					
+					var ret=SetRayAlarmValue(rayTouchValue);
+					if(ret==-1){
+						//failed							
+					}else{
+						//set text							
+					}
+					setTimeout(function(){
+						$inputRange.val(rayTouchValue).change();
+						console.log(rayTouchValue);
+						rayIsWriting=0}
+					,300);
 				}
 			}
             
