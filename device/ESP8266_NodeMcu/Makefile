@@ -180,7 +180,7 @@ endif
 openserial:
 	python3 $(PYTHONSERIAL)
 html:
-	$(MKFSTOOL) -s app/http/html/ -d app/http/rofs_data.c
+	$(MKFSTOOL) -s app/resource -d app/http/rofs_data.c
 
 .subdirs:
 	@set -e; $(foreach d, $(SUBDIRS), $(MAKE) -C $(d);)

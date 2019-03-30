@@ -41,11 +41,12 @@ class MKFS:
 					
 
 			self.output_writeln('\t\t{')
-			self.output_writeln('\t\t.size='+str(fileLen)+',')
-			self.output_writeln('\t\t.name = "'+filename+'",')
+			self.output_writeln('\t\t.size='+str(fileLen)+',')				
 			if compress:
+				self.output_writeln('\t\t.name = "'+filename+'",')
 				self.output_writeln('\t\t.gzip=1,')	
 			else:
+				self.output_writeln('\t\t.name = "'+filename[2:]+'",')
 				self.output_writeln('\t\t.gzip=0,')			
 
 			self.output_writeln('\t\t.offset='+str(self.offset))			
@@ -108,7 +109,10 @@ class MKFS:
 
 			# print path to all filenames.
 			for filename in filenames:
-				self.writeFile(os.path.join(dirname,filename),filename,1)
+				if filename[0:2]=="__":
+					self.writeFile(os.path.join(dirname,filename),filename,0)
+				else:
+					self.writeFile(os.path.join(dirname,filename),filename,1)
 
 			# Advanced usage:
 			# editing the 'dirnames' list will stop os.walk() from recursing into there.
