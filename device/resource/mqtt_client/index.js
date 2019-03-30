@@ -102,8 +102,8 @@ $(function(){
 		//s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onMessageArrived()}";
 		//console.log(s);
 		var recvMsg=message.payloadString;
-		console.log(sub_topic+" 收到消息:" + recvMsg);
 		var res=JSON.parse(recvMsg);
+		console.log(sub_topic+" 收到Type:" + recvMsg);
 		switch(res.type){
 			case "Reply_GetStatus":
 				Reply_GetStatus(res);
@@ -425,7 +425,7 @@ $(function(){
 			}else if(replyGetStatusCount>=2){
 				runStatus=RS.Waiting;
 			}
-            getStatus();
+            //getStatus();
         }, 2000)
     }
 	
@@ -455,6 +455,24 @@ $(function(){
 		$rayinputRange.val(res.data.alarm['ray-value']).change();
 		console.log("+++"+res.data.alarm['ray-value']);
         $('.s-token').text(res.data.mac);
+		
+		var control_type = res.data.control_type;
+		var index = res.data.index;
+		var op = res.data.op;
+		
+		var i;
+		var relays=[];
+		relays=res.data.relays;
+		for(i=0;i<relays.length;i++){
+			var temp = [];
+			temp.data=[];
+			temp.data.device_type = relays[i].device_type;
+			temp.data.index = relays[i].index;
+			temp.data.op = relays[i].op;
+			temp.error_code=0;
+			console.log(temp);
+			Reply_Control(temp,1);
+		}
 	}
 	
     /**
@@ -648,53 +666,56 @@ $(function(){
     /**
      * 一般操作
      */
-    function control(type,op){
+    function control(index,op){
+		showLoad();
         var arr = {};
         arr['type'] = 'Control';
         arr['data'] = {};
-        arr['data']['control_type'] = type;
+		//0 - relay
+        arr['data']['device_type'] = 0;
+        arr['data']['index'] = index;
 		var c_name={};
 		if(op=="open"){
-			arr['data']['operator'] = 1;
+			arr['data']['op'] = 1;
 		}
 		else if(op=="close"){
-			arr['data']['operator'] = 0;
+			arr['data']['op'] = 0;
 		}
 		mqtt_send(JSON.stringify(arr));
 		console.log(JSON.stringify(arr));
     }
 	
-	function Reply_Control(res){
+	function Reply_Control(res,noShowMsg){
 		hideLoad();
-		var type = res.data.control_type;
-		var op = res.data.operator;
-		var msg = type == 0 ? '1' : (type == 1 ? '2' : (type == 2 ? '3' : '4'));
+		var control_type = res.data.control_type;
+		var index = res.data.index;
+		var op = res.data.op;
+		var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
 		if (res.error_code == 0){
 			if(op==1){
-				$(".op-control-closed[data-type=" + type + "]").unbind("click");
-				$(".op-control-closed[data-type=" + type + "]").toggleClass("op-control-opened");
-				$(".op-control-opened[data-type=" + type + "]").removeClass("op-control-closed");
-				$(".op-control-opened[data-type=" + type + "]").delegate($(this),'click', function(){
-					var type = $(this).data('type');
-					control(type,"close");
+				$(".op-control-closed[data-type=" + index + "]").unbind("click");
+				$(".op-control-closed[data-type=" + index + "]").toggleClass("op-control-opened");
+				$(".op-control-opened[data-type=" + index + "]").removeClass("op-control-closed");
+				$(".op-control-opened[data-type=" + index + "]").delegate($(this),'click', function(){
+					var index = $(this).data('type');
+					control(index,"close");
 				});
 			}
 			else if(op==0){
-				$(".op-control-opened[data-type=" + type + "]").unbind("click");
-				$(".op-control-opened[data-type=" + type + "]").toggleClass("op-control-closed");
+				$(".op-control-opened[data-type=" + index + "]").unbind("click");
+				$(".op-control-opened[data-type=" + index + "]").toggleClass("op-control-closed");
 				
-				$(".op-control-closed[data-type=" + type + "]").removeClass("op-control-opened");
-				$(".op-control-closed[data-type=" + type + "]").delegate($(this),'click', function(){
-					var type = $(this).data('type');
-					control(type,"open");
+				$(".op-control-closed[data-type=" + index + "]").removeClass("op-control-opened");
+				$(".op-control-closed[data-type=" + index + "]").delegate($(this),'click', function(){
+					var index = $(this).data('type');
+					control(index,"open");
 				});
 			}
 			msg = msg + '成功';
-			showSuccessMsg(msg);
+			if(!noShowMsg)showSuccessMsg(msg);
 		} else {
-
 			msg = msg + '失败';
-			showMsg(msg);
+			if(!noShowMsg)showMsg(msg);
 		}
 	}
 	
@@ -735,11 +756,13 @@ $(function(){
         }
         $('.s-status').text(smstateMsg);                         //运行状态
         $('.c-status').text(data.comm_state);                   //通信状态
-        $('.t-degree').text(data.temperature_pre+"."+data.temperature_back+"℃");  //温度
-        $('.w-degree').text(data.wetness);                         //湿度
+		
+        $('.t-degree').text(data.temperatur/100+" ℃");  //温度
+        $('.w-degree').text(data.humidity+" %");                         //湿度
         //$('.p-rate').text(data.power);                           //功率比
 		$('.r-degree').text(data['ray-value']);
         $('.r-time').text(getTime(data.run_time));            //运行时间
+		
     }
 	/**
 	 *设置光强报警值

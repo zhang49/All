@@ -18,8 +18,8 @@
 #include "json/cJson.h"
 
 #define NEEDTIMER 1
-#define TIMER_SINGLETIME 200
-#define TIMER_TIMEROUT 20
+#define COMM_TIMER_SINGLE_TIME 50
+#define COMM_TIMER_TIMEROUT 1500
 
 #define CLIENT_IS_HTTP 1
 #define CLIENT_IS_MQTT 2
@@ -29,9 +29,9 @@
 #define GET_LAST_STR(x) get_struct_last_str(#x)
 
 typedef struct {
+	int tickcount;
 	ETSTimer timer;
 	enum MasterMsgType msgtype;
-	uint8_t tickcount;
 } client_handle_timer;
 
 typedef struct {
@@ -51,10 +51,11 @@ typedef struct {
 	uint8 pqos;
 }MqttUserData;
 
-#define ErrorCodeSize 3
+#define ErrorCodeSize 4
 enum ErrorCode{
 	EC_Normal,
 	EC_None,
+	EC_Failed,
 	EC_Unknown
 }ErrorCode;
 typedef struct{
@@ -85,7 +86,7 @@ void ICACHE_FLASH_ATTR request_master_door_config();
 void ICACHE_FLASH_ATTR door_request_all_config();
 void ICACHE_FLASH_ATTR request_master_door_config();
 
-cJSON *ICACHE_FLASH_ATTR create_ret_json(char *ret_type);
+const char *ICACHE_FLASH_ATTR get_rep_type(void *client);
 uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode error_code);
 char *ICACHE_FLASH_ATTR get_struct_last_str(char *str);
 

@@ -27,12 +27,11 @@
 #define DHT_DBG
 #endif
 
-#define DHT_PIN 5
+#define DHT_PIN 3		//3  -  GPIO0
 
 #define delay_ms(ms) os_delay_us(1000*ms)
-
+int a=0;
 int ICACHE_FLASH_ATTR dht22_read(dht_data *read){
-        
     DHT_DBG("dht22_read");
        
     //put dht pin on output mode with pullup

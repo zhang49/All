@@ -28,7 +28,7 @@
 // #define FLASH_4M
 //#define FLASH_AUTOSIZE
 
-#define DEVELOP_VERSION
+//#define DEVELOP_VERSION
 #define FULL_VERSION_FOR_USER
 
 #define USE_OPTIMIZE_PRINTF

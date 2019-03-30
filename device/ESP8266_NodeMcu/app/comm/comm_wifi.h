@@ -13,7 +13,7 @@
 
 int ICACHE_FLASH_ATTR comm_wifi_api_get_status(http_connection *c);
 void ICACHE_FLASH_ATTR comm_wifi_api_scan_start();
-char *ICACHE_FLASH_ATTR comm_wifi_api_scan();
+cJSON *ICACHE_FLASH_ATTR comm_wifi_api_scan();
 int ICACHE_FLASH_ATTR comm_wifi_api_connect_ap(http_connection *c);
 int ICACHE_FLASH_ATTR comm_wifi_api_disconnect(http_connection *c);
 int ICACHE_FLASH_ATTR comm_wifi_api_check_internet(http_connection *c);

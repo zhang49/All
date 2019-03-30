@@ -15,7 +15,7 @@
 #include "user_config.h"
 
 #include "driver/uart.h"
-
+#include "comm/comm_pub_def.h"
 #include "comm/comm_uart.h"
 #include "http/app.h"
 
@@ -154,14 +154,16 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 		ds_ptr=&comm_buf.syn_control;
 		break;
 	case SYN_STATE:
+		break;
+		/*
 		syn_state.sm_state=*(uart_recv_raw.data+0);
 		syn_state.comm_state=*(uart_recv_raw.data+1);
-		//remark
-		//syn_state.temperature=*(uart_recv_raw.data+2);
+		syn_state.temperature=*(uart_recv_raw.data+2);
 		syn_state.wetness=*(uart_recv_raw.data+3);
 		syn_state.power=*(uart_recv_raw.data+4);
 		syn_state.run_time=*(uart_recv_raw.data+5);
 		break;
+		*/
 	}
 	if(ds_ptr!=NULL){
 		ds_ptr->refresh_state=COMM_REFRESHED;

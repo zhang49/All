@@ -161,7 +161,7 @@ void ICACHE_FLASH_ATTR comm_wifi_api_scan_start(){
  */
 
 
-char *ICACHE_FLASH_ATTR comm_wifi_api_scan() {
+cJSON *ICACHE_FLASH_ATTR comm_wifi_api_scan() {
 	 switch(wifi_status.scanState){
 	 case Start:
 		 NODE_DBG("Start scan");
@@ -176,7 +176,7 @@ char *ICACHE_FLASH_ATTR comm_wifi_api_scan() {
 		//create json
 
 		cJSON *data,*array,*item;
-		cJSON *retroot=create_ret_json("Reply_GetWiFiScan");
+		cJSON *retroot=cJSON_CreateObject();
 		cJSON_AddItemToObject(retroot, "data", data = cJSON_CreateObject());
 		cJSON_AddNumberToObject(data,"ap_count",wifi_status.scan_result.ap_count);
 		cJSON_AddItemToObject(data, "ap", array = cJSON_CreateArray());
@@ -206,9 +206,7 @@ char *ICACHE_FLASH_ATTR comm_wifi_api_scan() {
 			cJSON_AddNumberToObject(item,"channel",wifi_status.scan_result.ap[index]->channel);
 			wifi_status.scan_result.ap[index]->rssi=0;
 		}
-		char *ostream=cJSON_Print(retroot);
-		cJSON_Delete(retroot);
-		return ostream;
+		return retroot;
 		break;
 	 case Extra:
 
@@ -222,7 +220,7 @@ int ICACHE_FLASH_ATTR comm_wifi_safe_read(void *client){
 	uint8 mac[6];
 	wifi_get_macaddr(SOFTAP_IF,mac);
 	cJSON *retroot,*data;
-	retroot = create_ret_json("Reply_GetSafeConfig");
+	retroot = cJSON_CreateObject();
 	data = cJSON_CreateObject();
 	cJSON_AddItemToObject(retroot, "data", data);
 	char mac_addr[25];
@@ -238,6 +236,14 @@ int ICACHE_FLASH_ATTR comm_wifi_safe_read(void *client){
 		os_strcat(mac_addr,temp);
 	}
 	cJSON_AddStringToObject(data,"mac",mac_addr);
+
+
+
+
+
+
+
+
 	return send_ret_json(client,retroot,EC_Normal);
 }
 int ICACHE_FLASH_ATTR comm_wifi_config_read(void *client){
@@ -252,7 +258,7 @@ int ICACHE_FLASH_ATTR comm_wifi_config_read(void *client){
 	temp[0]=work_mode+0x30;
 	temp[1]=0;
 	cJSON *data;
-	cJSON *retroot=create_ret_json("Reply_GetWiFiConfig");
+	cJSON *retroot=cJSON_CreateObject();
 	cJSON_AddItemToObject(retroot,"data",data = cJSON_CreateObject());
 	cJSON_AddStringToObject(data,"work_mode",temp);
 	cJSON_AddStringToObject(data,"wifi_ap_ssid",ap_config.ssid);
@@ -268,18 +274,10 @@ int ICACHE_FLASH_ATTR comm_wifi_config_read(void *client){
 }
 
 int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client){
-		char *data;
 		uint8 client_sign=*(int *)client;
-		http_connection *http_client;
-		if(client_sign==CLIENT_IS_MQTT){
-			data =((MqttUserData *)client)->data;
-		}else if(client_sign==CLIENT_IS_HTTP){
-			data=((http_connection *)client)->body.data;
-		}
-		//parse json
-		cJSON *retroot=create_ret_json("Reply_SetWiFiConfig");
+		cJSON *retroot=cJSON_CreateObject();
 		enum ErrorCode error_code=EC_Normal;
-		cJSON *root = cJSON_Parse(data);
+		cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((MqttUserData *)client)->data));
 		cJSON *root_data = cJSON_GetObjectItem(root,"data");
 		if(root_data==NULL){
 			error_code=EC_None;

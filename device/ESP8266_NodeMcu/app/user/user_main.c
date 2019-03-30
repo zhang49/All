@@ -87,7 +87,7 @@ static void config_wifi(){
  * Returns      : none
 *******************************************************************************/
 void user_init(void)
-{   
+{
     
     system_update_cpu_freq(160); //overclock :)
 
@@ -102,8 +102,8 @@ void user_init(void)
     user_esp_now_set_mac_current();
     config_wifi();
     comm_init();
-    init_dns();
-    init_http_server();
+    //init_dns();
+    //init_http_server();
     mqtt_app_init();
 
     #ifdef DEVELOP_VERSION
