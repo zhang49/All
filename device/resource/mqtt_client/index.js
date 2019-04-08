@@ -112,8 +112,6 @@ $(function(){
 				break;
 			case "Reply_GetConnectSynData":
 				Reply_GetConnectSynData(res);
-			case "Reply_GetSafeConfig":
-				Reply_GetSafeConfig(res);
 				break;
 			case "Reply_GetWiFiConfig":
 				Reply_GetWiFiConfig(res);
@@ -127,12 +125,16 @@ $(function(){
 			case "Reply_GetWiFiScan":
 				Reply_GetWiFiScan(res);
 				break;
+			case "Reply_WiFiConnect":
+				Reply_WiFiConnect(res);
+				break;
 			case "Reply_SetLigthDuty":
 				Reply_SetLigthDuty(res);
 				break;
 			case "Reply_SetRayAlarmValue":
 				Reply_SetRayAlarmValue(res);
 				break;
+			
 		};
 	}
 	/**
@@ -320,7 +322,7 @@ $(function(){
             showMsg('请输入密码(至少八位)');
 			return false;
 		}
-		setWiFiConfig(1,choice_ssid,password);
+		WiFiConnect(choice_ssid,password);
 		document.body.removeEventListener('touchmove',bodyScroll,false);   
 		$('.en_dialog').click();
     });
@@ -384,7 +386,6 @@ $(function(){
 		setTimeout(
 			function(){
 				GetConnectSynData()
-				getSafeConfig();
 				getWiFiConfig();
 				//getNormalConfigCount();
 		},500);
@@ -461,24 +462,6 @@ $(function(){
 	}
 	
     /**
-     * 获取安全配置
-     */
-    function getSafeConfig(){
-        if (!flag){
-            return false;
-        }
-        var arr = {
-            "type" : "GetSafeConfig",
-            "data" : ""
-        };
-		mqtt_send(JSON.stringify(arr));
-    }
-	function Reply_GetSafeConfig(res){
-		getSafeConfigCount = 0;
-        $('.s-token').text(res.data.mac);
-	}
-
-    /**
      * 获取WiFi配置
      */
     function getWiFiConfig(){
@@ -514,6 +497,7 @@ $(function(){
 		$('.wa-pwd').val(res.data.wifi_ap_pwd);
 		$('.ws-ssid').val(res.data.wifi_station_ssid);
 		$('.ws-pwd').val(res.data.wifi_station_pwd);
+        $('.s-token').text(res.data.mac);
 	}
 
 	
@@ -566,7 +550,7 @@ $(function(){
     	}
     	$(".wifi-infro-item").click(function(){
     		//find查找所有的子元素，会一直查找，跨层级查找 
-    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
+    		choice_ssid= $(this).find(".wifi-infro-ssid").html();
     		console.log("wifi-infro-item choose_name : "+choice_ssid);
 			var windowHeight = $(window).height();
 			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
@@ -625,7 +609,7 @@ $(function(){
     	}
     	$(".wifi-infro-item").click(function(){
     		//find查找所有的子元素，会一直查找，跨层级查找 
-    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
+    		choice_ssid= $(this).find(".wifi-infro-ssid").html();
     		console.log("wifi-infro-item choose_name : "+choice_ssid);
 			var windowHeight = $(window).height();
 			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
@@ -651,6 +635,28 @@ $(function(){
     	document.addEventListener('touchmove',bodyScroll,false);
 		$("body").css({'marginLeft':windowWidth-$(window).width()});
 	}
+	/**
+	 *连接wifi
+	 */
+	 function WiFiConnect(ssid,pwd){
+        showLoad();
+		var arr = {};
+		arr.type = "WiFiConnect";
+		arr.data = {};
+		arr.data.wifi_station_ssid = ssid;
+		arr.data.wifi_station_pwd = pwd;
+		mqtt_send(JSON.stringify(arr));
+    }
+	
+	function Reply_WiFiConnect(res){
+		hideLoad();
+		if (res.error_code == 0){
+			showMsg('WiFi连接成功');
+		}
+		else{
+            showMsg('WiFi连接失败');
+		}
+	}
 	
     /**
      * 一般操作
@@ -675,11 +681,11 @@ $(function(){
 	
 	function Reply_Control(res,noShowMsg){
 		hideLoad();
-		var control_type = res.data.control_type;
-		var index = res.data.index;
-		var op = res.data.op;
-		var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
-		if (res.error_code == 0){
+		if(res.error_type==0){
+			var control_type = res.data.control_type;
+			var index = res.data.index;
+			var op = res.data.op;
+			var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
 			if(op==1){
 				$(".op-control-closed[data-type=" + index + "]").unbind("click");
 				$(".op-control-closed[data-type=" + index + "]").toggleClass("op-control-opened");
@@ -702,7 +708,7 @@ $(function(){
 			msg = msg + '成功';
 			if(!noShowMsg)showSuccessMsg(msg);
 		} else {
-			msg = msg + '失败';
+			msg = '操作失败';
 			if(!noShowMsg)showMsg(msg);
 		}
 	}
@@ -745,8 +751,8 @@ $(function(){
         $('.s-status').text(smstateMsg);                         //运行状态
         $('.c-status').text(data.comm_state);                   //通信状态
 		
-        $('.t-degree').text(data.temperatur/100+" ℃");  //温度
-        $('.w-degree').text(data.humidity+" %");                         //湿度
+        $('.t-degree').text(data.temperature/100 + " ℃");  //温度
+        $('.w-degree').text(data.humidity/100 + " %");                         //湿度
         //$('.p-rate').text(data.power);                           //功率比
 		$('.r-degree').text(data['ray-value']);
         $('.r-time').text(getTime(data.run_time));            //运行时间

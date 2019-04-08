@@ -21,6 +21,7 @@ extern u8 DHT22MacAddr[6];
 extern u8 Realy1MacAddr[6];
 extern u8 Realy2MacAddr[6];
 extern u8 Realy3MacAddr[6];
+extern u8 RayMacAddr[6];
 
 os_timer_t esp_now_timer;
 uint8 sendSerialNb;
@@ -222,20 +223,38 @@ static void comm_esp_now_send_tmr(){
 
 void comm_esp_now_recv_data(){
 	switch(esp_now_recv_buf.type){
-	case RequestDht22:
+	/*case RequestDht22:
 		{
 			u8 data[5]={0};
 			dht22_temperature_read_api(data);
 			dht22_humidity_read_api(data+3);
-			esp_now_send_api(ControllerMacAddr,ReplyDht22,NULL);
+			esp_now_send_api(ControllerMacAddr,ReplyDht22,data);
 		}
 		break;
+		*/
 	case RequestRelay:
 		{
 			comm_relay_status_set(esp_now_recv_buf.data[0]==0?0:1);
-			u8 retdata[5]={esp_now_recv_buf.data[0]==0?0:1};
+			u8 retdata[5]={0};
+			retdata[0] = esp_now_recv_buf.data[0]==0?0:1;
 			esp_now_send_api(ControllerMacAddr,ReplyRelay,retdata);
 		}
+		break;
+	/*case RequestRay:
+		{
+			u16 ray_value=ray_read_api();
+			u8 retdata[5]={ray_value&0x0f, ray_value>>8};
+			esp_now_send_api(ControllerMacAddr,ReplyRay,retdata);
+		}
+		break;*/
+	case RequestRay_MotorPos:
+		NODE_DBG("RequestRay_MotorPos");
+		motor_pos_api(esp_now_recv_buf.data[0]);
+		break;
+
+	case RequestRay_MotorPas:
+		NODE_DBG("RequestRay_MotorPas");
+		motor_pas_api(esp_now_recv_buf.data[0]);
 		break;
 	}
 }
@@ -252,6 +271,8 @@ void ICACHE_FLASH_ATTR user_esp_now_set_mac_current(void)
 	 wifi_set_macaddr(SOFTAP_IF, Realy2MacAddr);
 #elif defined  RELAY3_OPEN
 	 wifi_set_macaddr(SOFTAP_IF, Realy3MacAddr);
+#elif defined RAY_OPEN
+	 wifi_set_macaddr(SOFTAP_IF, RayMacAddr);
 #endif
 
     wifi_set_opmode_current(SOFTAP_MODE);

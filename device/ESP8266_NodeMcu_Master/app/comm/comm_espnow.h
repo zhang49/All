@@ -9,7 +9,7 @@
 #define ESPNOW_DBG
 #endif
 
-#define ESP_NOW_SLAVE
+#define ESP_NOW_CONTROLLER
 
 #define ESPNOWSEDNBUFSIZE 4
 
@@ -21,6 +21,21 @@ typedef enum{
 	ENSS_Sending,
 	ENSS_Failed
 }EspNowSendState;
+
+
+typedef enum {
+	RequestDht22 = 0x01,
+	RequestRay,
+	RequestRay_MotorPos,
+	RequestRay_MotorPas,
+	RequestRelay,
+}EspNowRequestMsgType;
+
+typedef enum {
+	ReplyDht22 = 0x81,
+	ReplyRay = 0x81,
+	ReplyRelay
+}EspNowReplyMsgType;
 
 typedef struct {
 	u8 slave_mac[6];

@@ -15,20 +15,7 @@
 
 #define EspNowChannel 3
 
-
-typedef enum {
-	RequestDht22 = 0x01,
-	RequestRay,
-	RequestRay_MotorPos,
-	RequestRay_MotorPas,
-	RequestRelay,
-}EspNowRequestMsgType;
-
-typedef enum {
-	ReplyDht22 = 0x81,
-	ReplyRay = 0x81,
-	ReplyRelay
-}EspNowReplyMsgType;
-
-
+enum DeviceType{
+	DT_Relay
+};
 #endif /* COMM_PUBDEF_H_ */

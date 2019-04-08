@@ -34,10 +34,10 @@
 int ICACHE_FLASH_ATTR dht22_read(dht_data *read){
         
     DHT_DBG("dht22_read");
-       
+
     //put dht pin on output mode with pullup
     platform_gpio_mode(DHT_PIN,PLATFORM_GPIO_OUTPUT,PLATFORM_GPIO_PULLUP);
-    
+
     uint64_t data;   
     os_memset(&data,0,sizeof(uint64_t));
 
@@ -45,9 +45,9 @@ int ICACHE_FLASH_ATTR dht22_read(dht_data *read){
     platform_gpio_write(DHT_PIN,1);
     delay_ms(5);
     platform_gpio_write(DHT_PIN,0);
-    delay_ms(1);
+    delay_ms(3);
     platform_gpio_write(DHT_PIN,1);
-    
+
     //enable input reading
     platform_gpio_mode(DHT_PIN,PLATFORM_GPIO_INPUT,PLATFORM_GPIO_PULLUP);
 
@@ -187,7 +187,7 @@ void ICACHE_FLASH_ATTR dht22_init(){
 
     DHT_DBG("dht22_init");
 
-    //nothing to do actually   
+    //nothing to do actually
    
 
 }
