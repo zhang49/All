@@ -18,7 +18,8 @@
 
 #include "user_interface.h"
 #include "user_config.h"
-
+#include "platform.h"
+#include "config.h"
 #include "ets_sys.h"
 #include "driver/uart.h"
 #include "driver/relay.h"
@@ -31,11 +32,6 @@
 #include "mqtt/app.h"
 
 #include "sensor/sensors.h"
-	
-#define AP_SSID "ESP8266_"DEVICE_NAME
-#define AP_PWD ""
-#define STA_SSID "H3C_GUEST"
-#define STA_PWD ""
 
 #ifdef DEVELOP_VERSION
 os_timer_t heapTimer;
@@ -48,64 +44,18 @@ static void heapTimerCb(void *arg){
 
 #endif
 
-static void config_wifi(){
-    NODE_DBG("Putting AP UP");
-	
-    platform_key_led(0);    
-    wifi_set_opmode(0x03); // station+ap mode                       
+void ICACHE_FLASH_ATTR init_done_cb(){
 
-    struct softap_config config;
-    wifi_softap_get_config(&config);
-    strcpy(config.ssid,AP_SSID);
-    memset(config.password,0,64);
-    strcpy(config.password,AP_PWD);
-    config.ssid_len=strlen(AP_SSID);
-    config.channel=11;
-    config.authmode=AUTH_OPEN;
-    config.max_connection=4;
-    config.ssid_hidden=0;
-    wifi_softap_set_config(&config);
-
-	struct station_config sta_config;
-	wifi_station_get_config(&sta_config);
-    NODE_DBG("Putting STATION UP");
-	uint8 status = wifi_station_get_connect_status();
-	if(status!=STATION_CONNECTING && status!=STATION_GOT_IP)
-	{
-		strcpy(sta_config.ssid,STA_SSID);
-		strcpy(sta_config.password,STA_PWD);
-		wifi_station_set_config(&sta_config);
-		wifi_station_connect();
-	}
-	wifi_station_set_auto_connect(1);
-}
-
-/******************************************************************************
- * FunctionName : user_init
- * Description  : entry of user application, init user function here
- * Parameters   : none
- * Returns      : none
-*******************************************************************************/
-void user_init(void)
-{
-    
-    system_update_cpu_freq(160); //overclock :)
-
-
-    uart_init(BIT_RATE_115200,BIT_RATE_115200);
 
     NODE_DBG("User Init");
 
     uint32_t size = flash_get_size_byte();
     NODE_DBG("Flash size %d",size);
 
-    user_esp_now_set_mac_current();
-    config_wifi();
     comm_init();
     //init_dns();
     //init_http_server();
     mqtt_app_init();
-
     #ifdef DEVELOP_VERSION
 
     //arm timer
@@ -116,4 +66,22 @@ void user_init(void)
     os_timer_arm(&heapTimer, 5000, 1);
 
     #endif
+
+}
+/******************************************************************************
+ * FunctionName : user_init
+ * Description  : entry of user application, init user function here
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+void user_init(void)
+{
+
+    system_update_cpu_freq(160); //overclock :)
+    uart_init(BIT_RATE_115200,BIT_RATE_115200);
+    wifi_station_set_reconnect_policy(false);
+    wifi_station_set_auto_connect(0);
+
+    system_init_done_cb(init_done_cb);
+
 }

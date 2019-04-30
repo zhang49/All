@@ -14,38 +14,29 @@
 #include "user_config.h"
 #include "espnow.h"
 #include "comm/comm_pub_def.h"
-#include "comm/comm_espnow.h"
+#include "comm/comm_uart.h"
 
 
 SensorUnio comm_sensors;
-u8 DHT22MacAddr[6]  = {0xA2, 0x11, 0xA6, 0x55, 0x55, 0x55};
 
+uint8_t ray_alarm_value=35;
 void ICACHE_FLASH_ATTR comm_sensor_init(){
-	esp_now_add_peer(DHT22MacAddr, ESP_NOW_ROLE_SLAVE, EspNowChannel, NULL, 0);
-
+	//esp_now_add_peer(DHT22MacAddr, ESP_NOW_ROLE_SLAVE, EspNowChannel, NULL, 0);
+	//esp_now_add_peer(RayMacAddr, ESP_NOW_ROLE_SLAVE, EspNowChannel, NULL, 0);
 }
 
-uint32 ICACHE_FLASH_ATTR comm_ray_value_api_get(){
+uint8_t ICACHE_FLASH_ATTR comm_ray_value_api_get(){
 	return comm_sensors.ray_value;
 }
 
-uint16 comm_ray_value_espnow_read(){
-	esp_now_send_api(DHT22MacAddr,RequestRay,NULL);
-	//os_printf("ray value is:%d\r\n",comm_seneors.ray_value);
+void comm_ray_value_write_api(uint8_t value){
+	comm_sensors.ray_value = value/255.0*100;
 }
 
-void motor_pos_api(u8 pre){
-	u8 retdata[5]={pre};
-	esp_now_send_api(DHT22MacAddr,RequestRay_MotorPos,retdata);
-}
-
-void motor_pas_api(u8 pre){
-	u8 retdata[5]={pre};
-	esp_now_send_api(DHT22MacAddr,RequestRay_MotorPas,retdata);
-}
-
-void comm_dht22_espnow_read(){
-	esp_now_send_api(DHT22MacAddr,RequestDht22,NULL);
+void ICACHE_FLASH_ATTR motor_move_espnow_write(int speed,int duration,motor_turn_status direction){
+	uint16_t drt=duration&0xffff;
+	uint8_t data[5]={speed,drt>>8,drt&0xff,direction};
+	send_message_to_slave(RAY_MACINDEX,RequestMotorMove,data);
 }
 
 u16 ICACHE_FLASH_ATTR comm_temperature_value_read_api(){

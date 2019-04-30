@@ -16,19 +16,22 @@
 #define EspNowChannel 3
 
 
+#define DHT22_MACINDEX 0
+#define RELAY1_MACINDEX 1
+#define RELAY2_MACINDEX 2
+#define RELAY3_MACINDEX 3
+#define RAY_MACINDEX 4
+
 typedef enum {
-	RequestDht22 = 0x01,
-	RequestRay,
-	RequestRay_MotorPos,
-	RequestRay_MotorPas,
-	RequestRelay,
+	RequestMotorMove = 0x01,
+	RequestRelay
 }EspNowRequestMsgType;
 
 typedef enum {
 	ReplyDht22 = 0x81,
-	ReplyRay = 0x81,
-	ReplyRelay
+	ReplyRay,
+	ReplyRelay,
+	DeviceOnline
 }EspNowReplyMsgType;
-
 
 #endif /* COMM_PUBDEF_H_ */

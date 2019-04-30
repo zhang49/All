@@ -11,13 +11,14 @@
 #ifndef COMM_WIFI_H
 #define COMM_WIFI_H
 
+extern int comm_positive;
 void 	ICACHE_FLASH_ATTR comm_wifi_connect_default_ap_api();
 int 	ICACHE_FLASH_ATTR comm_wifi_connect_ap_check_api();
 int 	ICACHE_FLASH_ATTR comm_wifi_start_connect_ap_api(char *ssid,char *password);
 int 	ICACHE_FLASH_ATTR comm_wifi_config_write_api(cJSON *root_data);
 cJSON * ICACHE_FLASH_ATTR comm_wifi_config_read_api();
 cJSON *	ICACHE_FLASH_ATTR comm_wifi_scan_api();
-void 	ICACHE_FLASH_ATTR comm_wifi_scan_start_api();
+int 	ICACHE_FLASH_ATTR comm_wifi_scan_start_api();
+void    ICACHE_FLASH_ATTR wifi_connect_check(int tick_time);
 static void ICACHE_FLASH_ATTR comm_wifi_api_scan_callback(void *arg, STATUS status);
-void 	wifi_connect_check(int single_time,int timeout);
 #endif

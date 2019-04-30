@@ -24,20 +24,20 @@
 #include "osapi.h"
 
 #include "user_interface.h"
+#include "config.h"
 
 #include "json/cJson.h"
 
 #include "sensor/ds18b20.h"
 #include "sensor/dht22.h"
 
-#include "comm/comm_pub_def.h"
-#include "comm/comm_uart.h"
-#include "comm/comm_wifi.h"
-#include "comm/comm_pwm.h"
-#include "comm/comm_light.h"
-#include "comm/comm_sensor.h"
-#include "comm/comm_espnow.h"
-#include "comm/comm_relay.h"
+#include "comm_pub_def.h"
+#include "comm_uart.h"
+#include "comm_wifi.h"
+#include "comm_pwm.h"
+#include "comm_light.h"
+#include "comm_sensor.h"
+#include "comm_relay.h"
 
 #include "mqtt/app.h"
 #include "http/app.h"
@@ -55,7 +55,8 @@ typedef struct{
 static ErrorMsg error_msg[ErrorCodeSize]={
 		{EC_Normal,			""},
 		{EC_None,			"None Element"},
-		{EC_Failed,			"Request Failed."},
+		{EC_Failed,			"Request Failed"},
+		{EC_Busy,			"Device Busy"},
 		{EC_Unknown,		"Unknown Error"}
 };
 static comm_def comm_operator[]={
@@ -63,20 +64,26 @@ static comm_def comm_operator[]={
 		{"GetWiFiConfig",		"Reply_GetWiFiConfig",		NULL,				comm_wifi_config_read,		NULL},
 		{"SetWiFiConfig",		"Reply_SetWiFiConfig",		NULL,				comm_wifi_config_write,		NULL},
 		{"SetLigthDuty",		"Reply_SetLigthDuty",		NULL,				comm_led_pwm_duty_write,	NULL},
+		{"RayMotorStart",		"Reply_SetMotorStatus",		NULL,				comm_ray_motor_start,		NULL},
+		{"RayMotorStop",		"Reply_RayMotorStop",		NULL,				comm_ray_motor_stop,		NULL},
+		{"RayMotorCW",			"Reply_RayMotorCW",			NULL,				comm_ray_motor_cw,			NULL},
+		{"RayMotorCCW",			"Reply_RayMotorCCW",		NULL,				comm_ray_motor_ccw,			NULL},
 		{"GetRayValue",			"Reply_GetRayValue",		NULL,				comm_ray_value_read,		NULL},
-		{"SetRayAlarmValue",	"Reply_SetRayAlarmValue",	NULL,				comm_alarm_ray_value_write,	NULL},
-		{"GetWiFiScan",			"Reply_GetWiFiScan",		NORMAL_WIFI_SCAN,	comm_expect_ret,			NEEDTIMER},
-		{"WiFiConnect",			"Reply_WiFiConnect",		NORMAL_WIFI_CONNECT,comm_expect_ret,			NEEDTIMER},
+		{"SetRayAlarmValue",	"Reply_SetRayAlarmValue",	NULL,				comm_ray_alarm_value_write,	NULL},
+		{"GetWiFiScan",			"Reply_GetWiFiScan",		WIFI_SCAN,			comm_expect_ret,			NEEDTIMER},
+		{"WiFiConnect",			"Reply_WiFiConnect",		WIFI_CONNECT,		comm_expect_ret,			NEEDTIMER},
 		{"Control",				"Reply_Control",			SYN_CONTROL,		comm_expect_ret,			NEEDTIMER},
 		{"GetStatus",			"Reply_GetStatus",			SYN_STATE,			comm_syn_status_read,		NULL},
 		{NULL,					NULL,						NULL,				NULL,						NULL},
 
 };
-//extern door_comm_buf comm_buf;
-uint16 ray_alarm_value=35;
+
 os_timer_t doorRequestTimer;
 os_timer_t statusTimer;
 
+
+static config_data *cfg_data=NULL;
+uint8_t cfg_save_flag=0;
 typedef int(*door_http_send)(http_connection *);
 typedef int(*door_mqtt_publish)(MQTT_Client *);
 
@@ -85,28 +92,64 @@ static void statusTimerCb(void *arg){
 	temperature_read_tick++;
 	if(temperature_read_tick==8){
 		temperature_read_tick=0;
-		/*ds18b20_data ds18b20_read_data;
-		if(ds18b20_read(&ds18b20_read_data)==1){
-			syn_state.temperature_pre=(int)ds18b20_read_data.temp;
-			syn_state.temperature_back=(uint)((ds18b20_read_data.temp-syn_state.temperature_pre)*10);
-		}*/
-		if( 0 )
-			comm_dht22_espnow_read();
-		//syn_state.ray=comm_ray_value_read();
-		syn_state.temperature=comm_temperature_value_read_api();
-		syn_state.humidity=comm_humidity_value_read_api();
 	}
-	if( 0 )
-		comm_ray_value_espnow_read();
+	syn_state.temperature=comm_temperature_value_read_api();
+	syn_state.humidity=comm_humidity_value_read_api();
 	if(comm_ray_value_api_get()<ray_alarm_value){
 		light_alarm_close();	//set hight
 	}else{
 		light_alarm_open();		//set low
 	}
+	if(cfg_save_flag){
+		config_save(NULL);
+		cfg_save_flag=0;
+	}
+	wifi_connect_check(1000);
 	syn_state.run_time++;
 }
 
 void ICACHE_FLASH_ATTR comm_init(){
+
+	int ret = config_init();
+	cfg_data=config_read();
+	if(!ret){
+		CONFIG_MAGIC;
+		//first use
+		wifi_set_opmode(STATIONAP_MODE);
+		os_printf("cfg_data->magic!=CONFIG_MAGIC save default config\r\n");
+		struct softap_config ap_cfg;
+		wifi_softap_get_config(&ap_cfg);
+		os_strcpy(ap_cfg.ssid,DEFAULT_AP_SSID);
+		ap_cfg.ssid_len=os_strlen(DEFAULT_AP_SSID);
+		os_strcpy(ap_cfg.password,DEFAULT_AP_PWD);
+		ap_cfg.ssid_hidden=0;
+		ap_cfg.authmode=AUTH_OPEN;
+		wifi_softap_set_config(&ap_cfg);
+		//for test
+		struct station_config sta_cfg;
+		wifi_station_get_config(&sta_cfg);
+		os_strcpy(sta_cfg.ssid,DEFAULT_STA_SSID);
+		os_strcpy(sta_cfg.password,DEFAULT_STA_PWD);
+		wifi_station_set_config(&sta_cfg);
+		os_printf("first use station ssid:%s,pwd:%s\r\n",sta_cfg.ssid,
+				sta_cfg.password);
+	}
+	int mode=wifi_get_opmode();
+	if(mode == STATION_MODE || mode == STATIONAP_MODE){
+		wifi_station_disconnect();
+		wifi_station_connect();
+		os_printf("try to connect.\r\n");
+	}
+
+	if(ret){
+		comm_led_pwm_duty_api_set(cfg_data->light_duty);
+		ray_alarm_value=cfg_data->alarm_ray_value;
+	}else{
+		cfg_data->light_duty = 50;
+		cfg_data->alarm_ray_value=100;
+		config_save(NULL);
+	}
+
 	comm_uart_init();
 	os_memset(&doorRequestTimer,0,sizeof(os_timer_t));
 	os_timer_disarm(&doorRequestTimer);
@@ -115,10 +158,11 @@ void ICACHE_FLASH_ATTR comm_init(){
 
     //ds18b20_init(1);
     comm_pwm_init();
-    comm_espnow_init();
     comm_relay_init();
     comm_sensor_init();
     comm_light_init();
+
+
     os_memset(&statusTimer,0,sizeof(os_timer_t));
     os_timer_disarm(&statusTimer);
     os_timer_setfn(&statusTimer, (os_timer_func_t *)statusTimerCb, NULL);
@@ -184,6 +228,7 @@ uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode
 
 
 int ICACHE_FLASH_ATTR common_operator_api(void *client){
+	comm_positive++;
 	char *data;
 	mqtt_user_data *mqtt_data;
 	uint8_t client_sign=*(uint8_t *)client;
@@ -232,8 +277,7 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 				//send to Master
 				switch(comm_operator[index].msg_type){
 					case NORMAL_CONFIG:
-						door_config_refresh_set(COMM_NOREFRESH);
-						send_message_to_master(comm_operator[index].msg_type,data,os_strlen(data));
+
 						break;
 					case SYN_CONTROL:
 						do{
@@ -246,11 +290,10 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 								comm_relay_refresh_set(index,COMM_NOREFRESH);
 								comm_relay_status_set_app_api(index,op);
 							}
-							//syn_control_refresh_set(COMM_REFRESHED);
-							//send_message_to_master(SYN_CONTROL,&typevaule,1);
+
 						}while(0);
 						break;
-					case NORMAL_WIFI_SCAN:
+					case WIFI_SCAN:
 						NODE_DBG("msg type is:NORMAL_WIFI_SCAN");
 
 						break;
@@ -383,6 +426,8 @@ int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client){
 		goto badJson;
 	}
 	comm_led_pwm_duty_api_set(data_duty->valueint);
+	cfg_data->light_duty=data_duty->valueint;
+	cfg_save_flag=1;
 	cJSON_AddItemToObject(retroot,"data",ret_data=cJSON_CreateObject());
 	cJSON_AddNumberToObject(ret_data,"duty",comm_led_pwm_duty_api_get());
 	//must limits
@@ -393,6 +438,59 @@ badJson:
 	return send_ret_json(client,retroot,error_code);
 }
 
+int ICACHE_FLASH_ATTR comm_ray_motor_cw(void *client){
+	cJSON *retroot=cJSON_CreateObject();
+	motor_move_espnow_write(3,65535,1);
+	return send_ret_json(client,retroot,EC_Normal);
+
+}
+int ICACHE_FLASH_ATTR comm_ray_motor_ccw(void *client){
+	cJSON *retroot=cJSON_CreateObject();
+	motor_move_espnow_write(3,65535,2);
+	return send_ret_json(client,retroot,EC_Normal);
+}
+int ICACHE_FLASH_ATTR comm_ray_motor_stop(void *client){
+	cJSON *retroot=cJSON_CreateObject();
+	motor_move_espnow_write(255,255,0);
+	return send_ret_json(client,retroot,EC_Normal);
+}
+int ICACHE_FLASH_ATTR comm_ray_motor_start(void *client){
+	char *data;
+		uint8 client_sign=*(uint8_t *)client;
+		http_connection *http_client;
+		if(client_sign==CLIENT_IS_MQTT){
+			mqtt_user_data *user_data=(mqtt_user_data *)client;
+			data = user_data->data;
+		}else if(client_sign==CLIENT_IS_HTTP){
+			http_client=(http_connection *)client;
+			data=http_client->body.data;
+		}
+		enum ErrorCode error_code=EC_Normal;
+		cJSON *retroot=cJSON_CreateObject();
+		cJSON *root = cJSON_Parse(data);
+		cJSON *c_data;
+		c_data = cJSON_GetObjectItem(root,"data");
+		if(c_data==NULL){
+			error_code=EC_None;
+			goto badJson;
+		}
+		cJSON *speed=cJSON_GetObjectItem(c_data,"speed");
+		cJSON *duration=cJSON_GetObjectItem(c_data,"duration");
+		cJSON *direction=cJSON_GetObjectItem(c_data,"direction");
+		if(!speed || !duration || !direction){
+			error_code=EC_None;
+			goto badJson;
+		}
+		//cJSON_Delete(root);
+		motor_move_espnow_write(speed->valueint,duration->valueint,direction->valueint);
+		cJSON *retdata;
+		cJSON_AddItemToObject(retroot,"data", retdata = cJSON_CreateObject());
+	badJson:
+		if(root!=NULL){
+			cJSON_Delete(root);
+		}
+		return send_ret_json(client,retroot,error_code);
+}
 
 int ICACHE_FLASH_ATTR comm_ray_value_read(void *client){
 	//parse json
@@ -403,7 +501,7 @@ int ICACHE_FLASH_ATTR comm_ray_value_read(void *client){
 	return send_ret_json(client,retroot,EC_Normal);
 
 }
-int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client){
+int ICACHE_FLASH_ATTR comm_ray_alarm_value_write(void *client){
 	char *data;
 	uint8 client_sign=*(uint8_t *)client;
 	http_connection *http_client;
@@ -429,6 +527,8 @@ int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client){
 		goto badJson;
 	}
 	ray_alarm_value=data_rav->valueint;
+	cfg_data->alarm_ray_value=ray_alarm_value;
+	cfg_save_flag=1;
 	//cJSON_Delete(root);
 	cJSON *retdata;
 	cJSON_AddItemToObject(retroot,"data", retdata = cJSON_CreateObject());
@@ -485,7 +585,7 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 			cJSON *r_data=cJSON_GetObjectItem(root,"data");
 			uint8 index=cJSON_GetObjectItem(r_data,"index")->valueint;
 			cJSON *retroot=cJSON_CreateObject();
-			if(comm_relay_refresh_status_get(index)==COMM_REFRESHED || Timer->tickcount>COMM_TIMER_TIMEROUT){
+			if(comm_relay_refresh_status_get(index)==COMM_REFRESHED || Timer->tickcount>COMM_TIMER_TIMEOUT){
 				os_timer_disarm(&Timer->timer);
 				NODE_DBG("SYN_CONTROL Ret: %s",(comm_relay_refresh_status_get(index)==COMM_REFRESHED?"Refreshed":"Timer timeout"));
 				enum ErrorCode error_code = EC_Normal;
@@ -507,39 +607,48 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 		}
 		break;
 
-	case NORMAL_WIFI_SCAN:
-		if(Timer->tickcount==COMM_TIMER_SINGLE_TIME)comm_wifi_scan_start_api();
-		else{
-			cJSON *retroot=comm_wifi_scan_api();
-			if(retroot!=NULL){
-				os_timer_disarm(&Timer->timer);
-				return send_ret_json(client,retroot,EC_Normal);
-			}else if(Timer->tickcount>COMM_TIMER_TIMEROUT*3){
-				os_timer_disarm(&Timer->timer);
-				return send_ret_json(client,retroot,EC_Failed);
-			}
-		}
-		break;
-	case NORMAL_WIFI_CONNECT:
+	case WIFI_CONNECT:
 		if(Timer->tickcount==COMM_TIMER_SINGLE_TIME){
 			cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
 			cJSON *root_data = cJSON_GetObjectItem(root,"data");
 			char *ssid = cJSON_GetObjectItem(root_data,"wifi_station_ssid")->valuestring;
 			char *pwd = cJSON_GetObjectItem(root_data,"wifi_station_pwd")->valuestring;
-			comm_wifi_start_connect_ap_api(ssid,pwd);
+			if(!comm_wifi_start_connect_ap_api(ssid,pwd)){
+				os_timer_disarm(&Timer->timer);
+				send_ret_json(client,cJSON_CreateObject(),EC_Busy);
+			}
 			cJSON_Delete(root);
 		}else{
-			if(Timer->tickcount > (COMM_TIMER_TIMEROUT * 6)  && comm_wifi_connect_ap_check_api()==1){
-				NODE_DBG("NORMAL_WIFI_CONNECT Connect success .");
+			if(Timer->tickcount>COMM_TIMER_TIMEOUT && comm_wifi_connect_ap_check_api()){
 				os_timer_disarm(&Timer->timer);
 				cJSON *retroot=cJSON_CreateObject();
 				return send_ret_json(client,retroot,EC_Normal);
 			}
-			if(Timer->tickcount>COMM_TIMER_TIMEROUT * 9){
+			if(Timer->tickcount>COMM_TIMER_TIMEOUT * 5){
 				os_timer_disarm(&Timer->timer);
 				//connect failed, connect default ap
 				comm_wifi_connect_default_ap_api();
 				cJSON *retroot=cJSON_CreateObject();
+				return send_ret_json(client,retroot,EC_Failed);
+			}
+		}
+		break;
+	case WIFI_SCAN:
+		if(Timer->tickcount==COMM_TIMER_SINGLE_TIME){
+			if(!comm_wifi_scan_start_api()){
+				os_timer_disarm(&Timer->timer);
+				return send_ret_json(client,cJSON_CreateObject(),EC_Busy);
+			}
+		}
+		else{
+			cJSON *retroot=(cJSON *)comm_wifi_scan_api();
+			if(retroot!=NULL){
+				os_timer_disarm(&Timer->timer);
+				return send_ret_json(client,retroot,EC_Normal);
+			}
+			else if(Timer->tickcount>COMM_TIMER_TIMEOUT * 3){
+				os_timer_disarm(&Timer->timer);
+				retroot=cJSON_CreateObject();
 				return send_ret_json(client,retroot,EC_Failed);
 			}
 		}
@@ -551,10 +660,6 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 	return 1;
 }
 
-void ICACHE_FLASH_ATTR request_master_door_config(){
-
-	send_message_to_master(NORMAL_CONFIG,"",0);
-}
 void ICACHE_FLASH_ATTR door_request_all_config(){
 	/*
 	if(door_config_refresh_get()==COMM_NOREFRESH)
@@ -580,11 +685,7 @@ char *ICACHE_FLASH_ATTR get_struct_last_str(char *str){
 
 
 int ICACHE_FLASH_ATTR door_door_config_read(void *client){
-	NODE_DBG("http_door_config_api_read");
-	if(door_config_refresh_get()==COMM_REFRESHED)
-	{
-		return send_to_client(client,door_config_read());
-	}
+
 	return send_to_client(client,"error");
 }
 

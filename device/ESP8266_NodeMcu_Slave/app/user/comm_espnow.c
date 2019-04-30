@@ -17,16 +17,18 @@
 #include "espnow.h"
 #include "comm_device.h"
 
-extern u8 DHT22MacAddr[6];
-extern u8 Realy1MacAddr[6];
-extern u8 Realy2MacAddr[6];
-extern u8 Realy3MacAddr[6];
-extern u8 RayMacAddr[6];
-
 os_timer_t esp_now_timer;
 uint8 sendSerialNb;
 u8 ControllerMacAddr[6] = {0xA0, 0x20, 0xA6, 0xAA, 0xAA, 0xAA};
 
+u8 SalveMacAddrVector[ESPNOWSLAVEMAX][6] = {
+		{0xA2, 0x01, 0xA6, 0x55, 0x55, 0x55},
+		{0xA2, 0x02, 0xA6, 0x55, 0x55, 0x55},
+		{0xA2, 0x03, 0xA6, 0x55, 0x55, 0x55},
+		{0xA2, 0x04, 0xA6, 0x55, 0x55, 0x55},
+		{0xA2, 0x05, 0xA6, 0x55, 0x55, 0x55},
+		{0xA2, 0x06, 0xA6, 0x55, 0x55, 0x55},
+};
 //my esp8266 12F ap macaddr 86-0D-8E-96-5D-7A
 //uint8 slave_mac[6]={0x86,0x0d,0x8E,0x96,0x5d,0x7a};
 
@@ -61,12 +63,12 @@ void DisplayMac(char* msg,u8 *mac){
 	int i;
 	char mac_str[50];
 	char temp[10];
-	os_memset(mac_str,0,20);
+	os_memset(mac_str,0,50);
 	for(i=0;i<6;i++){
 		os_sprintf(temp,i==0?"%2x":"-%2x",mac[i]);
 		os_strcat(mac_str,temp);
 	}
-	ESPNOW_DBG("%s %s",msg,mac_str);
+	ESPNOW_DBG("dest:%s,%s",mac_str,msg);
 }
 void comm_esp_now_recv_cb(u8 *mac_addr, u8 *data, u8 len){
 	u8 *bytes=(u8 *)os_zalloc(len);
@@ -118,8 +120,10 @@ restart:
 				if(esp_now_recv_buf.totalCheck==bytes[i]){
 					//pass	,data in byte 2 and 3
 					if(esp_now_recv_buf.sNumber!=last_serial_bumber){
-						ESPNOW_DBG("ESPNOW: Recv type:%3x, data %3x%3x",esp_now_recv_buf.type,
-								esp_now_recv_buf.data[0],esp_now_recv_buf.data[1]);
+						ESPNOW_DBG("ESPNOW: Recv type:%3x, data %3x%3x%3x%3x%3x",esp_now_recv_buf.type,
+								esp_now_recv_buf.data[0],esp_now_recv_buf.data[1],
+								esp_now_recv_buf.data[2],esp_now_recv_buf.data[3],
+								esp_now_recv_buf.data[4]);
 						last_serial_bumber=esp_now_recv_buf.sNumber;
 						os_memcpy(esp_now_recv_buf.mac_addr,mac_addr,6);
 						comm_esp_now_recv_data();
@@ -223,7 +227,8 @@ static void comm_esp_now_send_tmr(){
 
 void comm_esp_now_recv_data(){
 	switch(esp_now_recv_buf.type){
-	/*case RequestDht22:
+	/*has modify auto upload
+	 * case RequestDht22:
 		{
 			u8 data[5]={0};
 			dht22_temperature_read_api(data);
@@ -240,50 +245,62 @@ void comm_esp_now_recv_data(){
 			esp_now_send_api(ControllerMacAddr,ReplyRelay,retdata);
 		}
 		break;
-	/*case RequestRay:
+	/*has modify auto upload
+	 * case RequestRay:
 		{
 			u16 ray_value=ray_read_api();
 			u8 retdata[5]={ray_value&0x0f, ray_value>>8};
 			esp_now_send_api(ControllerMacAddr,ReplyRay,retdata);
 		}
 		break;*/
-	case RequestRay_MotorPos:
-		NODE_DBG("RequestRay_MotorPos");
-		motor_pos_api(esp_now_recv_buf.data[0]);
-		break;
-
-	case RequestRay_MotorPas:
-		NODE_DBG("RequestRay_MotorPas");
-		motor_pas_api(esp_now_recv_buf.data[0]);
+	case RequestMotorMove:
+		NODE_DBG("Request MotorMove");
+		esp_now_recv_buf.data[3] = esp_now_recv_buf.data[3]>2?0:esp_now_recv_buf.data[3];
+		motor_move_start(esp_now_recv_buf.data[0],
+				esp_now_recv_buf.data[1]<<8|esp_now_recv_buf.data[2],
+				esp_now_recv_buf.data[3]);
 		break;
 	}
 }
 
 void ICACHE_FLASH_ATTR user_esp_now_set_mac_current(void)
 {
-#if defined(ESP_NOW_SLAVE)
-
+	int mac_index;
 #ifdef DHT22_OPEN
-	 wifi_set_macaddr(SOFTAP_IF, DHT22MacAddr);
+	 wifi_set_macaddr(SOFTAP_IF, SalveMacAddrVector[DHT22_MACINDEX]);
+	 mac_index=DHT22_MACINDEX;
 #elif defined RELAY1_OPEN
-	 wifi_set_macaddr(SOFTAP_IF, Realy1MacAddr);
+	 wifi_set_macaddr(SOFTAP_IF, SalveMacAddrVector[RELAY1_MACINDEX]);
+	 mac_index=RELAY1_MACINDEX;
 #elif defined RELAY2_OPEN
-	 wifi_set_macaddr(SOFTAP_IF, Realy2MacAddr);
+	 wifi_set_macaddr(SOFTAP_IF, SalveMacAddrVector[RELAY2_MACINDEX]);
+	 mac_index=RELAY2_MACINDEX;
 #elif defined  RELAY3_OPEN
-	 wifi_set_macaddr(SOFTAP_IF, Realy3MacAddr);
+	 wifi_set_macaddr(SOFTAP_IF, SalveMacAddrVector[RELAY3_MACINDEX]);
+	 mac_index=RELAY3_MACINDEX;
 #elif defined RAY_OPEN
-	 wifi_set_macaddr(SOFTAP_IF, RayMacAddr);
+	 wifi_set_macaddr(SOFTAP_IF, SalveMacAddrVector[RAY_MACINDEX]);
+	 mac_index=RAY_MACINDEX;
 #endif
 
     wifi_set_opmode_current(SOFTAP_MODE);
-#elif defined(ESP_NOW_CONTROLLER)
-    // 设置station MAC地址
-    wifi_set_macaddr(STATION_IF, controller_mac);
-    // 设置为station模式
-    //wifi_set_opmode_current(STATION_MODE);
-#endif
+    struct softap_config cfg;
+    wifi_softap_get_config(&cfg);
+    char ssid_str[50];
+    os_memset(ssid_str,0,50);
+    os_sprintf(ssid_str,"%s%d",DEFAULT_AP_SSID,mac_index);
+    os_strcpy(cfg.ssid,ssid_str);
+    cfg.ssid_len=os_strlen(ssid_str);
+    os_strcpy(cfg.password,DEFAULT_AP_PWD);
+    cfg.authmode=AUTH_WPA2_PSK;
+    cfg.ssid_hidden = 0;
+    wifi_softap_set_config(&cfg);
+    os_printf("user_esp_now_set_mac_current mac_index:%d",mac_index);
 }
 
+char *ICACHE_FLASH_ATTR getMacAddrByIndex(uint8_t index){
+	return SalveMacAddrVector[index];
+}
 void comm_espnow_init(){
 	if (esp_now_init() == 0) {
 		ESPNOW_DBG("ESPNOW: init successful\n");
@@ -293,11 +310,9 @@ void comm_espnow_init(){
 		esp_now_register_send_cb(comm_esp_now_send_cb);
 	}
 	esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
-	//must has add peer with Controller
-	esp_now_add_peer(ControllerMacAddr,ESP_NOW_ROLE_CONTROLLER,EspNowChannel,NULL,0);
 	os_timer_disarm(&esp_now_timer);
 	os_timer_setfn(&esp_now_timer, comm_esp_now_send_tmr, NULL);
-	os_timer_arm(&esp_now_timer, 20, 1);
+	os_timer_arm(&esp_now_timer, 50, 1);
 }
 
 

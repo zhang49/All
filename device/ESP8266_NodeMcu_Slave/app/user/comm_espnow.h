@@ -11,6 +11,7 @@
 
 #define ESP_NOW_SLAVE
 
+#define ESPNOWSLAVEMAX 6
 #define ESPNOWSEDNBUFSIZE 4
 
 #define ESPNOWSENDERRORMAX 10
@@ -32,6 +33,7 @@ typedef struct {
 }EspNowSendBuf;
 
 void ICACHE_FLASH_ATTR comm_espnow_init();
+char *ICACHE_FLASH_ATTR getMacAddrByIndex(uint8_t index);
 
 void comm_esp_now_recv_data();
 void ICACHE_FLASH_ATTR user_esp_now_set_mac_current(void);

@@ -83,32 +83,84 @@ static wifi_status_t wifi_status;
 
 struct station_config *wifi_st_config;
 
-static wifi_reconnect_count = 0;
+
+static int wifi_reconnect_sign = 0;
+static int wifi_tick_time_count = 0;
+const int wifi_wait_time_max=5*60*1000;
+
+int comm_positive = 0;
 
 static uint8_t wifiStatus = STATION_IDLE, lastWifiStatus = STATION_IDLE;
 
-void wifi_connect_check(int single_time,int timeout){
-	wifiStatus = wifi_station_get_connect_status();
-	//check wifi
-	if(wifiStatus != lastWifiStatus){
-		lastWifiStatus = wifiStatus;
-		struct ip_info ipConfig;
-		wifi_get_ip_info(STATION_IF, &ipConfig);
-		if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0){
-			wifi_reconnect_count = 0;
-		}
-		else{
-			wifi_reconnect_count++;
-		}
+void wifi_connect_check(int tick_time){
+	if(wifi_get_opmode() == SOFTAP_MODE){
+		return;
 	}
-	if(wifi_reconnect_count == 3){
-		wifi_station_disconnect();
-	}else if(wifi_reconnect_count == 100){
-		wifi_reconnect_count = 0;
-		struct station_config config;
-		wifi_station_get_config_default(&config);
-		wifi_station_set_config_current(&config);
-		wifi_station_connect();
+	uint8_t wifiStatus = wifi_station_get_connect_status();
+	//check wifi
+	struct ip_info ipConfig;
+	wifi_get_ip_info(STATION_IF, &ipConfig);
+
+	if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0){
+		wifi_reconnect_sign = 0;
+		wifi_tick_time_count = 0;
+		return;
+	}else {
+		/*  STATION_IDLE = 0,
+		    STATION_CONNECTING,
+			STATION_WRONG_PASSWORD,
+			STATION_NO_AP_FOUND,
+			STATION_CONNECT_FAIL,
+		 */
+		wifi_tick_time_count++;
+		if(wifi_tick_time_count >= wifi_wait_time_max/tick_time){
+			if(wifi_reconnect_sign==0){
+				os_printf("reconnect count time out.\r\n");
+				wifi_reconnect_sign=1;
+				wifi_station_disconnect();
+			}else if(wifi_reconnect_sign==5 && comm_positive==0){//has do.try to connect
+				wifi_tick_time_count = 0;
+			}
+		}
+		if( wifi_tick_time_count == 8000/tick_time || wifi_tick_time_count == 16000/tick_time){
+			if(wifi_reconnect_sign==0){
+				wifi_reconnect_sign=1;
+				wifi_station_disconnect();
+				os_printf("reconnect count < 2.\r\n");
+			}else if(wifi_reconnect_sign==5 && comm_positive==0){//has do. try to connect
+				wifi_tick_time_count++;
+				//none
+			}else{	//is busy,doesn't has try to connect
+				wifi_tick_time_count--;
+			}
+		}else if(wifi_tick_time_count == 24000/tick_time){
+			wifi_station_disconnect();
+			os_printf("wifi_station_disconnect.\r\n");
+		}
+		//connect to station when communication is free
+		switch(wifi_reconnect_sign){
+		case 1:
+			comm_positive=0;
+		case 2:
+		case 3:
+		case 4:
+			wifi_reconnect_sign++;
+			break;
+		case 5:
+			if(comm_positive==0){
+				os_printf("comm_positive==0 try to connect.\r\n");
+				//connect to station
+				wifi_reconnect_sign=0;
+				wifi_get_ip_info(STATION_IF, &ipConfig);
+				if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0)return;
+				struct station_config config;
+				wifi_station_get_config_default(&config);
+				wifi_station_set_config_current(&config);
+				wifi_station_connect();
+			} else {
+				wifi_reconnect_sign=1;
+			}
+		}
 	}
 }
 /*
@@ -178,11 +230,13 @@ static void ICACHE_FLASH_ATTR comm_wifi_api_scan_callback(void *arg, STATUS stat
 /*
  *WiFi start scaning
  */
-void ICACHE_FLASH_ATTR comm_wifi_scan_start_api(){
+int ICACHE_FLASH_ATTR comm_wifi_scan_start_api(){
 	NODE_DBG("door_wifi_scan_start");
 	if(wifi_status.scanState!=Doing){
 		wifi_status.scanState=Start;
+		return 1;
 	}
+	return 0;
 }
 /*
  *WiFi scaning return NULL
@@ -193,9 +247,9 @@ void ICACHE_FLASH_ATTR comm_wifi_scan_start_api(){
 cJSON *ICACHE_FLASH_ATTR comm_wifi_scan_api(){
 	 switch(wifi_status.scanState){
 	 case Start:
+		 wifi_status.scanState=Doing;
 		 NODE_DBG("Start scan");
 		 wifi_station_scan(NULL,comm_wifi_api_scan_callback);
-		 wifi_status.scanState=Doing;
 		 break;
 	 case Doing:
 		 NODE_DBG("Waiting scan done");
@@ -313,6 +367,7 @@ int ICACHE_FLASH_ATTR comm_wifi_config_write_api(cJSON *root_data){
 }
 
 int ICACHE_FLASH_ATTR comm_wifi_start_connect_ap_api(char *ssid,char *password){
+	if(wifi_status.connectState == Doing)return 0;
 	wifi_status.connectState = Start;
 	struct station_config sta_config;
 	wifi_station_get_config(&sta_config);
@@ -324,18 +379,20 @@ int ICACHE_FLASH_ATTR comm_wifi_start_connect_ap_api(char *ssid,char *password){
 	wifi_station_set_config_current(&sta_config);
 	wifi_station_connect();
 	wifi_status.connectState = Doing;
+	return 1;
 }
 
 int ICACHE_FLASH_ATTR comm_wifi_connect_ap_check_api(){
 	//simple , need more operator
 	if(wifi_status.connectState == Doing){
+		wifi_tick_time_count = 0;
 		if(mqtt_is_connected()){
 			NODE_DBG("Station connect success");
-			wifi_status.connectState=Done;
 			//保存到 Flash
 			struct	station_config config;
 			wifi_station_get_config(&config);
 			wifi_station_set_config(&config);
+			wifi_status.connectState=Done;
 			return 1;
 		}
 	}
@@ -350,6 +407,7 @@ void ICACHE_FLASH_ATTR comm_wifi_connect_default_ap_api(){
 	wifi_station_get_config_default(&config);
 	wifi_station_set_config_current(&config);
 	wifi_station_connect();
+	wifi_status.connectState = Done;
 }
 
 

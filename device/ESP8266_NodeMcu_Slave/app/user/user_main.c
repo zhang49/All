@@ -28,18 +28,19 @@
 #include "comm_device.h"
 #include "sensor/sensors.h"
 	
-#define AP_SSID "ESP8266_"DEVICE_NAME
-#define AP_PWD ""
-#define STA_SSID "Ares"
-#define STA_PWD "460204415"
 
 #ifdef DEVELOP_VERSION
 
 #endif
 
-
-
-
+void ICACHE_FLASH_ATTR init_done_cb(){
+	wifi_station_disconnect();
+	uint32_t size = flash_get_size_byte();
+	NODE_DBG("Flash size %d",size);
+	user_esp_now_set_mac_current();
+	comm_espnow_init();
+	comm_device_init();
+}
 
 /******************************************************************************
  * FunctionName : user_init
@@ -53,19 +54,8 @@ void user_init(void)
     system_update_cpu_freq(160); //overclock :)
     uart_init(BIT_RATE_115200,BIT_RATE_115200);
     NODE_DBG("User Init");
-	wifi_station_disconnect();
-	wifi_station_set_auto_connect(0);
 
-    uint32_t size = flash_get_size_byte();
-    NODE_DBG("Flash size %d",size);
-    user_esp_now_set_mac_current();
-    comm_espnow_init();
-    comm_device_init();
-    //init_dns();
-    //init_http_server();
-    //mqtt_app_init();
-
-
+    system_init_done_cb(init_done_cb);
 
     #ifdef DEVELOP_VERSION
 

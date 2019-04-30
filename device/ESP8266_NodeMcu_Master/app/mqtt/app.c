@@ -58,9 +58,6 @@ typedef struct{
 	int flag;
 }door_def;
 
-
-static int wifi_reconnect_count = 0;
-
 static void ICACHE_FLASH_ATTR mqtt_app_timer_cb(void *arg){
 	struct ip_info ipConfig;
 
@@ -74,22 +71,11 @@ static void ICACHE_FLASH_ATTR mqtt_app_timer_cb(void *arg){
 			if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0){
 	        	MQTT_DBG("MQTT: Detected wifi network up,trying connect to :%s",MQTT_SERVER_IP);
 	        	MQTT_Connect(&mqtt_client);
-		    	wifi_reconnect_count = 0;
 		    }
 		    else{
 		    	MQTT_DBG("MQTT: Detected wifi network down");
 		    	MQTT_Disconnect(&mqtt_client);
-		    	wifi_reconnect_count++;
 		    }
-		}
-		if(wifi_reconnect_count == 3){
-			wifi_station_disconnect();
-		}else if(wifi_reconnect_count == 100){
-			wifi_reconnect_count = 0;
-			struct station_config config;
-			wifi_station_get_config_default(&config);
-			wifi_station_set_config_current(&config);
-			wifi_station_connect();
 		}
 	}
 
@@ -149,7 +135,6 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 
 int ICACHE_FLASH_ATTR mqtt_is_connected(){
 	//enable reconnect
-	wifi_reconnect_count = 0;
 	switch(mqtt_client.connState){
 	case WIFI_INIT:
 	case WIFI_CONNECTING:

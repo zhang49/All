@@ -12,8 +12,13 @@
 
 #define DEVICE_NAME     "IOTClient1"
 
-#define WIFI_SSID       "360WiFi-1AC8AE"
-#define WIFI_PASS       "12345678"
+
+
+#define DEFAULT_AP_SSID "Esp8266-"DEVICE_NAME
+#define DEFAULT_AP_PWD ""
+#define DEFAULT_STA_SSID "H3C"
+#define DEFAULT_STA_PWD "12345678"
+
 /*
  * this is mqtt by personal
  */
@@ -28,7 +33,7 @@
 // #define FLASH_4M
 //#define FLASH_AUTOSIZE
 
-#define DEVELOP_VERSION
+//#define DEVELOP_VERSION
 #define FULL_VERSION_FOR_USER
 
 #define USE_OPTIMIZE_PRINTF

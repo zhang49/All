@@ -24,11 +24,7 @@ typedef struct {
 typedef struct {
 
 	uint32_t magic;
-
-	struct{
-		relay relay[RELAY_COUNT];
-		uint32_t init_ok;
-	} relay_state;
+	uint8_t light_duty;
 
 } config_data;
 

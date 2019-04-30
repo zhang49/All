@@ -39,6 +39,7 @@ endif
 INCLUDES := $(INCLUDES) -I $(PDIR)include
 INCLUDES += -I ./
 INCLUDES += -I ../libc
+INCLUDES += -I ../platform
 INCLUDES += -I ../
 PDIR := ../$(PDIR)
 sinclude $(PDIR)Makefile

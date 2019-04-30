@@ -19,7 +19,7 @@
 
 #define NEEDTIMER 1
 #define COMM_TIMER_SINGLE_TIME 100
-#define COMM_TIMER_TIMEROUT 1500
+#define COMM_TIMER_TIMEOUT 1500
 
 #define CLIENT_IS_HTTP 1
 #define CLIENT_IS_MQTT 2
@@ -42,13 +42,16 @@ typedef struct {
 	uint8 pqos;
 }mqtt_user_data;
 
-#define ErrorCodeSize 4
+#define ErrorCodeSize 5
+
 enum ErrorCode{
 	EC_Normal,
 	EC_None,
 	EC_Failed,
+	EC_Busy,
 	EC_Unknown
 }ErrorCode;
+
 typedef struct{
 	enum ErrorCode error_code;
 	char *error_str;
@@ -67,8 +70,12 @@ int ICACHE_FLASH_ATTR comm_wifi_config_read(void *client);
 int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client);
 
 int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client);
+int ICACHE_FLASH_ATTR comm_ray_motor_cw(void *client);
+int ICACHE_FLASH_ATTR comm_ray_motor_ccw(void *client);
+int ICACHE_FLASH_ATTR comm_ray_motor_start(void *client);
+int ICACHE_FLASH_ATTR comm_ray_motor_stop(void *client);
 int ICACHE_FLASH_ATTR comm_ray_value_read(void *client);
-int ICACHE_FLASH_ATTR comm_alarm_ray_value_write(void *client);
+int ICACHE_FLASH_ATTR comm_ray_alarm_value_write(void *client);
 
 
 int ICACHE_FLASH_ATTR comm_expect_ret(void *client);

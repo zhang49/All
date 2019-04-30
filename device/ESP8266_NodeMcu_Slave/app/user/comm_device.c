@@ -18,17 +18,44 @@
 
 dht_data dhtData;
 uint8_t ray_value;
-
+uint8_t ray_alarm_value;
+//second, set 0 for test
+uint8_t ray_alarm_duration = 0;
+uint8_t ray_alarm_time_cur;
+LOCAL os_timer_t motor_timer;
 os_timer_t statusTimer;
 int timer_tick=0;
 extern u8 ControllerMacAddr[6];
 
-u8 DHT22MacAddr[6]  = {0xA2, 0x11, 0xA6, 0x55, 0x55, 0x55};
-u8 Realy1MacAddr[6] = {0xA2, 0x11, 0xA6, 0x66, 0x66, 0x66};
-u8 Realy2MacAddr[6] = {0xA2, 0x33, 0xA6, 0x55, 0x55, 0x55};
-u8 Realy3MacAddr[6] = {0xA2, 0x44, 0xA6, 0x55, 0x55, 0x55};
-u8 RayMacAddr[6] 	= {0xA2, 0x55, 0xA6, 0x55, 0x55, 0x55};
+static motor_turn_status motor_direction = Motor_Stop;
+static int motor_speed = 4;
+static int pin_cur = 0;
+static int motor_status;
+static int motor_turn_pin_arr[] = {
+		MOTOR_PIN1,MOTOR_PIN2,MOTOR_PIN3,MOTOR_PIN4,-1
+};
+//100 ms multi,Max 255 * 100	== 0 cancel auto, == 1 manual move
+//need a distance sensor??
+static uint32_t motor_duration = 10240;
+static uint32_t motor_move_time_cur = 0;
 
+static void motor_turn_process(void)
+{
+	motor_move_time_cur++;
+	if(motor_move_time_cur >= motor_duration){
+		motor_direction_set(Motor_Stop);
+	}
+	if(motor_direction==Motor_Pos){
+		pin_cur = (++pin_cur%4)==0?0:pin_cur;
+		motor_set_pin_hight(motor_turn_pin_arr[pin_cur]);
+	}else if(motor_direction==Motor_Pas){
+		pin_cur = (--pin_cur)<0?3:pin_cur;
+		motor_set_pin_hight(motor_turn_pin_arr[pin_cur]);
+	}
+}
+static char displaybuf[50]={0};
+static int counttest=0;
+//touch when every 1000ms
 static void deviceStatusTimerCb(void *arg){
 uint8 retdata[5];
 #ifdef DHT22_OPEN
@@ -39,13 +66,16 @@ uint8 retdata[5];
 	dht22_temperature_read_api(retdata);
 	dht22_humidity_read_api(retdata+3);
 	esp_now_send_api(ControllerMacAddr,ReplyDht22,retdata);
+	os_sprintf(displaybuf, "temperature:%-10f,hum:%-10f",dhtData.temp,dhtData.hum);
+	NODE_DBG("%d_%s",counttest++,displaybuf);
+
 #elif defined RELAY1_OPEN
 #elif defined RELAY2_OPEN
 #elif defined RELAY3_OPEN
 #elif defined RAY_OPEN
-	ray_value=system_adc_read();
-	retdata[0]=ray_value&0x0f;
-	retdata[1]=ray_value>>8;
+	uint16 readdata=system_adc_read();
+	ray_value = readdata/1024.0*255;
+	retdata[0]=ray_value;
 	esp_now_send_api(ControllerMacAddr,ReplyRay,retdata);
 #endif
 }
@@ -60,6 +90,18 @@ int op=0;
 	op=1;
 #elif defined RELAY3_OPEN
 	op=1;
+#elif defined LIGHT_OPEN
+
+#elif defined RAY_OPEN
+	PIN_PULLDWN_EN(PERIPHS_IO_MUX_MTMS_U);
+	PIN_PULLDWN_EN(PERIPHS_IO_MUX_GPIO0_U);
+	PIN_PULLDWN_EN(PERIPHS_IO_MUX_GPIO4_U);
+	PIN_PULLDWN_EN(PERIPHS_IO_MUX_GPIO5_U);
+
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14);//选择GPIO14
+	os_memset(&motor_timer,0,sizeof(os_timer_t));
+	os_timer_disarm(&motor_timer);
+	os_timer_setfn(&motor_timer, motor_turn_process, NULL);
 #endif
 
 	switch(op){
@@ -67,6 +109,8 @@ int op=0;
 		comm_relay_init();
 		break;
 	}
+	uint8 retdata[5];
+	esp_now_send_api(ControllerMacAddr,DeviceOnline,retdata);
 	os_memset(&statusTimer,0,sizeof(os_timer_t));
 	os_timer_disarm(&statusTimer);
 	os_timer_setfn(&statusTimer, (os_timer_func_t *)deviceStatusTimerCb, NULL);
@@ -99,17 +143,49 @@ void dht22_temperature_read_api(u8 *data){
 	NODE_DBG("Temperature sign:%c, Integet:%d, Point:%d",data[0],data[1],data[2]);
 }
 
-uint16_t ray_read_api(){
+uint8 ray_value_read(){
 	return ray_value;
 }
 
-void motor_pos_api(u8 per){
-
+void ICACHE_FLASH_ATTR motor_duration_set(uint16_t time){
+	motor_duration = time;
 }
 
-void motor_pas_api(u8 per){
-
+void ICACHE_FLASH_ATTR motor_speed_set(int speed){
+	motor_speed = speed;
+	motor_direction_set(motor_status);
 }
+
+void ICACHE_FLASH_ATTR motor_direction_set(motor_turn_status direction){
+	motor_direction=direction;
+	os_timer_disarm(&motor_timer);
+	switch(direction){
+	case Motor_Stop:
+		motor_move_time_cur = 0;
+		break;
+	case Motor_Pos:
+	case Motor_Pas:
+		os_timer_arm(&motor_timer, motor_speed, 1);
+		break;
+	}
+}
+
+void motor_set_pin_hight(int pin){
+	int i;
+	for(i=0;motor_turn_pin_arr[i]!=-1;i++)
+		GPIO_OUTPUT_SET(motor_turn_pin_arr[i],0);
+	GPIO_OUTPUT_SET(pin,1);
+}
+
+void ICACHE_FLASH_ATTR motor_move_start(uint8 speed,uint16 duration,motor_turn_status direction){
+	NODE_DBG("speed:%d,duration:%d,direction:%d",speed,duration*10,direction);
+	motor_speed_set(speed);
+	motor_duration_set(duration*10*4);
+	motor_direction_set(direction);
+}
+
+
+
 
 
 

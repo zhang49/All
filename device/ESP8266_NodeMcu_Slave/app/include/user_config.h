@@ -10,10 +10,12 @@
 //#define DEVICE_NAME     "NWOYa1LR2HNPV8hVyXeW"
 #define DEVICE_SECRET   "8d5lHgQT87U1SPe9I0DX8y7r6y6EUsrW"
 
-#define DEVICE_NAME     "IOTClient1"
+#define DEVICE_NAME     "Slave"
 
-#define WIFI_SSID       "360WiFi-1AC8AE"
-#define WIFI_PASS       "12345678"
+#define DEFAULT_AP_SSID "Esp8266-"DEVICE_NAME
+#define DEFAULT_AP_PWD "5470035772800"
+#define DEFAULT_STA_SSID "H3C"
+#define DEFAULT_STA_PWD "12345678"
 /*
  * this is mqtt by personal
  */
