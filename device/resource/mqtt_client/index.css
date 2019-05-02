@@ -55,8 +55,8 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 .side_c_top i,.sidetop i{display: inline-block;padding-right:0.1rem;font-size: 0.3rem;}
 .side_door{font-size:0.3rem;}
 /*-------------状态----------------*/
-.conn-indicator{padding:1px;margin:0 3px 0 3px;background:#0000ff;}
-.slid_status{padding: 0.2rem 0;border-bottom: 10px solid #f8f8f8;font-size:0.3rem;}
+.conn-indicator{padding:2px 0px 0px 0px;margin:25px 0 0 0;background:#0000ff;}
+.slid_status{padding: 0 0 0 0;border-bottom: 5px solid #f8f8f8;font-size:0.3rem;}
 .slid_status .stae{margin: 0.2rem 0 0.3rem 0;padding-left: 0.25rem;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: space-between;justify-content: space-between;}
 .slid_status .stae:last-child{margin-bottom:0.2rem;}
 .slid_status .stae .stac{flex:1;color: #000;}
@@ -68,14 +68,20 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 .slid_status .stae .stac .myst i{display: inline-block;padding-right:0.1rem;font-size:0.3rem;text-shadow: 0 0 20px rgba(35,32,47,.3);}
 /*-------------操控----------------*/
 .side_c_top{font-size:0.3rem;}
-.side_control{font-size:0.28rem;padding: 0.35rem 0.25rem;border-bottom: 10px solid #f8f8f8;}
+.side_control{font-size:0.26rem;padding: 0.35rem 0.25rem;border-bottom: 5px solid #f8f8f8;}
 .state{background:#13b75c;width:10px;height:10px;margin-right:0.1rem;border-radius:100px;display: inline-block;}
 .s-green{background:#13b75c;}
 .s-red{background:red;}
 .side_btn{padding: 0.35rem 0.05rem 0.05rem 0.4rem;padding-right:0.5rem}
-.side_btn ul li{width:50px;height:50px;line-height: 50px;border-radius:20px;box-shadow: 18px 15px 10px rgba(219,219,219,.9);text-align:center;color:#6A6A6A;}
-.op-control-closed{background:#c3c3c3;}
-.op-control-opened{background:#13b75c;}
+.side_btn ul li{width:50px;height:50px;line-height: 50px;border-radius:20px;;text-align:center;}
+.side_btn ul li:hover{cursor:pointer;}
+.op-control-closed{background:#666666;box-shadow: 18px 15px 0px #99CCFF;color:#99CCFF}
+.op-control-opened{background:#99CCFF;box-shadow: 18px 15px 0px #666666;color:#666666}
+
+.motorCtl_btn{padding: 0.35rem 0.05rem 0.05rem 0.4rem;padding-right:0.5rem}
+
+.motorCtl_btn ul li{width:150px;height:20px;line-height: 20px;border-radius:20px;box-shadow:0px 0px 10px #3366CC;text-align:center;color:#fff;background:#336699;}
+.motorCtl_btn ul li:hover{cursor:pointer;}
 /*-------------选择方案----------------*/
 .plan{padding:0.15rem 0.25rem 0.15rem 0.75rem;border-bottom: 2px solid #f8f8f8;font-size:0.3rem;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: space-between;justify-content: space-between;}
 .plan .plan_sel{flex:1;}
@@ -173,6 +179,18 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
     .side_btn ul li{width:65px;height:65px;line-height:65px;}
     .state{width:16px;height:16px;}
 }
+
+/*---------------MotorCtl_Btn border-radius兼容-----------------*/
+@media screen and (min-width:400px) and (max-width:450px){
+    .motorCtl_btn ul li{width:73px;height:38px;line-height:38px;}
+}
+@media screen and (min-width:450px) and (max-width:768px){
+    .motorCtl_btn ul li{width:80px;height:45px;line-height:45px;}
+}
+@media screen and (min-width:768px)  {
+    .motorCtl_btn ul li{width:80px;height:45px;line-height:45px;}
+}
+
 /*--------------纯文本弹出框------------------*/
 .clearinfo{z-index: 9999;width: 2.4rem;font-size: 0.28rem;color: #fff;display: -webkit-flex;align-items: center;justify-content: center;background-color: rgba(6, 6, 6, 0.81);border-radius: 5px;position: fixed;top: 35%;left: 50%;margin-left: -1.2rem;}
 .clear_text{padding: 0.2rem 0.2rem;text-align: center;}
@@ -244,7 +262,7 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 }
 .rayAlarmValueCt{
 	margin:0 auto;
-  width: 85%;
+  width: 100%;
 }
 .rayAlarmValueCt .rangeslider__fill {
   background: #f00;

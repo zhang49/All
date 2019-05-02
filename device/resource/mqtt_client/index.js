@@ -1,3 +1,7 @@
+jQuery(document).ready(function($) {
+    $body = (window.opera) ? (document.compatMode == "CSS1Compat" ? $('html') : $('body')) : $('html,body');// 这行是 Opera 的补丁, 少了它 Opera 是直接用跳的而且画面闪烁 by willin
+});
+
 $(function(){
     var flag = true;       			   //判断是否继续获取配置
     var getSafeConfigCount = 0;
@@ -10,10 +14,15 @@ $(function(){
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
+	var getStatusFlag = 0;
 	
 	var rayIsWriting=0;
 	var rayTouchValue=0;
 	var replyGetStatusCount=0;
+	var operatorLock = false;
+	var operatorWaitTime = 800;//ms
+	var initOver=false;
+	
 	if(typeof RS == "undefined"){
 		var RS = {
 			Normal : 0,
@@ -119,6 +128,8 @@ $(function(){
 			case "Reply_Control":
 				Reply_Control(res);
 				break;
+			case "Reply_RayMotor":
+				Reply_RayMotor(res);
 			case "Reply_SetWiFiConfig":
 				Reply_SetWiFiConfig(res);
 				break;
@@ -238,15 +249,47 @@ $(function(){
     });
 
     /**
-     * 操作
+     * 点击Relay操作
      */
-    $('.op-control-closed').on('click', function(){
+    $('.op-control-closed').on('click', function(){		
+		if(operatorLock){
+			console.log("to fast.");
+			return;
+		}
+		operatorLock=true;
         var type = $(this).data('type');
         control(type,"open");
+		setTimeout(function(){
+			operatorLock=false;
+		},operatorWaitTime);
     });
     $('.op-control-opened').on('click', function(){
+		if(operatorLock){
+			console.log("to fast.");
+			return;
+		}
+		operatorLock=true;
         var type = $(this).data('type');
         control(type,"close");
+		setTimeout(function(){
+			operatorLock=false;
+		},operatorWaitTime);
+    });
+	
+	/**
+     * 点击Motor操作
+     */
+    $('.op-motor').on('click', function(){
+		if(operatorLock){
+			console.log("to fast.");
+			return;
+		}
+		operatorLock=true;
+        var type = $(this).data('type');
+        motorOperator(type);
+		setTimeout(function(){
+			operatorLock=false;
+		},operatorWaitTime);
     });
 
     /**
@@ -382,6 +425,11 @@ $(function(){
 		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
 		client.connect(options);
 		
+		setTimeout(function(){
+			$("#writer_ch").click();
+			initOver=true;
+		},500);
+		if(!getStatusFlag)return;
 		//获取配置
 		setTimeout(
 			function(){
@@ -411,7 +459,7 @@ $(function(){
 			}else if(replyGetStatusCount>=2){
 				runStatus=RS.Waiting;
 			}
-            //getStatus();
+            getStatus();
         }, 2000)
     }
 	
@@ -439,7 +487,6 @@ $(function(){
 		var $rayinputRange = $('#rayAlarmValue');
 		var $rayinputRange = $('#rayAlarmValue');
 		$rayinputRange.val(res.data.alarm['ray-value']).change();
-		console.log("+++"+res.data.alarm['ray-value']);
         $('.s-token').text(res.data.mac);
 		
 		var control_type = res.data.control_type;
@@ -499,7 +546,6 @@ $(function(){
 		$('.ws-pwd').val(res.data.wifi_station_pwd);
         $('.s-token').text(res.data.mac);
 	}
-
 	
     /**
      * 修改WiFi配置
@@ -514,11 +560,8 @@ $(function(){
 		}else{
 			arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                              //本地模式下路由的名称
 			arr['data']['wifi_ap_pwd'] = $('.wa-pwd').val();                                                       //本地模式下路由的名称
-			arr['data']['wifi_station_ssid'] = $('.ws-ssid').val();                                             //云端模式下连接的WiFi名称
-			arr['data']['wifi_station_pwd'] = $('.ws-pwd').val();                                                //云端模式下连接的WiFi密码
 		}
         arr['data']['work_mode'] = $('.w-mode').val();                                                                  //工作模式
-        
 		mqtt_send(JSON.stringify(arr));
 		showLoad();
        
@@ -676,12 +719,11 @@ $(function(){
 			arr['data']['op'] = 0;
 		}
 		mqtt_send(JSON.stringify(arr));
-		console.log(JSON.stringify(arr));
     }
 	
 	function Reply_Control(res,noShowMsg){
 		hideLoad();
-		if(res.error_type==0){
+		if(res.error_code==0){
 			var control_type = res.data.control_type;
 			var index = res.data.index;
 			var op = res.data.op;
@@ -713,6 +755,40 @@ $(function(){
 		}
 	}
 	
+	 /**
+     * 操作步进电机
+     */
+	function motorOperator(type){
+		showLoad();
+        var arr = {};
+		reqType="RayMotorStop";
+		switch(type){
+			case 0:
+				reqType="RayMotorCW";
+				break;
+			case 1:
+				reqType="RayMotorStop";
+				break;
+			case 2:
+				reqType="RayMotorCCW";
+				break;
+		}
+        arr['type'] = reqType;
+        arr['data'] = {};
+		mqtt_send(JSON.stringify(arr));
+	}
+	
+	function Reply_RayMotor(res){
+		hideLoad();
+		var msg="";
+		if(res.error_code==0){
+			msg = msg + '操作成功';
+			showSuccessMsg(msg);
+		} else {
+			msg = '操作失败';
+			showMsg(msg);
+		}
+	}
     /**
      * 获取运行状态
      */

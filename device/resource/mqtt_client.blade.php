@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <title>控制台</title>
-    <link rel="stylesheet" type="text/css" href="./index.css">
+    <link rel="stylesheet" type="text/css" href="./mqtt_client/index.css">
 </head>
 <body>
 
@@ -425,8 +425,9 @@
 <!-- -----------输入框背景层-------frame----- -->
 <div class="en_dialog" style="display: none;"></div>
 </body>
-<script type="text/javascript" src="./jquery-3.2.1.min.js"></script>
-<script type="text/javascript" src="./jquery.nicescroll.js" ></script>
-<script type="text/javascript" src="./index.js"></script>
+<script type="text/javascript" src="./mqtt_client/jquery-3.2.1.min.js"></script>
+<script type="text/javascript" src="./mqtt_client/jquery.nicescroll.js" ></script>
+<script type="text/javascript" src="./mqtt_client/index.js"></script>
+<script type="text/javascript" src="./mqtt_client/mqttws31.min.js" type="text/javascript"></script>
 
 </html>

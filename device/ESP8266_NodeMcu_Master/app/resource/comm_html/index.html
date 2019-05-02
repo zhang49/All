@@ -14,14 +14,14 @@
     <!-- -------------内容块------------- -->
 
     <div class="container">
-        <!-- ----------顶部--------------- -->
+        <!-- ----------顶部---------------
         <div class="sidetop">
             <div class="side_door">
                 <i class="iconfont">&#xe613;</i>
                 <span></span>
             </div>
         </div>
-
+ -->
         <!-- ----------状态--------------- -->
 		<div class="conn-indicator"></div>
 		</div>
@@ -100,17 +100,47 @@
             </div>
             <div class="side_btn">
                 <ul>
-                    <li class="op-control-closed left" data-type="0">1</li>
-                    <li class="op-control-closed" data-type="1">2</li>
-                    <li class="op-control-closed" data-type="2">3</li>
-                    <li class="op-control-closed" data-type="3">4</li>
+                    <li class="op-control-closed left" data-type="0">Rely1</li>
+                    <li class="op-control-closed" data-type="1">Rely2</li>
+                    <li class="op-control-closed" data-type="2">Rely3</li>
+                    <li class="op-control-opened" data-type="3">Rely4</li>
                 </ul>
             </div>
-		<section style="margin-top:30px;">
-			<div id="js-example-change-value" >
-			   <input id="lightDutyValue" type="range" min="0" max="100" value="1" data-rangeslider>
+			</br>
+			<div class="side_c">
+			<!-----xe6b9----->
+				<i class="iconfont">&#xe62a;</i>
+				<span>可调灯</span>
 			</div>
-		</section>
+			<section style="margin-top:30px;margin-bottom:30px">
+				<div id="js-example-change-value" >
+				   <input id="lightDutyValue" type="range" min="0" max="100" value="1" data-rangeslider>
+				</div>
+			</section>
+			<div class="side_c">
+			<!-----xe6b9----->
+				<i class="iconfont">&#xe62a;</i>
+				<span>光强触发值</span>
+			</div>
+			<section style="margin-top:30px;margin-bottom:30px">
+			<div class="rayAlarmValueCt">
+			   <input id="rayAlarmValue" type="range" min="0" max="100" value="1" data-rangeslider>
+			</div>
+			</section>
+			<div class="side_c">
+			<!-----xe6b9----->
+				<i class="iconfont">&#xe62a;</i>
+				<span>步进电机</span>
+			</div>
+			<div class="side_c">
+			<div class="side_btn motorCtl_btn">
+                <ul>
+                    <li class="op-motor" data-type="0">CW</li>
+                    <li class="op-motor" data-type="1">Stop</li>
+                    <li class="op-motor" data-type="2">CCW</li>
+                </ul>
+            </div>
+			</div>
         </div>
         <div class="peiz">
             <!-- -------------是否可读可写--------------- -->
@@ -118,7 +148,7 @@
                 <div class="deploy_title">
                     <div class="wr_tit">
                         <i class="iconfont">&#xe619;</i>
-                        <span>防触摸</span>
+                        <span>锁定配置</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="writer_ch">
@@ -127,12 +157,12 @@
                 </div>
             </div>
 
-            <!-- -------------认证配置--------------- -->
+            <!-- -------------认证信息--------------- -->
             <div class="deploy dtoken">
                 <div class="deploy_title pda">
                     <div>
                         <i class="iconfont">&#xe64b;</i>
-                        <span>认证配置</span>
+                        <span>认证信息</span>
                     </div>
                     <i class="iconfont dep_t_icon">&#xe650;</i>
                 </div>
@@ -157,7 +187,7 @@
             </div>
 
             <!-- -------------WIFI配置--------------- -->
-            <div class="deploy">
+            <div class="deploy" id="wificonfig">
                 <div class="deploy_title">
                     <div>
                         <i class="iconfont">&#xe61e;</i>
@@ -186,7 +216,7 @@
                     <div class="deploy_con_m">
                         <div class="d_c_m">
                             <div>
-                                <i class="iconfont">&#xe65e;</i>
+                                <i class="iconfont">&#xe605;</i>
                                 <label>WIFI账号(本地)：</label>
                             </div>
                             <div class="ipd">
@@ -206,7 +236,7 @@
                     <div class="deploy_con_m">
                         <div class="d_c_m">
                             <div>
-                                <i class="iconfont">&#xe65e;</i>
+                                <i class="iconfont">&#xe605;</i>
                                 <label>WIFI账号(云端)：</label>
                             </div>
                             <div class="ipd">
@@ -243,19 +273,6 @@
                 </div>
 				
                 <div class="deploy_con"  style="display:none;">
-					<div class="deploy_i03">
-						<div class="deploy_i02" style="border:none">
-							<div class="i01_l">
-								<i class="iconfont">&#xe614;</i>
-								<span>光强预设值</span>
-							</div>
-						</div>
-						<section style="margin-top:0px;">
-						<div class="rayAlarmValueCt">
-						   <input id="rayAlarmValue" type="range" min="0" max="100" value="1" data-rangeslider>
-						</div>
-						</section>
-					</div>
 				
                     <div class="deploy_i03">
                         <div class="deploy_i02 i032">
