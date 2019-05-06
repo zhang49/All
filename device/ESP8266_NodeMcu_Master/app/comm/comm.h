@@ -28,16 +28,17 @@
 
 #define GET_LAST_STR(x) get_struct_last_str(#x)
 
+
 typedef struct {
-	int tickcount;
 	ETSTimer timer;
-	enum MasterMsgType msgtype;
-} client_handle_timer;
+	char *data;
+	enum CommMsgType msgtype;
+	u32 tickcount;
+} session_data_buf;
 
 typedef struct {
 	uint8 sign;
-	client_handle_timer Timer;
-	char *data;
+	session_data_buf buf;
 	const char *ptopic;
 	uint8 pqos;
 }mqtt_user_data;
@@ -87,7 +88,7 @@ void ICACHE_FLASH_ATTR request_master_door_config();
 void ICACHE_FLASH_ATTR door_request_all_config();
 void ICACHE_FLASH_ATTR request_master_door_config();
 
-const char *ICACHE_FLASH_ATTR get_rep_type(void *client);
+const char *ICACHE_FLASH_ATTR get_res_type(void *client);
 uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode error_code);
 char *ICACHE_FLASH_ATTR get_struct_last_str(char *str);
 

@@ -12,10 +12,10 @@
 
 #define DHT22_CLOSE
 #define RELAY1_CLOSE
-#define RELAY2_OPEN
+#define RELAY2_CLOSE
 #define RELAY3_CLOSE
 #define LIGHT_CLOSE
-#define RAY_CLOSE
+#define RAY_OPEN
 
 #define RELAY_PIN GPIO_ID_PIN(0)
 

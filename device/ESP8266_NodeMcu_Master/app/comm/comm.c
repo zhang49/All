@@ -47,7 +47,7 @@ typedef int (*comm_operator_func)(void *);
 typedef struct{
 	const char *req_type;
 	const char *res_type;
-	enum MasterMsgType msg_type;
+	enum CommMsgType msg_type;
 	comm_operator_func func;
 	int flag;
 }comm_def;
@@ -59,22 +59,23 @@ static ErrorMsg error_msg[ErrorCodeSize]={
 		{EC_Busy,			"Device Busy"},
 		{EC_Unknown,		"Unknown Error"}
 };
+
 static comm_def comm_operator[]={
-		{"GetConnectSynData",	"Reply_GetConnectSynData",	NULL,				comm_connect_syn,			NULL},
-		{"GetWiFiConfig",		"Reply_GetWiFiConfig",		NULL,				comm_wifi_config_read,		NULL},
-		{"SetWiFiConfig",		"Reply_SetWiFiConfig",		NULL,				comm_wifi_config_write,		NULL},
-		{"SetLigthDuty",		"Reply_SetLigthDuty",		NULL,				comm_led_pwm_duty_write,	NULL},
-		{"RayMotorStart",		"Reply_SetMotorStatus",		NULL,				comm_ray_motor_start,		NULL},
-		{"RayMotorStop",		"Reply_RayMotorStop",		NULL,				comm_ray_motor_stop,		NULL},
-		{"RayMotorCW",			"Reply_RayMotorCW",			NULL,				comm_ray_motor_cw,			NULL},
-		{"RayMotorCCW",			"Reply_RayMotorCCW",		NULL,				comm_ray_motor_ccw,			NULL},
-		{"GetRayValue",			"Reply_GetRayValue",		NULL,				comm_ray_value_read,		NULL},
-		{"SetRayAlarmValue",	"Reply_SetRayAlarmValue",	NULL,				comm_ray_alarm_value_write,	NULL},
-		{"GetWiFiScan",			"Reply_GetWiFiScan",		WIFI_SCAN,			comm_expect_ret,			NEEDTIMER},
-		{"WiFiConnect",			"Reply_WiFiConnect",		WIFI_CONNECT,		comm_expect_ret,			NEEDTIMER},
-		{"Control",				"Reply_Control",			SYN_CONTROL,		comm_expect_ret,			NEEDTIMER},
-		{"GetStatus",			"Reply_GetStatus",			SYN_STATE,			comm_syn_status_read,		NULL},
-		{NULL,					NULL,						NULL,				NULL,						NULL},
+		{"GetConnectSynData",	"Reply_GetConnectSynData",	CONNECT_SYN_DATA,			comm_connect_syn,			NULL},
+		{"GetWiFiConfig",		"Reply_GetWiFiConfig",		WIFI_CONFIG_READ_REQ,		comm_wifi_config_read,		NULL},
+		{"SetWiFiConfig",		"Reply_SetWiFiConfig",		WIFI_CONFIG_WRITE_REQ,		comm_wifi_config_write,		NULL},
+		{"SetLigthDuty",		"Reply_SetLigthDuty",		LIGHT_DUTY_VALUE_WRITE_REQ,	comm_led_pwm_duty_write,	NULL},
+		{"RayMotorStart",		"Reply_SetMotorStart",		RAY_MOTOR_START_REQ,		comm_ray_motor_start,		NULL},
+		{"RayMotorStop",		"Reply_RayMotorStop",		RAY_MOTOR_STOP_REQ,			comm_ray_motor_stop,		NULL},
+		{"RayMotorCW",			"Reply_RayMotorCW",			RAY_MOTOR_CW_REQ,			comm_ray_motor_cw,			NULL},
+		{"RayMotorCCW",			"Reply_RayMotorCCW",		RAY_MOTOR_CCW_REQ,			comm_ray_motor_ccw,			NULL},
+		{"GetRayValue",			"Reply_GetRayValue",		RAY_VALUE_READ_REQ,			comm_ray_value_read,		NULL},
+		{"SetRayAlarmValue",	"Reply_SetRayAlarmValue",	RAY_ALARM_VALUE_READ_REQ,	comm_ray_alarm_value_write,	NULL},
+		{"GetWiFiScan",			"Reply_GetWiFiScan",		WIFI_SCAN,					comm_expect_ret,			NEEDTIMER},
+		{"WiFiConnect",			"Reply_WiFiConnect",		WIFI_CONNECT,				comm_expect_ret,			NEEDTIMER},
+		{"Control",				"Reply_Control",			SYN_CONTROL,				comm_expect_ret,			NEEDTIMER},
+		{"GetStatus",			"Reply_GetStatus",			SYN_STATE,					comm_syn_status_read,		NULL},
+		{NULL,					NULL,						NULL,						NULL,						NULL},
 
 };
 
@@ -109,7 +110,6 @@ static void statusTimerCb(void *arg){
 }
 
 void ICACHE_FLASH_ATTR comm_init(){
-
 	int ret = config_init();
 	cfg_data=config_read();
 	if(!ret){
@@ -182,30 +182,15 @@ int ICACHE_FLASH_ATTR mqtt_operator_api(const char* data,uint32 len,const char *
 	mqtt_user_data *user_data;
 	//must copy
 	user_data=(mqtt_user_data *)os_zalloc(sizeof(mqtt_user_data));
-	user_data->data = (char*)os_zalloc(len+1);
+	user_data->buf.data = (char*)os_zalloc(len+1);
 	user_data->sign=CLIENT_IS_MQTT;
-	os_memset(user_data->data,0,len+1);
-	os_memcpy(user_data->data, data, len);
+	os_memset(user_data->buf.data,0,len+1);
+	os_memcpy(user_data->buf.data, data, len);
 	user_data->ptopic=ptopic;
 	user_data->pqos=pqos;
 	return common_operator_api((void *)user_data);
 }
 
-const char *ICACHE_FLASH_ATTR get_res_type(void *client){
-	uint8_t c_sign=*((uint8_t *)client);
-	char *data=(c_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
-	cJSON *root=cJSON_Parse(data);
-	char *type=cJSON_GetObjectItem(root,"type")->valuestring;
-	int index;
-	for(index=0;comm_operator[index].req_type!=NULL;index++){
-		if(strcmp(type,comm_operator[index].req_type)==0){
-			cJSON_Delete(root);
-			return comm_operator[index].res_type;
-		}
-	}
-	cJSON_Delete(root);
-	return "";
-}
 
 uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode error_code){
 	cJSON_AddStringToObject(retroot, "type",get_res_type(client));
@@ -227,106 +212,19 @@ uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode
 //mqtt_publish_api(const char* topic, const char* data, int data_length, int qos, int retain);
 
 
-int ICACHE_FLASH_ATTR common_operator_api(void *client){
-	comm_positive++;
-	char *data;
-	mqtt_user_data *mqtt_data;
-	uint8_t client_sign=*(uint8_t *)client;
-	http_connection *http_client;
-	if(client_sign==CLIENT_IS_MQTT){
-		mqtt_data=(mqtt_user_data *)client;
-		data = mqtt_data->data;
-	}else if(client_sign==CLIENT_IS_HTTP){
-		http_client=(http_connection *)client;
-		data=http_client->body.data;
-	}
 
-	//parse json
-	cJSON *root = cJSON_Parse(data);
-	if(root==NULL){
-		goto badJson;
-	}
-	cJSON *type = cJSON_GetObjectItem(root,"type");
-	if(type==NULL){
-		goto badJson;
-	}
-	NODE_DBG("request type :%s",type->valuestring);
-
-	int index,ret;
-	int type_is_exist=0;
+const char *ICACHE_FLASH_ATTR get_res_type(void *client){
+	uint8_t c_sign=*((uint8_t *)client);
+	session_data_buf *buf=c_sign==CLIENT_IS_HTTP?(((http_connection *)client)->cgi.data):
+			&((mqtt_user_data *)client)->buf;
+	int index;
 	for(index=0;comm_operator[index].req_type!=NULL;index++){
-		if(strcmp(type->valuestring,comm_operator[index].req_type)==0){
-			type_is_exist=1;if(comm_operator[index].flag==NULL){
-				if(client_sign==CLIENT_IS_HTTP){
-					//set header
-					http_SET_HEADER(client,HTTP_CONTENT_TYPE,JSON_CONTENT_TYPE);
-					http_response_OK(client);
-				}
-			}else if(comm_operator[index].flag==NEEDTIMER){
-				client_handle_timer *Timer;
-				if(client_sign==CLIENT_IS_MQTT){
-					Timer=&mqtt_data->Timer;
-				}else if(client_sign==CLIENT_IS_HTTP){
-					Timer=(client_handle_timer *)os_zalloc(sizeof(client_handle_timer));
-					http_client->cgi.data=Timer;
-					http_client->cgi.function=(http_callback)comm_operator[index].func;
-				}
-				Timer->msgtype=comm_operator[index].msg_type;
-
-
-				//send to Master
-				switch(comm_operator[index].msg_type){
-					case NORMAL_CONFIG:
-
-						break;
-					case SYN_CONTROL:
-						do{
-							cJSON *c_data=cJSON_GetObjectItem(root,"data");
-							uint8 d_type=cJSON_GetObjectItem(c_data,"device_type")->valueint;
-							uint8 index=cJSON_GetObjectItem(c_data,"index")->valueint;
-							uint8 op=cJSON_GetObjectItem(c_data,"op")->valueint;
-							switch(d_type){
-							  case DT_Relay:
-								comm_relay_refresh_set(index,COMM_NOREFRESH);
-								comm_relay_status_set_app_api(index,op);
-							}
-
-						}while(0);
-						break;
-					case WIFI_SCAN:
-						NODE_DBG("msg type is:NORMAL_WIFI_SCAN");
-
-						break;
-				}
-				Timer->tickcount=0;
-			}
-			cJSON_Delete(root);
-			return comm_operator[index].func(client);
+		if(comm_operator[index].msg_type==buf->msgtype){
+			return comm_operator[index].res_type;
 		}
 	}
-	cJSON_Delete(root);
-	if(type_is_exist==0){
-		os_printf("didn't has this type.\r\n");
-		return send_to_client(client,"error");
-	}
-
-badJson:
-os_printf("badJson.\r\n");
-	if(root!=NULL){
-		cJSON_Delete(root);
-	}
-	if(client_sign==CLIENT_IS_HTTP){
-		http_response_BAD_REQUEST(client);
-		return HTTPD_CGI_DONE;
-	}
-	if(client_sign==CLIENT_IS_MQTT){
-		//send_to_client(client,"error");
-		if(mqtt_data->data!=NULL)os_free(mqtt_data->data);
-		if(mqtt_data!=NULL)os_free(mqtt_data);
-	}
-	return 1;
+	return NULL;
 }
-
 
 
 int ICACHE_FLASH_ATTR send_to_client(void *client,char *message){
@@ -335,12 +233,14 @@ int ICACHE_FLASH_ATTR send_to_client(void *client,char *message){
 		mqtt_user_data *mqtt_data=(mqtt_user_data *)client;
 		NODE_DBG("send_to_client public.");
 		mqtt_publish_api(mqtt_data->ptopic,message,os_strlen(message),mqtt_data->pqos,0);
-		if(mqtt_data->data!=NULL)
-			os_free(mqtt_data->data);
+		if(mqtt_data->buf.data!=NULL)
+			os_free(mqtt_data->buf.data);
 		if(mqtt_data!=NULL)
 			os_free(mqtt_data);
 	}else if(*(uint8_t *)client==CLIENT_IS_HTTP){
 		http_write(client,message);
+		if(((session_data_buf *)((http_connection *)client)->cgi.data)->data!=NULL)
+			os_free(((session_data_buf *)((http_connection *)client)->cgi.data)->data);
 		if(((http_connection *)client)->cgi.data!=NULL)
 			os_free(((http_connection *)client)->cgi.data);
 		return HTTPD_CGI_DONE;
@@ -397,7 +297,8 @@ int ICACHE_FLASH_ATTR comm_wifi_config_write(void *client){
 	uint8 client_sign=*(int *)client;
 	cJSON *retroot=cJSON_CreateObject();
 	enum ErrorCode error_code=EC_Normal;
-	cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
+	cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):
+			(((mqtt_user_data *)client)->buf.data));
 	cJSON *root_data = cJSON_GetObjectItem(root,"data");
 	if(root_data==NULL){
 		error_code=EC_None;
@@ -414,7 +315,8 @@ int ICACHE_FLASH_ATTR comm_led_pwm_duty_write(void *client){
 	enum ErrorCode error_code=EC_Normal;
 	cJSON *retroot=cJSON_CreateObject();
 	cJSON *ret_data;
-	cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
+	cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):
+			(((mqtt_user_data *)client)->buf.data));
 	cJSON *root_data = cJSON_GetObjectItem(root,"data");
 	if(root_data==NULL){
 		error_code=EC_None;
@@ -460,7 +362,7 @@ int ICACHE_FLASH_ATTR comm_ray_motor_start(void *client){
 		http_connection *http_client;
 		if(client_sign==CLIENT_IS_MQTT){
 			mqtt_user_data *user_data=(mqtt_user_data *)client;
-			data = user_data->data;
+			data = user_data->buf.data;
 		}else if(client_sign==CLIENT_IS_HTTP){
 			http_client=(http_connection *)client;
 			data=http_client->body.data;
@@ -507,10 +409,11 @@ int ICACHE_FLASH_ATTR comm_ray_alarm_value_write(void *client){
 	http_connection *http_client;
 	if(client_sign==CLIENT_IS_MQTT){
 		mqtt_user_data *user_data=(mqtt_user_data *)client;
-		data = user_data->data;
+		data = user_data->buf.data;
 	}else if(client_sign==CLIENT_IS_HTTP){
 		http_client=(http_connection *)client;
-		data=http_client->body.data;
+		data=(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):
+				(((mqtt_user_data *)client)->buf.data));
 	}
 	enum ErrorCode error_code=EC_Normal;
 	cJSON *retroot=cJSON_CreateObject();
@@ -542,33 +445,142 @@ badJson:
 
 }
 
-int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
-	client_handle_timer *Timer;
-	uint8 client_sign=*(uint8_t *)client;
-	if(client_sign==CLIENT_IS_HTTP){
-		Timer=(client_handle_timer *)((http_connection *)client)->cgi.data;
-		if(Timer->tickcount==0){
-			os_memset(&Timer->timer,0,sizeof(os_timer_t));
-			os_timer_disarm(&Timer->timer);
-			os_timer_setfn(&Timer->timer, http_execute_cgi, client);
-			os_timer_arm(&Timer->timer, COMM_TIMER_SINGLE_TIME, 1);
-			//set header
-			http_SET_HEADER(client,HTTP_CONTENT_TYPE,JSON_CONTENT_TYPE);
-			http_response_OK(client);
-		}
-	}else if(client_sign==CLIENT_IS_MQTT){
-		Timer=&((mqtt_user_data *)client)->Timer;
-		if(Timer->tickcount==0){
-			os_memset(&Timer->timer,0,sizeof(os_timer_t));
-			os_timer_disarm(&Timer->timer);
-			os_timer_setfn(&Timer->timer, comm_expect_ret, client);
-			os_timer_arm(&Timer->timer, COMM_TIMER_SINGLE_TIME, 1);
+
+int ICACHE_FLASH_ATTR common_operator_api(void *client){
+	comm_positive++;
+	char *data;
+	mqtt_user_data *mqtt_data;
+	uint8_t client_sign=*(uint8_t *)client;
+	http_connection *http_client;
+	if(client_sign==CLIENT_IS_MQTT){
+		mqtt_data=(mqtt_user_data *)client;
+		data = mqtt_data->buf.data;
+	}else if(client_sign==CLIENT_IS_HTTP){
+		http_client=(http_connection *)client;
+		data=http_client->body.data;
+	}
+
+	//parse json
+	cJSON *root = cJSON_Parse(data);
+	if(root==NULL){
+		goto badJson;
+	}
+	cJSON *type = cJSON_GetObjectItem(root,"type");
+	if(type==NULL){
+		goto badJson;
+	}
+	os_printf("request type :%s",type->valuestring);
+
+	int index,ret;
+	int type_is_exist=0;
+	for(index=0;comm_operator[index].req_type!=NULL;index++){
+		if(strcmp(type->valuestring,comm_operator[index].req_type)==0){
+			type_is_exist=1;
+
+			session_data_buf *sion_buf;
+			if(client_sign==CLIENT_IS_HTTP){
+				//set header
+				http_SET_HEADER(client,HTTP_CONTENT_TYPE,JSON_CONTENT_TYPE);
+				http_response_OK(client);
+				//create memory for http session
+				sion_buf=(session_data_buf *)os_zalloc(sizeof(session_data_buf));
+				http_client->cgi.data=sion_buf;
+			}else{
+				sion_buf=&mqtt_data->buf;
+			}
+
+			sion_buf->msgtype=comm_operator[index].msg_type;
+
+			if(comm_operator[index].flag==NULL){
+				//Nothing to do
+			}else if(comm_operator[index].flag==NEEDTIMER){
+				if(client_sign==CLIENT_IS_HTTP){
+					sion_buf->data=(char *)os_zalloc(os_strlen(http_client->body.data)+1);
+					os_strcpy(sion_buf->data,http_client->body.data);
+					http_client->cgi.function=(http_callback)comm_operator[index].func;
+				}
+				sion_buf->tickcount=0;
+				//send to Master
+				switch(comm_operator[index].msg_type){
+					case NORMAL_CONFIG:
+
+						break;
+					case SYN_CONTROL:
+						do{
+							cJSON *c_data=cJSON_GetObjectItem(root,"data");
+							uint8 d_type=cJSON_GetObjectItem(c_data,"device_type")->valueint;
+							uint8 index=cJSON_GetObjectItem(c_data,"index")->valueint;
+							uint8 op=cJSON_GetObjectItem(c_data,"op")->valueint;
+							switch(d_type){
+							  case DT_Relay:
+								comm_relay_refresh_set(index,COMM_NOREFRESH);
+								comm_relay_status_set_app_api(index,op);
+							}
+						}while(0);
+						break;
+					case WIFI_SCAN:
+						NODE_DBG("msg type is:NORMAL_WIFI_SCAN");
+
+						break;
+				}
+			}
+			if(root){
+				cJSON_Delete(root);
+				root=NULL;
+			}
+			return comm_operator[index].func(client);
 		}
 	}
-	Timer->tickcount += COMM_TIMER_SINGLE_TIME;
+	if(root){
+		cJSON_Delete(root);
+		root=NULL;
+	}
+	if(type_is_exist==0){
+		os_printf("didn't has this type.\r\n");
+		return send_to_client(client,"error");
+	}
+
+badJson:
+os_printf("badJson.\r\n");
+	if(root!=NULL){
+		cJSON_Delete(root);
+		root=NULL;
+	}
+	if(client_sign==CLIENT_IS_HTTP){
+		http_response_BAD_REQUEST(client);
+		return HTTPD_CGI_DONE;
+	}
+	if(client_sign==CLIENT_IS_MQTT){
+		//return send_ret_json(client,cJSON_CreateObject(),EC_Unknown);
+		if(mqtt_data->buf.data!=NULL)os_free(mqtt_data->buf.data);
+		if(mqtt_data!=NULL)os_free(mqtt_data);
+	}
+	return 1;
+}
+
+
+int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
+	session_data_buf *sion_buf;
+	uint8 c_sign=*(uint8_t *)client;
+	sion_buf=c_sign==CLIENT_IS_HTTP?(((http_connection *)client)->cgi.data):
+							&((mqtt_user_data *)client)->buf;
+
+		if(sion_buf->tickcount==0){
+			os_memset(&sion_buf->timer,0,sizeof(os_timer_t));
+			os_timer_disarm(&sion_buf->timer);
+			if(c_sign==CLIENT_IS_HTTP){
+				os_timer_setfn(&sion_buf->timer, http_execute_cgi, client);
+			}else{
+				os_timer_setfn(&sion_buf->timer, comm_expect_ret, client);
+			}
+
+			os_timer_arm(&sion_buf->timer, COMM_TIMER_SINGLE_TIME, 1);
+		}
+		sion_buf->tickcount += COMM_TIMER_SINGLE_TIME;
+
 	//NODE_DBG("Timer->tickcount is %d",Timer->tickcount);
 	//recv refresh data or timeout
-	switch(Timer->msgtype){
+	switch(sion_buf->msgtype){
 	case NORMAL_CONFIG:
 		/*
 		if(door_config_refresh_get()==COMM_REFRESHED || Timer->tickcount>TIMER_TIMEROUT){
@@ -581,12 +593,14 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 		*/
 	case SYN_CONTROL:
 		{
-			cJSON *root=cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
+			char *data=(c_sign==CLIENT_IS_HTTP?(((session_data_buf *)(((http_connection *)client)->cgi.data))->data):
+					(((mqtt_user_data *)client)->buf.data));
+			cJSON *root=cJSON_Parse(data);
 			cJSON *r_data=cJSON_GetObjectItem(root,"data");
 			uint8 index=cJSON_GetObjectItem(r_data,"index")->valueint;
-			cJSON *retroot=cJSON_CreateObject();
-			if(comm_relay_refresh_status_get(index)==COMM_REFRESHED || Timer->tickcount>COMM_TIMER_TIMEOUT){
-				os_timer_disarm(&Timer->timer);
+			if(comm_relay_refresh_status_get(index)==COMM_REFRESHED || sion_buf->tickcount>COMM_TIMER_TIMEOUT){
+				os_timer_disarm(&sion_buf->timer);
+				cJSON *retroot=cJSON_CreateObject();
 				NODE_DBG("SYN_CONTROL Ret: %s",(comm_relay_refresh_status_get(index)==COMM_REFRESHED?"Refreshed":"Timer timeout"));
 				enum ErrorCode error_code = EC_Normal;
 				if(comm_relay_refresh_status_get(index)==COMM_REFRESHED){
@@ -608,24 +622,26 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 		break;
 
 	case WIFI_CONNECT:
-		if(Timer->tickcount==COMM_TIMER_SINGLE_TIME){
-			cJSON *root = cJSON_Parse(client_sign==CLIENT_IS_HTTP?(((http_connection *)client)->body.data):(((mqtt_user_data *)client)->data));
+		if(sion_buf->tickcount==COMM_TIMER_SINGLE_TIME){
+			char *data=(c_sign==CLIENT_IS_HTTP?(((session_data_buf *)(((http_connection *)client)->cgi.data))->data):
+					(((mqtt_user_data *)client)->buf.data));
+			cJSON *root=cJSON_Parse(data);
 			cJSON *root_data = cJSON_GetObjectItem(root,"data");
 			char *ssid = cJSON_GetObjectItem(root_data,"wifi_station_ssid")->valuestring;
 			char *pwd = cJSON_GetObjectItem(root_data,"wifi_station_pwd")->valuestring;
 			if(!comm_wifi_start_connect_ap_api(ssid,pwd)){
-				os_timer_disarm(&Timer->timer);
+				os_timer_disarm(&sion_buf->timer);
 				send_ret_json(client,cJSON_CreateObject(),EC_Busy);
 			}
 			cJSON_Delete(root);
 		}else{
-			if(Timer->tickcount>COMM_TIMER_TIMEOUT && comm_wifi_connect_ap_check_api()){
-				os_timer_disarm(&Timer->timer);
+			if(sion_buf->tickcount>COMM_TIMER_TIMEOUT && comm_wifi_connect_ap_check_api()){
+				os_timer_disarm(&sion_buf->timer);
 				cJSON *retroot=cJSON_CreateObject();
 				return send_ret_json(client,retroot,EC_Normal);
 			}
-			if(Timer->tickcount>COMM_TIMER_TIMEOUT * 5){
-				os_timer_disarm(&Timer->timer);
+			if(sion_buf->tickcount>COMM_TIMER_TIMEOUT * 5){
+				os_timer_disarm(&sion_buf->timer);
 				//connect failed, connect default ap
 				comm_wifi_connect_default_ap_api();
 				cJSON *retroot=cJSON_CreateObject();
@@ -634,27 +650,27 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 		}
 		break;
 	case WIFI_SCAN:
-		if(Timer->tickcount==COMM_TIMER_SINGLE_TIME){
+		if(sion_buf->tickcount==COMM_TIMER_SINGLE_TIME){
 			if(!comm_wifi_scan_start_api()){
-				os_timer_disarm(&Timer->timer);
+				os_timer_disarm(&sion_buf->timer);
 				return send_ret_json(client,cJSON_CreateObject(),EC_Busy);
 			}
 		}
 		else{
 			cJSON *retroot=(cJSON *)comm_wifi_scan_api();
 			if(retroot!=NULL){
-				os_timer_disarm(&Timer->timer);
+				os_timer_disarm(&sion_buf->timer);
 				return send_ret_json(client,retroot,EC_Normal);
 			}
-			else if(Timer->tickcount>COMM_TIMER_TIMEOUT * 3){
-				os_timer_disarm(&Timer->timer);
+			else if(sion_buf->tickcount>COMM_TIMER_TIMEOUT * 3){
+				os_timer_disarm(&sion_buf->timer);
 				retroot=cJSON_CreateObject();
 				return send_ret_json(client,retroot,EC_Failed);
 			}
 		}
 		break;
 	}
-	if(client_sign==CLIENT_IS_HTTP){
+	if(c_sign==CLIENT_IS_HTTP){
 		return HTTPD_CGI_MORE;
 	}
 	return 1;

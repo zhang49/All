@@ -16,7 +16,7 @@ $(function(){
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
-	var getStatusFlag = 0;
+	var getStatusFlag = true;
 	
 	var rayIsWriting=0;
 	var rayTouchValue=0;
@@ -491,6 +491,7 @@ $(function(){
             'dataType' : 'json',
             'data' : JSON.stringify(arr),
             'success' : function(res){
+				hideLoad();
                 showMsg('操作成功');
 			},
             'error' : function(){

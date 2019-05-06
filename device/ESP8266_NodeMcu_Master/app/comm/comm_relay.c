@@ -25,8 +25,6 @@ void comm_relay_init(){
 
 //current Only for relay1
 void ICACHE_FLASH_ATTR comm_relay_status_set_app_api(int index,u8 status){
-	os_printf("relay_index:%d,status:%d\r\n",index,status);
-	relay[index].status = status;
 	relay[index].refreshStatus = COMM_NOREFRESH;
 	if(relay[index].con_type == RCT_EspNow){
 		u8 data[5]={status,0,0,0,0};
@@ -50,7 +48,6 @@ void ICACHE_FLASH_ATTR comm_relay_status_set_app_api(int index,u8 status){
 }
 
 void ICACHE_FLASH_ATTR comm_relay_status_set_inner_api(u8 mac_index,u8 status){
-	os_printf("CRSSIA: mad_index:%d\r\n",mac_index);
 	int index;
 	switch(mac_index){
 	case RELAY1_MACINDEX:

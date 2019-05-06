@@ -80,7 +80,7 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 
 .motorCtl_btn{padding: 0.35rem 0.05rem 0.05rem 0.4rem;padding-right:0.5rem}
 
-.motorCtl_btn ul li{width:150px;height:20px;line-height: 20px;border-radius:20px;box-shadow:0px 0px 10px #3366CC;text-align:center;color:#fff;background:#336699;}
+.motorCtl_btn ul li{height:20px;line-height: 20px;border-radius:20px;box-shadow:0px 0px 10px #3366CC;text-align:center;color:#fff;background:#336699;}
 .motorCtl_btn ul li:hover{cursor:pointer;}
 /*-------------选择方案----------------*/
 .plan{padding:0.15rem 0.25rem 0.15rem 0.75rem;border-bottom: 2px solid #f8f8f8;font-size:0.3rem;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: space-between;justify-content: space-between;}
@@ -181,6 +181,9 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 }
 
 /*---------------MotorCtl_Btn border-radius兼容-----------------*/
+@media screen and (min-width:0px) and (max-width:450px){
+    .motorCtl_btn ul li{width:73px;height:38px;line-height:38px;}
+}
 @media screen and (min-width:400px) and (max-width:450px){
     .motorCtl_btn ul li{width:73px;height:38px;line-height:38px;}
 }
