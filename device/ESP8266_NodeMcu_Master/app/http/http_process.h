@@ -47,6 +47,7 @@
 
 #include "http.h"
 
+int ICACHE_FLASH_ATTR get_transmit_times();
 int ICACHE_FLASH_ATTR http_transmit(http_connection *c);
 int ICACHE_FLASH_ATTR http_write(http_connection *c,const char * message);
 int ICACHE_FLASH_ATTR http_nwrite(http_connection *c,const char * message,size_t size);

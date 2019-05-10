@@ -469,8 +469,9 @@ int ICACHE_FLASH_ATTR common_operator_api(void *client){
 	if(type==NULL){
 		goto badJson;
 	}
-	os_printf("request type :%s",type->valuestring);
-
+	if(os_strcmp(type->valuestring,"GetStatus")){
+		os_printf("request type :%s\r\n",type->valuestring);
+	}
 	int index,ret;
 	int type_is_exist=0;
 	for(index=0;comm_operator[index].req_type!=NULL;index++){
@@ -602,17 +603,16 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 				os_timer_disarm(&sion_buf->timer);
 				cJSON *retroot=cJSON_CreateObject();
 				NODE_DBG("SYN_CONTROL Ret: %s",(comm_relay_refresh_status_get(index)==COMM_REFRESHED?"Refreshed":"Timer timeout"));
-				enum ErrorCode error_code = EC_Normal;
+				enum ErrorCode error_code = EC_Failed;
+				uint8 d_type=cJSON_GetObjectItem(r_data,"device_type")->valueint;
+				uint8 op=cJSON_GetObjectItem(r_data,"op")->valueint;
+				cJSON *ret_data;
+				cJSON_AddItemToObject(retroot,"data",ret_data = cJSON_CreateObject());
+				cJSON_AddNumberToObject(ret_data,"device_type",d_type);
+				cJSON_AddNumberToObject(ret_data,"index",index);
+				cJSON_AddNumberToObject(ret_data,"op",op);
 				if(comm_relay_refresh_status_get(index)==COMM_REFRESHED){
-					uint8 d_type=cJSON_GetObjectItem(r_data,"device_type")->valueint;
-					uint8 op=cJSON_GetObjectItem(r_data,"op")->valueint;
-					cJSON *ret_data;
-					cJSON_AddItemToObject(retroot,"data",ret_data = cJSON_CreateObject());
-					cJSON_AddNumberToObject(ret_data,"device_type",d_type);
-					cJSON_AddNumberToObject(ret_data,"index",index);
-					cJSON_AddNumberToObject(ret_data,"op",op);
-				}else{
-					error_code=EC_Failed;
+					error_code=EC_Normal;
 				}
 				cJSON_Delete(root);
 				return send_ret_json(client,retroot,error_code);

@@ -15,226 +15,120 @@
 #include "user_config.h"
 
 #include "driver/uart.h"
-#include "comm/comm_pub_def.h"
 #include "comm/comm_uart.h"
-#include "http/app.h"
+#include "comm/comm_pub_def.h"
 
-#include "json/cJson.h"
 
-enum UartRecvState ur_state=URS_FLAGE1;
-static uart_recv uart_recv_raw={0,0,0,0,0,NULL};
-static door_comm_buf comm_buf;
+static UartRecvBuf uart_recv_buf={0};
+
+static UartRecvState uRS=URS_Head1;
+
+SynState syn_state;
 
 void ICACHE_FLASH_ATTR comm_uart_init()
 {
 	//fro test;
 	uart_register_data_callback(uart_recv_callback);
 }
-void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *data,int len)
+
+static int testcount=0;
+void ICACHE_FLASH_ATTR uart_recv_callback(uint8_t *bytes,int len)
 {
-	int i=0;
-	*(data+len)=0;
-	//NODE_DBG("uart recv:%s",data);
-	while(i<len)
-	{
+	u8 i=0;
+	for(i=0;i<len;i++){
 restart:
-		switch(ur_state)
-		{
-		case URS_FLAGE1:
-			if(*(data+i)=='Z'){
-				ur_state=URS_FLAGE2;
-				uart_recv_raw.totalCheck=*(data+i);
-			}
-			break;
-		case URS_FLAGE2:
-			if(*(data+i)=='Y'){
-				ur_state=URS_LNE_H;
-				uart_recv_raw.totalCheck+=*(data+i);
-			}
-			else{
-				ur_state=URS_FLAGE1;
-				uart_recv_raw.totalCheck=0;
-				goto restart;
-			}
-			break;
-		case URS_LNE_H:
-			ur_state=URS_LNE_L;
-			uart_recv_raw.totalCheck+=*(data+i);
-			uart_recv_raw.length=*(data+i);
-			if(uart_recv_raw.length==0xff)
-				uart_recv_raw.length=0;
-			break;
-		case URS_LNE_L:
-			ur_state=URS_TYPE;
-			uart_recv_raw.totalCheck+=*(data+i);
-			uart_recv_raw.length<<=8;
-			uart_recv_raw.length|=*(data+i);
-			if(uart_recv_raw.length>3096){
-				ur_state=URS_FLAGE1;
-				uart_recv_raw.length=0;
-				uart_recv_raw.totalCheck=0;
-				goto restart;
-			}
-			break;
-		case URS_TYPE:
-			ur_state=URS_DATA;
-			uart_recv_raw.type=*(data+i);
-			uart_recv_raw.totalCheck+=*(data+i);
-			NODE_DBG("uart length:%d,remarkId:%d,type:%d",uart_recv_raw.length,uart_recv_raw.remarkId,	uart_recv_raw.type);
-			break;
-		case URS_DATA:
-			uart_recv_raw.totalCheck+=*(data+i);
-			if(uart_recv_raw.cursor==0 && uart_recv_raw.length-HEADLENGTH-1<=0){
-				ur_state=URS_FLAGE1;
-				uart_recv_raw.length=0;
-				uart_recv_raw.cursor=0;
-				uart_recv_raw.totalCheck=0;
-				goto restart;
-			}
-			if(uart_recv_raw.data==NULL){
-				//malloc
-				uart_recv_raw.cursor=0;
-				uart_recv_raw.data=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
-				//os_free(uart_recv_raw.data);
-			}else if(uart_recv_raw.cursor==0){
-				uart_recv_raw.data=(uint8 *)os_realloc(uart_recv_raw.data,uart_recv_raw.length-HEADLENGTH);
-				NODE_DBG("uart length:%d,realloc memory",uart_recv_raw.length);
-			}
-			//malloc failed
-			if(uart_recv_raw.data==NULL){
-				ur_state=URS_FLAGE1;
-				uart_recv_raw.length=0;
-				uart_recv_raw.cursor=0;
-				uart_recv_raw.totalCheck=0;
-				goto restart;
-
-			}
-
-			*(uart_recv_raw.data+uart_recv_raw.cursor)=*(data+i);
-			uart_recv_raw.cursor++;
-			if(uart_recv_raw.cursor==uart_recv_raw.length-HEADLENGTH-1){
-				*(uart_recv_raw.data+uart_recv_raw.cursor)=0;
-				NODE_DBG("uart length:%d,data copy over:%s",uart_recv_raw.length,uart_recv_raw.data);
-				NODE_DBG("i=%d,raw_data_length=%d",i,len);
-				ur_state=URS_CHECK;
+		if(uRS!=URS_XorCheck)
+			uart_recv_buf.xorCheck^=bytes[i];
+		switch(uRS){
+			case URS_Head1:
+				testcount=0;
+				if(bytes[i]==0xaa){
+					uRS=URS_Head2;
+					uart_recv_buf.xorCheck=bytes[i];
+				}else uRS=URS_Head1;
 				break;
-			}
-			break;
-		case URS_CHECK:
-			if(uart_recv_raw.totalCheck==*(data+i)){
-				NODE_DBG("pass check");
-				uart_recv_passcheck();
-			}else{
-				ur_state=URS_FLAGE1;
-				uart_recv_raw.cursor=0;
-				uart_recv_raw.totalCheck=0;
-			    NODE_DBG("didn't pass check");
-				goto restart;
-			}
-			ur_state=URS_FLAGE1;
-			uart_recv_raw.cursor=0;
-			uart_recv_raw.totalCheck=0;
-			break;
+			case URS_Head2:
+				if(bytes[i]==0xbb){
+					uRS=URS_MacIndex;
+				}else {
+					uRS=URS_Head1;
+					goto restart;
+				}
+				break;
+			case URS_MacIndex:
+				uRS=URS_Type;
+				uart_recv_buf.mac_index=bytes[i];
+				break;
+			case URS_Type:
+				uRS=URS_Data;
+				uart_recv_buf.type=bytes[i];
+				uart_recv_buf.cursor=0;
+				break;
+			case URS_Data:
+				uart_recv_buf.data[uart_recv_buf.cursor]=bytes[i];
+				uart_recv_buf.cursor++;
+				if(uart_recv_buf.cursor==5)
+					uRS=URS_XorCheck;
+				break;
+			case URS_XorCheck:
+				uRS=URS_Head1;
+				if(uart_recv_buf.xorCheck==bytes[i]){
+					uart_recv_passcheck();
+				}else{
+					goto restart;
+				}
+				break;
 		}
-		i++;
 	}
 	return;
 }
+
 void ICACHE_FLASH_ATTR uart_recv_passcheck()
 {
-	master_msg_type=uart_recv_raw.type;
-	data_save *ds_ptr=NULL;
-	switch(master_msg_type){
-	case NORMAL_CONFIG:
-		ds_ptr=&comm_buf.config;
+	switch(uart_recv_buf.type){
+	u16 hum,temp;
+	case DeviceOnline:
 		break;
-	case SYS_COMMAND:
+	case ReplyDht22:
+		temp=uart_recv_buf.data[1]*100+uart_recv_buf.data[2];
+		if(uart_recv_buf.data[0]=='-'){
+			temp*=-1;
+		}
+		hum=uart_recv_buf.data[3]*100+uart_recv_buf.data[4];
+		comm_temperature_value_write_api(temp);
+		comm_humidity_value_write_api(hum);
+		static int counttest=0;
+		os_printf("uart:%d_ReplyDht22 Temp :%3d,Hum :%d\r\n",counttest++,temp,hum);
 		break;
-	case SYN_CONTROL:
-		ds_ptr=&comm_buf.syn_control;
+	case ReplyRelay:
+		os_printf("URPC: ReplyRelay\r\n");
+		comm_relay_status_set_inner_api(uart_recv_buf.mac_index,uart_recv_buf.data[0]);
 		break;
-	case SYN_STATE:
+	case ReplyRay:
+		os_printf("uart:ReplyRay\r\n");
+		comm_ray_value_write_api(uart_recv_buf.data[0]);
 		break;
-		/*
-		syn_state.sm_state=*(uart_recv_raw.data+0);
-		syn_state.comm_state=*(uart_recv_raw.data+1);
-		syn_state.temperature=*(uart_recv_raw.data+2);
-		syn_state.wetness=*(uart_recv_raw.data+3);
-		syn_state.power=*(uart_recv_raw.data+4);
-		syn_state.run_time=*(uart_recv_raw.data+5);
-		break;
-		*/
 	}
-	if(ds_ptr!=NULL){
-		ds_ptr->refresh_state=COMM_REFRESHED;
-		if(ds_ptr->buf==NULL)
-			ds_ptr->buf=(uint8 *)os_malloc(uart_recv_raw.length-HEADLENGTH);
-		else if(ds_ptr->length!=uart_recv_raw.length-HEADLENGTH-1)
-			ds_ptr->buf=(uint8 *)os_realloc(ds_ptr->buf,uart_recv_raw.length-HEADLENGTH);
-
-		ds_ptr->length=uart_recv_raw.length-HEADLENGTH-1;
-		int i=0;
-		for(i=0;i<ds_ptr->length;i++)
-			*(ds_ptr->buf+i)=*(uart_recv_raw.data+i);
-		*(ds_ptr->buf+i)=0;
-	}
-	return;
 }
 
-void ICACHE_FLASH_ATTR send_message_to_master(enum MasterMsgType msg_type,uint8 *data,int len)
+void ICACHE_FLASH_ATTR send_message_to_slave(uint8_t mac_index,uint8_t type,uint8 *data)
 {
-	len=len+HEADLENGTH+1;
-	uint8 *os=(uint8 *)os_malloc(len);
-	os_memset(os,0,len);
+	uint8 os[10];
+	os_memset(os,0,10);
 	int cursor=0,i=0;
-	uint8 totalCheck=0;
-	*(os+cursor++)='Z';//Flag
-	*(os+cursor++)='Y';
-	*(os+cursor++)=len>>8;//Length_H
-	*(os+cursor++)=len&0x00ff;//Length_L
-	*(os+cursor++)=msg_type;//Type
-	for(i=0;i<cursor;i++)totalCheck+=*(os+i);
-	for(i=0;i<len-HEADLENGTH-1;i++){
-		*(os+cursor++)=*(data+i);//Data
-		totalCheck+=*(data+i);
+	uint8 xorCheck=0;
+	*(os+cursor++)=0xaa;
+	*(os+cursor++)=0xbb;
+	*(os+cursor++)=mac_index;
+	*(os+cursor++)=type;
+	for(i=0;i<5;i++)*(os+cursor++)=data[i];
+	for(i=0;i<cursor;i++)xorCheck^=*(os+i);
+	*(os+cursor)=xorCheck;//TotalCheck
+	for(i=0;i<=cursor;i++){
+		uart1_write_char(*(os+i));
 	}
-	*(os+cursor)=totalCheck;//TotalCheck
-	for(i=0;i<len;i++){
-		uart0_write_char(*(os+i));
-	}
-	os_free(os);
 }
 
-int ICACHE_FLASH_ATTR config_refresh_get(){
-	return comm_buf.config.refresh_state;
-}
-void ICACHE_FLASH_ATTR door_config_refresh_set(uint8 status){
-	comm_buf.config.refresh_state=status;
-}
-int ICACHE_FLASH_ATTR door_config_refresh_get(){
-	return comm_buf.config.refresh_state;
-}
-char* ICACHE_FLASH_ATTR door_config_read(){
-	return comm_buf.config.buf;
-}
-
-
-void ICACHE_FLASH_ATTR door_config_write_status_set(uint8 status){
-	comm_buf.door_config_write_state=status;
-}
-int ICACHE_FLASH_ATTR door_config_write_status_get(){
-
-}
-
-void ICACHE_FLASH_ATTR syn_control_refresh_set(uint8 status){
-	comm_buf.syn_control.refresh_state=status;
-}
-int ICACHE_FLASH_ATTR syn_control_refresh_get(){
-	return comm_buf.syn_control.refresh_state;
-}
-char* ICACHE_FLASH_ATTR syn_control_read(){
-	return comm_buf.syn_control.buf;
-}
 
 
 

@@ -329,7 +329,7 @@ LOCAL void uart_rx_intr_handler(void *para)
 
 void uart_register_data_callback(uart0_data_received_callback_t callback){
 
-	uart0_data_received_callback=callback;	
+	uart0_data_received_callback=callback;
 }
 void uart_clear_data_callback(){
 

@@ -48,7 +48,7 @@ typedef struct {
 	enum OperatorStatus scanState;
 	enum OperatorStatus connectState;
 	scan_result_data scan_result;
-	uint8_t mode;
+	uint8_t wifi_mode;
 	uint8_t station_status;
 	struct station_config station_config;
 } wifi_status_t;
@@ -88,19 +88,29 @@ static int wifi_reconnect_sign = 0;
 static int wifi_tick_time_count = 0;
 const int wifi_wait_time_max=5*60*1000;
 
-int comm_positive = 0;
+int comm_positive=0;
 
-static uint8_t wifiStatus = STATION_IDLE, lastWifiStatus = STATION_IDLE;
+int ICACHE_FLASH_ATTR is_comm_positive(){
+	if(comm_positive==0 && get_transmit_times()==0){
+		return 1;
+	}
+	return 0;
+}
+
+int ICACHE_FLASH_ATTR reset_comm_positive(){
+	comm_positive=0;
+	//get&reset
+	get_transmit_times();
+}
 
 void wifi_connect_check(int tick_time){
-	if(wifi_get_opmode() == SOFTAP_MODE){
+	if(wifi_status.wifi_mode == SOFTAP_MODE){
 		return;
 	}
 	uint8_t wifiStatus = wifi_station_get_connect_status();
 	//check wifi
 	struct ip_info ipConfig;
 	wifi_get_ip_info(STATION_IF, &ipConfig);
-
 	if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0){
 		wifi_reconnect_sign = 0;
 		wifi_tick_time_count = 0;
@@ -118,16 +128,16 @@ void wifi_connect_check(int tick_time){
 				os_printf("reconnect count time out.\r\n");
 				wifi_reconnect_sign=1;
 				wifi_station_disconnect();
-			}else if(wifi_reconnect_sign==5 && comm_positive==0){//has do.try to connect
+			}else if(wifi_reconnect_sign==6 && comm_positive==0){//has do.try to connect
 				wifi_tick_time_count = 0;
 			}
 		}
-		if( wifi_tick_time_count == 8000/tick_time || wifi_tick_time_count == 16000/tick_time){
+		if( wifi_tick_time_count == 10000/tick_time || wifi_tick_time_count == 20000/tick_time){
 			if(wifi_reconnect_sign==0){
 				wifi_reconnect_sign=1;
 				wifi_station_disconnect();
 				os_printf("reconnect count < 2.\r\n");
-			}else if(wifi_reconnect_sign==5 && comm_positive==0){//has do. try to connect
+			}else if(wifi_reconnect_sign==6 && comm_positive==0){//has do. try to connect
 				wifi_tick_time_count++;
 				//none
 			}else{	//is busy,doesn't has try to connect
@@ -140,17 +150,11 @@ void wifi_connect_check(int tick_time){
 		//connect to station when communication is free
 		switch(wifi_reconnect_sign){
 		case 1:
-			comm_positive=0;
-		case 2:
-		case 3:
-		case 4:
-			wifi_reconnect_sign++;
+			reset_comm_positive();
 			break;
-		case 5:
-			if(comm_positive==0){
-				os_printf("comm_positive==0 try to connect.\r\n");
+		case 6:
+			if(is_comm_positive()){
 				//connect to station
-				wifi_reconnect_sign=0;
 				wifi_get_ip_info(STATION_IF, &ipConfig);
 				if(wifiStatus==STATION_GOT_IP && ipConfig.ip.addr != 0)return;
 				struct station_config config;
@@ -159,8 +163,16 @@ void wifi_connect_check(int tick_time){
 				wifi_station_connect();
 			} else {
 				wifi_reconnect_sign=1;
+				return;
 			}
+			break;
+		case 12:
+			wifi_reconnect_sign=0;
+			wifi_station_disconnect();
+			os_printf("timeout to disconnect station");
+			return;
 		}
+		wifi_reconnect_sign++;
 	}
 }
 /*

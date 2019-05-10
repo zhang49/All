@@ -10,8 +10,8 @@
 
 typedef struct {
 	uint8 ray_value;	//[0,100]
-	int temp;
-	int hum;
+	int temp;		//1 bit '+' ro '-', data: [0,65535] , 2 decimals
+	int hum;		//[0,65535] , 2 decimals noraml 0-100%
 }SensorUnio;
 
 typedef enum{

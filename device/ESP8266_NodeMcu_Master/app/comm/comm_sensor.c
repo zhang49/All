@@ -30,7 +30,7 @@ uint8_t ICACHE_FLASH_ATTR comm_ray_value_api_get(){
 }
 
 void comm_ray_value_write_api(uint8_t value){
-	comm_sensors.ray_value = value/255.0*100;
+	comm_sensors.ray_value = 100-value/255.0*100;
 }
 
 void ICACHE_FLASH_ATTR motor_move_espnow_write(int speed,int duration,motor_turn_status direction){

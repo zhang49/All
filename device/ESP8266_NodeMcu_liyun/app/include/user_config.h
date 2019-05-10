@@ -2,7 +2,7 @@
 #define __USER_CONFIG_H__
 
 
-#define INTERFACE_DOMAIN "httptest.com"
+#define INTERFACE_DOMAIN "esp8266iot.com"
 /*
  * such element is ready for Aliyun mqtt
  * */
@@ -12,8 +12,13 @@
 
 //#define DEVICE_NAME     "IOTClient1"
 
-#define WIFI_SSID       "360WiFi-1AC8AE"
-#define WIFI_PASS       "12345678"
+
+
+#define DEFAULT_AP_SSID "Esp8266-"DEVICE_NAME
+#define DEFAULT_AP_PWD ""
+#define DEFAULT_STA_SSID "Ares"
+#define DEFAULT_STA_PWD "460204415"
+
 /*
  * this is mqtt by personal
  */

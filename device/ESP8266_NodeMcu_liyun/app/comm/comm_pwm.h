@@ -35,16 +35,8 @@ LightCommControl light_comm;
 #define PWM_4_OUT_IO_NUM 5
 #define PWM_4_OUT_IO_FUNC  FUNC_GPIO5
 
-#define MOTOR_PIN1 GPIO_ID_PIN(5)
-#define MOTOR_PIN2 GPIO_ID_PIN(4)
-#define MOTOR_PIN3 GPIO_ID_PIN(0)
-#define MOTOR_PIN4 GPIO_ID_PIN(14)
+void ICACHE_FLASH_ATTR comm_pwm_init();
 
-void ICACHE_FLASH_ATTR comm_motor_init();
-
-
-void ICACHE_FLASH_ATTR motor_direction_set(int direction);
-void ICACHE_FLASH_ATTR motor_speed_set(int speed);
 uint32 ICACHE_FLASH_ATTR comm_led_pwm_duty_api_get();
 void ICACHE_FLASH_ATTR comm_led_pwm_duty_api_set(uint32 duty);
 

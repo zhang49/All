@@ -37,6 +37,16 @@ void http_execute_cgi(http_connection *conn){
 
 }
 
+
+static int transmit_times = 0;
+
+int ICACHE_FLASH_ATTR get_transmit_times(){
+	int temp=transmit_times;
+	transmit_times = 0;
+	return temp;
+}
+
+
 int ICACHE_FLASH_ATTR http_transmit(http_connection *c){
 
 	NODE_DBG("Transmit Buffer");

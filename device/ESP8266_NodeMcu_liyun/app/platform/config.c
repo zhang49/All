@@ -52,7 +52,7 @@ config_data * config_read(){
 
 
 
-void config_init(){
+int config_init(){
 		
 	config_data * config = config_read_s();
 
@@ -61,7 +61,7 @@ void config_init(){
 	NODE_DBG("Config Magic =%08x",config->magic);
 
 	if(config->magic == CONFIG_MAGIC)
-		return;	
+		return 1;
 
 	NODE_DBG("Config writing 0s");
 
@@ -70,6 +70,6 @@ void config_init(){
 	config->magic = CONFIG_MAGIC;
 
 	config_save(config);
-
+	return 0;
 	
 }

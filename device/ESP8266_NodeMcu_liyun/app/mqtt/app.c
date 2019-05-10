@@ -49,6 +49,11 @@ typedef struct{
 #define GET_TOPIC BASE_TOPIC "/user/req_dev"
 #define UPDATE_TOPIC BASE_TOPIC "/thing/model/up_raw"
 
+#define DEVICE_PROPERTY_TOPIC BASE_TOPIC "/thing/event/property/post"
+#define WIFI_SCAN_TOPIC BASE_TOPIC "/thing/event/WiFiScanOver/post"
+#define WIFI_CONNECT_TOPIC BASE_TOPIC "/thing/event/WiFiScanOver/post"
+
+
 #define mqtt_upload_topic "/"MQTT_DEVICE_NAME"/user/wireless/upload"
 
 static mqtt_topic_pair topics_pair[]={
@@ -64,8 +69,6 @@ typedef struct{
 	int flag;
 }door_def;
 
-
-static int wifi_reconnect_count = 0;
 
 static void ICACHE_FLASH_ATTR mqtt_app_timer_cb(void *arg){
 	struct ip_info ipConfig;
@@ -144,7 +147,6 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 
 int ICACHE_FLASH_ATTR mqtt_is_connected(){
 	//enable reconnect
-	wifi_reconnect_count = 0;
 	switch(mqtt_client.connState){
 	case WIFI_INIT:
 	case WIFI_CONNECTING:

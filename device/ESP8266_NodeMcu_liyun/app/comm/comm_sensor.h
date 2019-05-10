@@ -9,18 +9,25 @@
 #define COMM_SENSOR_H_
 
 typedef struct {
-	uint16 ray_value;
+	uint8 ray_value;	//[0,100]
 	int temp;
 	int hum;
 }SensorUnio;
 
+typedef enum{
+	Motor_Stop,
+	Motor_Pos,
+	Motor_Pas,
+}motor_turn_status;
 
-uint32 ICACHE_FLASH_ATTR comm_ray_value_api_get();
-uint16 comm_ray_value_espnow_read();
-void motor_pas_api(u8 pre);
-void motor_pos_api(u8 pre);
+extern uint8_t ray_alarm_value;
 
-void comm_dht22_espnow_read();
+uint8_t ICACHE_FLASH_ATTR comm_ray_value_api_get();
+void comm_ray_value_espnow_read();
+void comm_ray_value_write_api(uint8_t value);
+
+void comm_ray_config_espnow_write(uint8 ray_alarm_value,uint8 motor_speed);
+void ICACHE_FLASH_ATTR motor_move_espnow_write(int speed,int duration,motor_turn_status direction);
 u16  ICACHE_FLASH_ATTR comm_temperature_value_read_api();
 u16  ICACHE_FLASH_ATTR comm_humidity_value_read_api();
 

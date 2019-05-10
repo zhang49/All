@@ -140,9 +140,7 @@ $(function(){
 			temp.data.device_type = relays[i].device_type;
 			temp.data.index = relays[i].index;
 			temp.data.op = relays[i].op;
-			temp.error_code=0;
-			console.log(temp);
-			Reply_Control(temp,1);
+			Reply_Control(temp,temp.data.op);
 		}
 	}
 
@@ -436,31 +434,21 @@ $(function(){
 		var control_type = res.data.control_type;
 		var index = res.data.index;
 		var op = res.data.op;
-		var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
+		
+		var msg = 'Relay';
+		msg = msg + (index + 1) + ' ';
 		if (res.error_code == 0){
-			if(op==1){
-				$(".op-control-closed[data-type=" + index + "]").unbind("click");
-				$(".op-control-closed[data-type=" + index + "]").toggleClass("op-control-opened");
-				$(".op-control-opened[data-type=" + index + "]").removeClass("op-control-closed");
-				$(".op-control-opened[data-type=" + index + "]").delegate($(this),'click', function(){
-					var index = $(this).data('type');
-					control(index,"close");
-				});
-			}
-			else if(op==0){
-				$(".op-control-opened[data-type=" + index + "]").unbind("click");
-				$(".op-control-opened[data-type=" + index + "]").toggleClass("op-control-closed");
-				
-				$(".op-control-closed[data-type=" + index + "]").removeClass("op-control-opened");
-				$(".op-control-closed[data-type=" + index + "]").delegate($(this),'click', function(){
-					var index = $(this).data('type');
-					control(index,"open");
-				});
-			}
-			msg = msg + '成功';
+			$(".relay[data-type=" + index + "]").unbind("click");
+			$(".relay[data-type=" + index + "]").toggleClass("op-control-closed");
+			$(".relay[data-type=" + index + "]").toggleClass("op-control-opened");
+			$(".relay[data-type=" + index + "]").bind("click",function(){
+				var index = $(this).data('type');
+				control(index,op==1?"close":"open");
+			});
+			msg = (msg + op==1?'打开':'关闭') + '成功';
 			if(!noShowMsg)showSuccessMsg(msg);
 		} else {
-			msg = msg + '失败';
+			msg = (msg + op==1?'打开':'关闭') + '失败';
 			if(!noShowMsg)showMsg(msg);
 		}
 	}
@@ -863,6 +851,7 @@ $(function(){
 			return;
 		}
 		operatorLock=true;
+        console.log("click op-control-closed");
         var type = $(this).data('type');
         control(type,"open");
 		setTimeout(function(){
@@ -875,6 +864,7 @@ $(function(){
 			return;
 		}
 		operatorLock=true;
+        console.log("click op-control-opened");
         var type = $(this).data('type');
         control(type,"close");
 		setTimeout(function(){
