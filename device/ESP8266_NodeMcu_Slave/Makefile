@@ -154,8 +154,8 @@ endef
 $(BINODIR)/%.bin: $(IMAGEODIR)/%.out
 	@mkdir -p $(BINODIR)
 	python2 $(ESPTOOL) elf2image $< -o $(FIRMWAREDIR)
-	cp $(FIRMWAREDIR)0x00000.bin /mnt/hgfs/D/ESP8266/bin/slave_0x00000.bin
-	cp $(FIRMWAREDIR)0x10000.bin /mnt/hgfs/D/ESP8266/bin/slave_0x10000.bin
+	#cp $(FIRMWAREDIR)0x00000.bin /mnt/hgfs/D/ESP8266/bin/slave_0x00000.bin
+	#cp $(FIRMWAREDIR)0x10000.bin /mnt/hgfs/D/ESP8266/bin/slave_0x10000.bin
 #############################################################
 # Rules base
 # Should be done in top-level makefile only

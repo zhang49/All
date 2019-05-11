@@ -108,7 +108,6 @@ static void statusTimerCb(void *arg){
 	wifi_connect_check(1000);
 	syn_state.run_time++;
 }
-
 void ICACHE_FLASH_ATTR comm_init(){
 	int ret = config_init();
 	cfg_data=config_read();
@@ -167,6 +166,7 @@ void ICACHE_FLASH_ATTR comm_init(){
     os_timer_disarm(&statusTimer);
     os_timer_setfn(&statusTimer, (os_timer_func_t *)statusTimerCb, NULL);
     os_timer_arm(&statusTimer, 1000, 1);
+    upload_aliyun_test();
 }
 
 int ICACHE_FLASH_ATTR http_operator_api(http_connection *c){

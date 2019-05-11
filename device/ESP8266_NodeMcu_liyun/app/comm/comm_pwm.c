@@ -40,7 +40,7 @@ void ICACHE_FLASH_ATTR comm_pwm_init()
 	*/
 }
 
-uint32 ICACHE_FLASH_ATTR comm_led_pwm_duty_api_get(){
+int ICACHE_FLASH_ATTR comm_led_pwm_duty_api_get(){
 	if(light_comm.led_pwm_duty<=300)
 		return 0;
 	else

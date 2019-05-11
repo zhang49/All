@@ -31,6 +31,15 @@
 #define MQTT_CLIENT_ID	DEVICE_ID"|securemode=3,signmethod=hmacmd5,timestamp=%s|"
 #define MQTT_USERNAME	DEVICE_NAME"&"PRODUCT_KEY
 
+//Aliyun Iot topic
+#define BASE_TOPIC "/" PRODUCT_KEY "/" DEVICE_NAME
+#define REQ_TOPIC BASE_TOPIC "/user/req_dev"
+#define RES_TOPIC BASE_TOPIC "/user/res_dev"
+
+#define DEVICE_PROPERTY_TOPIC "/sys" BASE_TOPIC "/thing/event/property/post"
+#define WIFI_SCAN_TOPIC "/sys" BASE_TOPIC "/thing/event/WiFiScan/post"
+#define WIFI_CONNECT_TOPIC "/sys" BASE_TOPIC "/thing/event/WiFiConnect/post"
+
 #define BUF_SIZE	128
 
 // mqtt struct

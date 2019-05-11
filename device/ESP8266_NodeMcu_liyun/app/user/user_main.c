@@ -53,8 +53,8 @@ void ICACHE_FLASH_ATTR init_done_cb(){
     NODE_DBG("Flash size %d",size);
 
     comm_init();
-    init_dns();
-    init_http_server();
+    //init_dns();
+    //init_http_server();
     mqtt_app_init();
     #ifdef DEVELOP_VERSION
 

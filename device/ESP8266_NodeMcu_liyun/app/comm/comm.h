@@ -39,8 +39,6 @@ typedef struct {
 typedef struct {
 	uint8 sign;
 	session_data_buf buf;
-	const char *ptopic;
-	uint8 pqos;
 }mqtt_user_data;
 
 #define ErrorCodeSize 5
@@ -78,15 +76,8 @@ int ICACHE_FLASH_ATTR comm_ray_motor_stop(void *client);
 int ICACHE_FLASH_ATTR comm_ray_value_read(void *client);
 int ICACHE_FLASH_ATTR comm_ray_alarm_value_write(void *client);
 
-
 int ICACHE_FLASH_ATTR comm_expect_ret(void *client);
 int ICACHE_FLASH_ATTR comm_syn_status_read(void *client);
-
-
-int ICACHE_FLASH_ATTR door_door_config_read(void *client);
-void ICACHE_FLASH_ATTR request_master_door_config();
-void ICACHE_FLASH_ATTR door_request_all_config();
-void ICACHE_FLASH_ATTR request_master_door_config();
 
 const char *ICACHE_FLASH_ATTR get_res_type(void *client);
 uint8 ICACHE_FLASH_ATTR send_ret_json(void *client,cJSON *retroot,enum ErrorCode error_code);

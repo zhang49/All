@@ -267,13 +267,12 @@ cJSON *ICACHE_FLASH_ATTR comm_wifi_scan_api(){
 		 NODE_DBG("Waiting scan done");
 		 break;
 	 case Done:
-		operator_status=Extra;
+		 wifi_status.scanState=Extra;
 		//create json
 		cJSON *data,*array,*item;
 		cJSON *retroot=cJSON_CreateObject();
-		cJSON_AddItemToObject(retroot, "data", data = cJSON_CreateObject());
-		cJSON_AddNumberToObject(data,"ap_count",wifi_status.scan_result.ap_count);
-		cJSON_AddItemToObject(data, "ap", array = cJSON_CreateArray());
+		cJSON_AddNumberToObject(retroot,"ap_count",wifi_status.scan_result.ap_count);
+		cJSON_AddItemToObject(retroot, "ap", array = cJSON_CreateArray());
 		/*
 		//check max count on query string
 		char *query=http_url_get_query_param(c,"max");
@@ -323,7 +322,6 @@ cJSON * ICACHE_FLASH_ATTR comm_wifi_config_read_api(){
 
 	cJSON *data;
 	cJSON *retroot=cJSON_CreateObject();
-	cJSON_AddItemToObject(retroot,"data",data = cJSON_CreateObject());
 
 	os_memset(mac_addr,0,sizeof(mac_addr));
 	for(i=0;i<6;i++){
@@ -331,19 +329,20 @@ cJSON * ICACHE_FLASH_ATTR comm_wifi_config_read_api(){
 		os_sprintf(temp,(mac[i]<0x0f?"0%x":"%x"),mac[i]);
 		os_strcat(mac_addr,temp);
 	}
-	cJSON_AddStringToObject(data,"mac",mac_addr);
+	cJSON_AddStringToObject(retroot,"MACAddress",mac_addr);
 	//0x01 Station 0x02 Ap
 	uint8 work_mode=wifi_get_opmode();
 	work_mode=(work_mode==0x03?0x02:work_mode)-1;
-	cJSON_AddNumberToObject(data,"work_mode",work_mode);
-	cJSON_AddStringToObject(data,"wifi_ap_ssid",ap_config.ssid);
-	cJSON_AddStringToObject(data,"wifi_ap_pwd",ap_config.password);
-	cJSON_AddStringToObject(data,"wifi_station_ssid",sta_config.ssid);
-	cJSON_AddStringToObject(data,"wifi_station_pwd",sta_config.password);
-	struct ip_info ip;
-	wifi_get_ip_info(0x0,&ip);
-	char *ip_str = ipaddr_ntoa(&ip.ip);
-	cJSON_AddStringToObject(data,"wifi_station_ip",ip_str);
+	cJSON_AddStringToObject(retroot,"ApSSID",ap_config.ssid);
+	cJSON_AddStringToObject(retroot,"ApPwd",ap_config.password);
+	cJSON_AddStringToObject(retroot,"StationSSID",sta_config.ssid);
+	cJSON_AddStringToObject(retroot,"StationPwd",sta_config.password);
+	struct ip_info ipConfig;
+	wifi_get_ip_info(STATION_IF,&ipConfig);
+	if(ipConfig.ip.addr != 0){
+		char *ip_str = ipaddr_ntoa(&ipConfig.ip);
+		cJSON_AddStringToObject(retroot,"StationIp",ip_str);
+	}
 	return retroot;
 }
 

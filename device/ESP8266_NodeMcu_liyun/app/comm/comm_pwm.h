@@ -37,7 +37,7 @@ LightCommControl light_comm;
 
 void ICACHE_FLASH_ATTR comm_pwm_init();
 
-uint32 ICACHE_FLASH_ATTR comm_led_pwm_duty_api_get();
+int ICACHE_FLASH_ATTR comm_led_pwm_duty_api_get();
 void ICACHE_FLASH_ATTR comm_led_pwm_duty_api_set(uint32 duty);
 
 #endif /* COMM_PWM_H_ */

@@ -14,7 +14,7 @@ $(function(){
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
-	var getStatusFlag = 0;
+	var getStatusFlag = true;
 	
 	var rayIsWriting=0;
 	var rayTouchValue=0;

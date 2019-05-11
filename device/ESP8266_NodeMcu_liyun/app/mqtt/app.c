@@ -39,26 +39,12 @@ typedef struct{
 	uint8 pub_qos;
 }mqtt_topic_pair;
 
-//pub topic:	"/"PRODUCT_KEY"/"DEVICE_NAME"/user/wireless/upload"
-///a16U9ZZ9jb5/${deviceName}/user/app/request
-//sub topic:	"/"PRODUCT_KEY"/"DEVICE_NAME"/user/app/request"
-
-
-//Aliyun Iot topic
-#define BASE_TOPIC "/" PRODUCT_KEY "/" DEVICE_NAME
-#define GET_TOPIC BASE_TOPIC "/user/req_dev"
-#define UPDATE_TOPIC BASE_TOPIC "/thing/model/up_raw"
-
-#define DEVICE_PROPERTY_TOPIC BASE_TOPIC "/thing/event/property/post"
-#define WIFI_SCAN_TOPIC BASE_TOPIC "/thing/event/WiFiScanOver/post"
-#define WIFI_CONNECT_TOPIC BASE_TOPIC "/thing/event/WiFiScanOver/post"
-
-
-#define mqtt_upload_topic "/"MQTT_DEVICE_NAME"/user/wireless/upload"
-
 static mqtt_topic_pair topics_pair[]={
-		{GET_TOPIC,		0, 	UPDATE_TOPIC,	0},
-		{NULL,											0,	NULL,										0}
+		//
+		{REQ_TOPIC,			0, 		RES_TOPIC,		0},
+		{REQ_TOPIC,			0, 		WIFI_SCAN_TOPIC,		0},
+		{REQ_TOPIC,			0, 		WIFI_CONNECT_TOPIC,		0},
+		{NULL,				0,		NULL,				0}
 };
 
 typedef void(*mqtt_topic_callback)(MQTT_Client *client);
@@ -101,7 +87,7 @@ static void mqttConnectedCb(uint32_t *args)
 	}
 	char data[]="Wireless Connected.";
 	MQTT_DBG("MQTT: Publish:%s,length:%d",data,os_strlen(data));
-	MQTT_Publish(client,mqtt_upload_topic,data,os_strlen(data),1,0);
+	//MQTT_Publish(client,RES_TOPIC,data,os_strlen(data),1,0);
 }
 
 static void mqttDisconnectedCb(uint32_t *args)
