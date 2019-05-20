@@ -46,6 +46,9 @@ u16 ICACHE_FLASH_ATTR comm_temperature_value_read_api(){
 u16 ICACHE_FLASH_ATTR comm_humidity_value_read_api(){
 	return comm_sensors.hum;
 }
+u16 ICACHE_FLASH_ATTR comm_SoilMoisture_value_read_api(){
+	return comm_sensors.soil_hum;
+}
 
 void ICACHE_FLASH_ATTR comm_temperature_value_write_api(int temp){
 	comm_sensors.temp = temp;
@@ -53,6 +56,10 @@ void ICACHE_FLASH_ATTR comm_temperature_value_write_api(int temp){
 
 void ICACHE_FLASH_ATTR comm_humidity_value_write_api(int hum){
 	comm_sensors.hum = hum;
+}
+
+void ICACHE_FLASH_ATTR comm_SoilMoisture_value_write_api(int soil_hum){
+	comm_sensors.soil_hum = soil_hum;
 }
 
 

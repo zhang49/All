@@ -1,29 +1,34 @@
 
-	 
 jQuery(document).ready(function($) {
-    $body = (window.opera) ? (document.compatMode == "CSS1Compat" ? $('html') : $('body')) : $('html,body');// 这行是 Opera 的补丁, 少了它 Opera 是直接用跳的而且画面闪烁 by willin
+	// 这行是 Opera 的补丁, 少了它 Opera 是直接用跳的而且画面闪烁 by willin
+    $body = (window.opera) ? (document.compatMode == "CSS1Compat" ? $('html') : $('body')) : $('html,body');
 });
-
+//设置ajax头，laravel post需要此设置
+$.ajaxSetup({
+	headers: {
+		'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+	}
+});
 $(function(){
     var flag = true;       			   //判断是否继续获取配置
-    var getSafeConfigCount = 0;
-    var getWifiConfigCount = 0;
     var getNormalConfigCount = 0;      //本地json数据
     var onLineSpeed = {};      		   //速度配置（线上）
-    var isEdit = false;      		   //判断是否可编辑门配置
+    var isEdit = false;      		   //判断配置是否可编辑
     var isProjectEdit = false;         //判断是否可编辑工程参数
     var pwd = '123456789';
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
-	var getStatusFlag = true;
+	var getStatusFlag = false;
 	
 	var rayIsWriting=0;
 	var rayTouchValue=0;
-	var replyGetStatusCount=0;
+	var getStatusErrorCount=0;
 	var operatorLock = false;
 	var operatorWaitTime = 800;//ms
 	var initOver=false;
+	var hasSynConnectData=false;
+	
 	if(typeof RS == "undefined"){
 		var RS = {
 			Normal : 0,
@@ -34,36 +39,39 @@ $(function(){
 	}
 	var runStatus=RS.Waiting;
 	var lastscrollHeight;
+	
     /**
      * 初始化
      */
     init();
 
-    
-
-    
 
 	
     /**
      * 初始化
      */
     function init(){
+	
 		//初始化滑动列表
 		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
-		setTimeout(function(){
-			$("#writer_ch").click();
-			initOver=true;
-		},500);
-		if(!getStatusFlag)return;
-		//获取配置
+		
+
 		setTimeout(
 			function(){
 				GetConnectSynData();
-				getWiFiConfig();
-				//getNormalConfigCount();
+				getStatus();
 		},500);
-        //获取状态（心跳包）
-        setInterval(function(){
+		var initInterval = setInterval(function(){
+		if(hasSynConnectData){
+			//锁定配置
+			$("#writer_ch").click();			
+			initOver=true;
+			clearInterval(initInterval);
+			return;
+		}},300);
+
+		
+		var getStatusTimer=setInterval(function(){
 			switch(runStatus){
 				case RS.Normal:
 					$('.conn-indicator').css('background','#00ff00');
@@ -76,19 +84,30 @@ $(function(){
 				break;
 				case RS.Error:
 					$('.conn-indicator').css('background','#ff0000');
+					clearInterval(getStatusTimer);
 				break;
 			}
-			replyGetStatusCount++;
-			if(replyGetStatusCount>=4){
-				runStatus=RS.Error;
-			}else if(replyGetStatusCount>=2){
-				runStatus=RS.Waiting;
-			}
-            getStatus();
+			// getStatusErrorCount++;
+			// if(getStatusErrorCount>=3){
+			// 	runStatus=RS.Error;
+			// 	showMsg('无法与设备建立通信');
+			// }else if(getStatusErrorCount>=2){
+			// 	runStatus=RS.Waiting;
+			// }
+            // getStatus();
         }, 2000);
+		if(!getStatusFlag)return;
+		//获取配置
+		setTimeout(
+			function(){
+				GetConnectSynData();
+				getWiFiConfig();
+				//getNormalConfigCount();
+		},500);
+        //获取状态（心跳包）
     }
-
 	
+	 
 	/**
      * 获取同步配置
      */
@@ -96,52 +115,100 @@ $(function(){
 		if (!flag){
 			return false;
 		}
-		var arr = {
-			"type" : "GetConnectSynData",
-			"data" : ""
-		};
-
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-				Reply_GetConnectSynData(res);
+		var reqType='GetConnectSynData';
+		var arr={};
+		arr.type=reqType;
+		arr.data='';
+		$.ajax({
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(recv){
+				hasSynConnectData=true;
+				Reply_GetConnectSynData(recv);
             },
-            'error' : function(){
-                //showMsg('获取配置网络错误');
-            }
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
         });
-		
 	}
-	
+
 	function Reply_GetConnectSynData(res){
-		getSafeConfigCount = 0;
-		var $lightinputRange = $('#lightDutyValue');
-		var $lightinputRange = $('#lightDutyValue');
-		$lightinputRange.val(res.data.duty).change();
-		
-		var $rayinputRange = $('#rayAlarmValue');
-		var $rayinputRange = $('#rayAlarmValue');
-		$rayinputRange.val(res.data.alarm['ray-value']).change();
-        $('.s-token').text(res.data.mac);
-		
-		var control_type = res.data.control_type;
-		var index = res.data.index;
-		var op = res.data.op;
-		
-		var i;
-		var relays=[];
-		relays=res.data.relays;
-		for(i=0;i<relays.length;i++){
-			var temp = [];
-			temp.data=[];
-			temp.data.device_type = relays[i].device_type;
-			temp.data.index = relays[i].index;
-			temp.data.op = relays[i].op;
-			Reply_Control(temp,temp.data.op);
+		var $lightAlarmInputRange = $('#rayAlarmValue');
+		var LightLuxAlarmValue=res.data.LightLuxAlarmValue;
+
+		var MACAddress=res.data.MACAddress;
+		var StationSSID=res.data.StationSSID;
+		var ApSSID=res.data.ApSSID;
+
+
+		$lightAlarmInputRange.val(LightLuxAlarmValue).change();
+        $('.s-token').text(MACAddress);
+		$('.wa-ssid').val(ApSSID);
+		//?? this？
+		$('#con-s-ssid').text(StationSSID);
+		//$('.wa-pwd').val();
+		//$('.ws-ssid').val(StationSSID);
+		//$('.ws-pwd').val();
+
+	}
+
+
+	/**
+	 * 获取运行状态
+	 */
+	function getStatus(){
+		var reqType='GetStatus';
+		var arr={};
+		arr.type=reqType;
+		arr.data='123';
+		$.ajax({
+			url: "/command",
+			type: "POST",
+			dataType:'json',
+			data:JSON.stringify(arr),
+			success: function(res){
+				Reply_GetStatus(res);
+
+			},
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
+		});
+	}
+
+	function Reply_GetStatus(res){
+		if (res.error_code != 0){
+			$('.s-status').text(res.error_str);
+			runStatus=RS.Unknow;
+			return false;
 		}
+		var $LightLuxInputRange = $('#lightDutyValue');
+		$LightLuxInputRange.val(res.data.LightLuminance).change();
+		$('.t-degree').text(res.data.CurrentTemperature/100 + " ℃");
+		//$('.t-degree').text(res.data.SoilMoisture/100 + " ℃");
+		$('.w-degree').text(res.data.CurrentHumidity/100 + " %");
+		$('.s-status').text(res.data.zsta); 	   //运行状态
+		$('.r-time').text(getTime(res.data.Runtime));  	//运行时间
+		$('.r-degree').text(res.data.LightLux+'%');
+		var Relay=res.data.Relay;
+		var temp={};
+		temp.data={};
+		temp.data.Relay=Relay;
+		Reply_Control(temp,1);
+
+		var val;
+		var d = new Date();
+		var nowTime=d.getTime();
+		
+		
+		getStatusErrorCount--;
+
+		//$('.c-status').text(res.comm_state); 	 //通信状态
+		//$('.p-rate').text(res.power);    	    //功率比
 	}
 
     /**
@@ -151,90 +218,71 @@ $(function(){
         if (!flag){
             return false;
         }
-
-        var arr = {
-            "type" : "GetWiFiConfig",
-            "data" : ""
-        };
-
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-                if (res.type != 'Reply_GetWiFiConfig' || res.error_code != 0){
-                    flag = false;
-                    error_str = res.error_str || '获取无线配置失败';
-                    showMsg(error_str);
-                    return false;
-                }
-
-                getWifiConfigCount = 0;
-
-                $('.r01').removeClass('active');
-                if (res.data.work_mode == 1){
-                    $('.i02_r01 span').addClass('active');
-                } else {
-                    $('.i02_r02 span').addClass('active');
-                }
-                $('.w-mode').val(res.data.work_mode);
-
-                $('.wa-ssid').val(res.data.wifi_ap_ssid);
-                $('.wa-pwd').val(res.data.wifi_ap_pwd);
-                $('.ws-ssid').val(res.data.wifi_station_ssid);
-                $('.ws-pwd').val(res.data.wifi_station_pwd);
-				$('.s-token').text(res.data.mac);
-            },
-            'error' : function(){
-                if (getWifiConfigCount < 1){
-                    getWiFiConfig();
-                    getWifiConfigCount++;
-                    return false;
-                }
-                flag = false;
-                showMsg('获取无线配置网络错误');
-            }
-        });
+		var arr={};
+		arr.type='GetWiFiInfo';
+		arr.data='';
+		$.ajax({
+			url: "/command",
+			type: "POST",
+			dataType:'json',
+			data:JSON.stringify(arr),
+			success: function(res){
+				Reply_GetWiFiConfig(res);
+			},
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
+		});
     }
-
-
+	
+	function Reply_GetWiFiConfig(res){
+		if (res.error_code != 0){
+			flag = false;
+			error_str = res.error_str || '获取无线配置失败';
+			showMsg(error_str);
+			return false;
+		}
+		$('.wa-ssid').val(res.data.wifi_ap_ssid);
+		$('.wa-pwd').val(res.data.wifi_ap_pwd);
+		$('.ws-ssid').val(res.data.wifi_station_ssid);
+		$('.ws-pwd').val(res.data.wifi_station_pwd);
+        $('.s-token').text(res.data.mac);
+	}
 	
     /**
      * 修改WiFi配置
      */
-    function setWiFiConfig(flag,sta_ssid,sta_pwd){
+    function setWiFiApConfig(flag,sta_ssid,sta_pwd){
         var arr = {};
-		arr['type'] = 'SetWiFiConfig';
-        arr['data'] = {};
-		if(flag==1){
-			arr['data']['wifi_station_ssid'] = sta_ssid;
-			arr['data']['wifi_station_pwd'] = sta_pwd;
-		}else{
-			arr['data']['wifi_ap_ssid'] = $('.wa-ssid').val();                                                              //本地模式下路由的名称
-			arr['data']['wifi_ap_pwd'] = $('.wa-pwd').val();                                                       //本地模式下路由的名称
-		}
-        arr['data']['work_mode'] = $('.w-mode').val();                                                                  //工作模式
-        showLoad();
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-                hideLoad();
-                if (res.error_code == 0){
-                    showSuccessMsg('修改成功');
-                } else {
-                    showMsg('修改失败');
-                }
-            },
-            'error' : function(){
-                hideLoad();
-                showMsg('修改无线配置失败');
-            }
-        });
+		arr.type = 'SetWiFiApConfig';
+        arr.data = {};
+		arr.data.wifi_ap_ssid= $('.wa-ssid').val();   //模块自身路由名称
+		arr.data.wifi_ap_pwd = $('.wa-pwd').val();     //密码
+		$.ajax({
+			url: "/command",
+			type: "POST",
+			dataType:'json',
+			data:JSON.stringify(arr),
+			success: function(res){
+				Reply_setWiFiApConfig(res);
+			},
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
+		});
+		showLoad();
+       
     }
+	function Reply_setWiFiApConfig(res){
+		hideLoad();
+		if (res.error_code == 0){
+			showSuccessMsg('修改成功');
+		} else {
+			showMsg('修改失败');
+		}
+	}
 	
 	/**
      * 扫描WiFi测试
@@ -252,20 +300,7 @@ $(function(){
     	for(i=0;i<res.data.ap.length;i++){
     	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
     	}
-    	$(".wifi-infro-item").click(function(){
-    		//find查找所有的子元素，会一直查找，跨层级查找 
-    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
-    		console.log("wifi-infro-item choose_name : "+choice_ssid);
-			var windowHeight = $(window).height();
-			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
-			var posiTop = (windowHeight - popupHeight)/2;
-			lastscrollHeight = $(document).scrollTop();
-    		$('.wifi_scan_ret_list').fadeOut();
-			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
-			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
-			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-            $(".wifi_pwd_input_text").focus();
-    	});
+
 		
 		var windowHeight = $(window).height();
 		var windowWidth = $(window).width();
@@ -281,39 +316,104 @@ $(function(){
 		$("body").css({'marginLeft':windowWidth-$(window).width()});
 
     }
-
     function bodyScroll(event){  
         event.preventDefault();  
     } 
 
+	
 	
 	/**
 	 *扫描wifi
 	 */
 	 function startScanfWiFi(){
         showLoad();
-        var arr = {
-            "type" : "GetWiFiScan",
-            "data" : ""
-        };
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-				Reply_GetWiFiScan(res);
-				},
-            'error' : function(){
-				hideLoad();
-                showMsg('扫描失败');
-            }
-        });
-    }
+		var reqType='GetWiFiScan';
+		var arr={};
+		arr.type=reqType;
+		arr.data='';
+		$.ajax({
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(msg){
+				
+              Reply_GetWiFiScan(msg);
+            },
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+				
+				
+				
+				/*
+				
+                flag = true;
+
+                var html = '<div class="n-fount">找不到网络:(</div><div class="dewf_s a-wifi">重新扫描</div>';
+                $('.w-list').html(html);
+
+                $('.w-list').show();
+                $('.w-progress').hide();
+				
+				*/
+			}
+		});
+	 }
+	 
 	
 	function Reply_GetWiFiScan(res){
 		hideLoad();
-		if (res.type != 'Reply_GetWiFiScan' || res.error_code != 0){
+		if (res.error_code != 0){
+			showMsg(res.error_str);
+		}
+
+		var html = '';
+		if (res.data.ApCount > 0){
+			var ap = res.data.ApInfo;
+			html += '<div class="dewf dewf_title"><div class="dewf_name">网络</div><div class="dewf_status">加密</div><div class="dewf_sign">强度</div></div>';
+
+			for (var i=0;i<ap.length;i++){
+				//处理网络是否开放
+				var enc = '';
+				switch(ap[i].enc){
+					case 0:
+						enc = "OPEN";
+						break;
+					case 1:
+					case 2:
+					case 3:
+					case 4:
+					case 5:
+						enc = "CLOSED";
+						break;
+					default:
+						enc = "CLOSED";
+						break;
+				}
+
+				//处理网络信息强度
+				var signal_pct = parseInt(100*ap[i].rssi/256.0) + '%';
+
+				html += '<div class="dewf s-wifi" data-ssid="'+ ap[i].ssid +'" data-enc="'+ ap[i].enc +'"><div class="dewf_name">'+ ap[i].ssid +'</div><div class="dewf_status">'+ enc +'</div><div class="dewf_sign">'+ signal_pct +'</div></div>';
+			}
+		} else {
+			html = '<div class="n-fount">找不到网络:(</div>';
+		}
+		//html += '<div class="dewf_s a-wifi">重新扫描</div>';
+
+		$('.w-list').html(html);
+
+		$('.w-list').show();
+		$('.w-progress').hide();
+
+		flag = true;
+	
+		
+		return;
+		
+		hideLoad();
+		if (res.error_code != 0){
 			flag = false;
 			error_str = res.error_str || '获取无线列表失败';
 			showMsg(error_str);
@@ -321,24 +421,9 @@ $(function(){
 		}
 
 		$(".wifi_scan_ret_list-ul").empty();
-    	for(i=0;i<res.data.ap.length;i++){
-    	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ap[i].ssid+"</span></li>");	  
+    	for(i=0;i<res.data.ApInfo.length;i++){
+    	  $(".wifi_scan_ret_list-ul").append("<li class=\"wifi-infro-item\"><i class=\"iconfont\">&#xe673;</i>&nbsp&nbsp<span class=\"wifi-infro-ssid\">"+res.data.ApInfo[i].ssid+"</span></li>");	  
     	}
-    	$(".wifi-infro-item").click(function(){
-    		//find查找所有的子元素，会一直查找，跨层级查找 
-    		var choice_ssid= $(this).find(".wifi-infro-ssid").html();
-    		console.log("wifi-infro-item choose_name : "+choice_ssid);
-			var windowHeight = $(window).height();
-			var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
-			var posiTop = (windowHeight - popupHeight)/2;
-			lastscrollHeight = $(document).scrollTop();
-    		$('.wifi_scan_ret_list').fadeOut();
-			$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
-			$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
-			$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
-            $(".wifi_pwd_input_text").focus();
-    	});
-		
 		var windowHeight = $(window).height();
 		var windowWidth = $(window).width();
 		var popupHeight = $(".wifi_scan_ret_list").height();
@@ -347,110 +432,119 @@ $(function(){
 		$(".wifi_scan_ret_list").css({'top':posiTop+lastscrollHeight});
 		$(".wifi_scan_ret_list").niceScroll({railoffset:true});
     	$('.wifi_scan_ret_list').fadeIn(100);
+        $('.wifi_pwd_input_text').val('');
     	ShowShandowBg();
 		document.body.style.overflow='hidden';
     	document.addEventListener('touchmove',bodyScroll,false);
 		$("body").css({'marginLeft':windowWidth-$(window).width()});
 	}
 	
+	
+
 	/**
 	 *连接wifi
 	 */
-	 function WiFiConnect(ssid,pwd){
-        showLoad();
+	function WiFiConnect(ssid,pwd){
+		if (!flag){
+			return false;
+		}
+		showLoad();
 		var arr = {};
 		arr.type = "WiFiConnect";
 		arr.data = {};
 		arr.data.wifi_station_ssid = ssid;
 		arr.data.wifi_station_pwd = pwd;
-        showLoad();
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-                hideLoad();
-                if (res.error_code == 0){
-                    showMsg('WiFi连接成功');
-                } else {
-                    showMsg('WiFi连接失败');
-                }
-            },
-            'error' : function(){
-                hideLoad();
-                showMsg('修改无线配置失败');
-            }
-        });
-    }
+		$.ajax({
+			url: "/command",
+			type: "POST",
+			dataType:'json',
+			data:JSON.stringify(arr),
+			success: function(recv){
+				hideLoad();
+				Reply_WiFiConnect(recv);
+			},
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
+		});
+	}
 	
 	function Reply_WiFiConnect(res){
 		hideLoad();
 		if (res.error_code == 0){
-			showMsg('WiFi连接成功');
-			setInterval(function(){
-				location.reload();
-			},500);
+			showMsg('WiFi连接成功，请重新刷新页面');
 		}
 		else{
             showMsg('WiFi连接失败');
 		}
 	}
+	
     /**
-     * 一般操作
+     * 继电器控制
      */
-    function control(index,op){
-        showLoad();
+     function control(index,op){
+		showLoad();
+		var reqType='Control';
         var arr = {};
-        arr['type'] = 'Control';
-        arr['data'] = {};
-		//0 - relay
-        arr['data']['device_type'] = 0;
-        arr['data']['index'] = index;
+        arr.type = reqType;
+        arr.data = {};
+        arr.data['index'] = index;
 		if(op=="open"){
-			arr['data']['op'] = 1;
+			arr.data['status'] = 1;
 		}
 		else if(op=="close"){
-			arr['data']['op'] = 0;
+			arr.data['status'] = 0;
 		}
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
+		$.ajax({
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(res){
 				Reply_Control(res);
-			},
-            'error' : function(){
-                hideLoad();
-                showMsg('网络错误');
-            }
+            },
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
         });
 		
     }
 	
+	/**
+     * 操作继电器 1 - 常开 0 - 常闭
+     */
 	function Reply_Control(res,noShowMsg){
-		hideLoad();
-		var control_type = res.data.control_type;
-		var index = res.data.index;
-		var op = res.data.op;
-		
-		var msg = 'Relay';
-		msg = msg + (index + 1) + ' ';
-		if (res.error_code == 0){
-			$(".relay[data-type=" + index + "]").unbind("click");
-			$(".relay[data-type=" + index + "]").toggleClass("op-control-closed");
-			$(".relay[data-type=" + index + "]").toggleClass("op-control-opened");
-			$(".relay[data-type=" + index + "]").bind("click",function(){
-				var index = $(this).data('type');
-				control(index,op==1?"close":"open");
-			});
-			msg = (msg + op==1?'打开':'关闭') + '成功';
-			if(!noShowMsg)showSuccessMsg(msg);
-		} else {
-			msg = (msg + op==1?'打开':'关闭') + '失败';
+		if(!noShowMsg)hideLoad();
+		if(typeof res.error_code != "undefined" && res.error_code!=0){
+			msg = '操作失败';
 			if(!noShowMsg)showMsg(msg);
+			return;
 		}
+
+		// var msg = index == 0 ? '1' : (index == 1 ? '2' : (index == 2 ? '3' : '4'));
+		for (var i=0;i<res.data.Relay.length;i++) {
+			//now is open
+			if(res.data.Relay[i]==1){
+				$(".op-control-closed[data-type=" + i + "]").unbind("click");
+				$(".op-control-closed[data-type=" + i + "]").toggleClass("op-control-opened");
+				$(".op-control-opened[data-type=" + i + "]").removeClass("op-control-closed");
+				$(".op-control-opened[data-type=" + i + "]").delegate($(this),'click', function(){
+					var index = $(this).data('type');
+					control_close_operator(index);
+				});
+			}else if(res.data.Relay[i]==0) {
+				$(".op-control-opened[data-type=" + i + "]").unbind("click");
+				$(".op-control-opened[data-type=" + i + "]").toggleClass("op-control-closed");
+				$(".op-control-closed[data-type=" + i + "]").removeClass("op-control-opened");
+				$(".op-control-closed[data-type=" + i + "]").delegate($(this), 'click', function () {
+					var index = $(this).data('type');
+					control_open_operator(index);
+				});
+			}
+		}
+		if(!noShowMsg)showSuccessMsg('操作成功');
 	}
 	
 	 /**
@@ -459,7 +553,7 @@ $(function(){
 	function motorOperator(type){
 		showLoad();
         var arr = {};
-		reqType="RayMotorStop";
+		var reqType="RayMotorStop";
 		switch(type){
 			case 0:
 				reqType="RayMotorCW";
@@ -471,160 +565,96 @@ $(function(){
 				reqType="RayMotorCCW";
 				break;
 		}
-        arr['type'] = reqType;
-        arr['data'] = {};
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-				hideLoad();
-                showMsg('操作成功');
-			},
-            'error' : function(){
-                hideLoad();
-                showMsg('网络错误');
-            }
-        });
-	}
-    /**
-     * 获取运行状态
-     */
-    function getStatus(){
-        var arr = {};
-        arr['type'] = 'GetStatus';
-        arr['data'] = {};
-
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-                Reply_GetStatus(res);
-            },
-            'error' : function(){
-                $('.s-status').text('网络错误');
-                console.log('获取运行状态网络错误');
-            }
-        });
-    }
-	function Reply_GetStatus(res){
-		if (res.error_code != 0){
-			$('.s-status').text(res.error_str);
-			runStatus=RS.Unknow;
-			return false;
-		}
-		replyGetStatusCount--;
-		if(runStatus!=RS.Normal){
-			runStatus=RS.Normal;
-			replyGetStatusCount=0;
-		}
-		
-		data=res.data;
-        //处理参数
-        var smstateMsg = '';
-        switch (data.sm_state) {
-            case 0:
-                smstateMsg = '运行中';
-				break;
-			case 1:
-			smstateMsg = '设备异常';
-                break;
-            default:
-                break;
-        }
-        $('.s-status').text(smstateMsg);                         //运行状态
-        $('.c-status').text(data.comm_state);                   //通信状态
-		
-        $('.t-degree').text(data.temperature/100 + " ℃");  //温度
-        $('.w-degree').text(data.humidity/100 + " %");                         //湿度
-        //$('.p-rate').text(data.power);                           //功率比
-		$('.r-degree').text(data['ray-value']);
-        $('.r-time').text(getTime(data.run_time));            //运行时间
-		
-    }
-   
-   /**
-	 *设置光强报警值
-	 */
-	function SetRayAlarmValue(value){
-		var arr = {};
-		arr['type'] = 'SetRayAlarmValue';
-        arr['data'] = {};
-		arr['data']['ray-value'] = value-0;
+		var arr={};
+		arr.type=reqType;
+		arr.data='';
 		$.ajax({
-			'url' : '/command',
-			'type' : 'post',
-			'dataType' : 'json',
-			'data' : JSON.stringify(arr),
-			'success' : function(res){
-				return Reply_SetRayAlarmValue(res);
-			},
-			'error' : function(){
-                showMsg('网络错误');
-				return -1;
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(res){
+				Reply_RayMotor(res);
+            },
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
 			}
-		});
-		
+        });
 	}
-	function Reply_SetRayAlarmValue(res){
+	
+	function Reply_RayMotor(res){
+		hideLoad();
+		var msg="";
+		if(res.error_code==0){
+			msg = msg + '操作成功';
+			showSuccessMsg(msg);
+		} else {
+			msg = '操作失败';
+			showMsg(msg);
+		}
+	}
+
+	/**
+	 *设置光强预警值
+	 */
+	function SetLightLuxAlarmValue(value){		
+		var reqType='SetLightLuxAlarmValue';
+		var arr={};
+		arr.type=reqType;
+		arr.data={};
+		arr.data['LightLuxAlarmValue']=parseInt(value);
+		$.ajax({
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(res){
+				//Reply_SetLightLuxAlarmValue(res);
+            },
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
+        });
+	}
+	function Reply_SetLightLuxAlarmValue(res){
 		var $rayinputRange = $('#rayAlarmValue');
-		var $rayinputRange = $('#rayAlarmValue');
-		$rayinputRange.val(res.data['ray-value']).change();
-		return res.data['ray-value'];
+		$rayinputRange.val(res.data.LightLuxAlarmValue).change();
+		return res.data.LightLuxAlarmValue;
 	}
 	
 	/**
-	 *设置灯Duty
+	 *设置灯亮度
 	 */
-	function SetLigthDuty (value){
-		var arr = {};
-		arr['type'] = 'SetLigthDuty';
-        arr['data'] = {};
-		arr['data']['duty'] = value-0;
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-				return Reply_SetLigthDuty(res);
+	function SetLightLuminance(value){
+		var reqType='SetLightLuminance';
+		var arr={};
+		arr.type=reqType;
+		arr.data={};
+		arr.data['LightLuminance']=parseInt(value);
+		$.ajax({
+             url: "/command",
+             type: "POST",
+				dataType:'json',
+             data:JSON.stringify(arr),
+            success: function(res){
+				//Reply_SetLightLuminance(res);
+				
             },
-            'error' : function(){
-                showMsg('网络错误');
-				return -1;
-            }
+			error:function(){
+				msg = '操作失败';
+				showMsg(msg);
+			}
         });
+        
 	}
-	function Reply_SetLigthDuty(res){
+	function Reply_SetLightLuminance(res){
 		var $lightinputRange = $('#lightDutyValue');
-		var $lightinputRange = $('#lightDutyValue');
-		$lightinputRange.val(res.data.duty).change();
-		return res.data.duty;
+		$lightinputRange.val(res.data.LightLuminance).change();
+		return res.data.LightLuminance;
 	}
-	/**
-	 *获取灯Duty
-	 */
-	function getLigthDuty(value){
-		var arr = {};
-		arr['type'] = 'GetLigthDuty';
-        arr['data'] = {};
-		arr['data']['duty'] = value;
-        $.ajax({
-            'url' : '/command',
-            'type' : 'post',
-            'dataType' : 'json',
-            'data' : JSON.stringify(arr),
-            'success' : function(res){
-				res.data.duty
-            },
-            'error' : function(){
-                showMsg('设置失败');
-            }
-        });
-	}
+
     /**
      * 密码验证
      */
@@ -649,10 +679,10 @@ $(function(){
      */
     function showMsg(text){
         $('.a-msg .clear_text').text(text);
-		$('.a-msg').fadeIn(200);
+        $('.a-msg').show();
         setTimeout(function(){
-			$('.a-msg').fadeOut(500);
-        }, operatorWaitTime);
+            $('.a-msg').hide()
+        }, 1500);
     }
 
     /**
@@ -669,23 +699,43 @@ $(function(){
         $('.a-load').hide();
     }
 
-	
-	
-	
-	
 	/**
-     * 选择部分配置是否可写，需要密码验证
-     */
-    $("#in_enginer").on('click', function(){
-        var status = $(this).data('status');
-        if (status == 0){
+	 * 背景遮蔽层
+	 */
+	function ShowShandowBg(){
+		$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
+		$('.en_dialog').fadeIn(100);
+	}
+
+	/**
+	 * 选择配置是否可写
+	 */
+	$("#writer_ch").on('click', function(){
+		if ($("#writer_ch").is(":checked")){
+			isEdit = true;
+			$(".peiz input").removeAttr("disabled");
+			$('.w-btn, .wifiscan-btn, .d-btn').show();
+		} else {
+			isEdit = false;
+			$(".peiz input:not(#writer_ch)").attr("disabled","disabled");
+			$('.w-btn, .wifiscan-btn, .d-btn').hide();
+
+		}
+	});
+
+	/**
+	 * 选择部分配置是否可写，需要密码验证
+	 */
+	$("#in_enginer").on('click', function(){
+		var status = $(this).data('status');
+		if (status == 0){
 			var windowHeight = $(window).height();
 			var windowWidth = $(window).width();
 			var popupHeight = $(".wifi_scan_ret_list").height();
 			var posiTop = (windowHeight - popupHeight)/2;
 			lastscrollHeight = $(document).scrollTop();
 			$(".en_diak.config_frame").css({'top':posiTop+lastscrollHeight});
-			
+
 			$('.en_diak.config_frame,.en_dialog').fadeIn(100);
 			ShowShandowBg();
 			var bwidth = $("body").width();
@@ -693,253 +743,294 @@ $(function(){
 			document.addEventListener('touchmove',bodyScroll,false);
 			bwidth = windowWidth-$(window).width();
 			if(bwidth!=0)$("body").css({'marginLeft':bwidth});
-            $(".p-password").focus();
-        } else {
-            $('.enginer .slider1').removeClass("intro");
-            $('.enginer .slider1 span').removeClass("infot");
+			$(".p-password").focus();
+		} else {
+			$('.enginer .slider1').removeClass("intro");
+			$('.enginer .slider1 span').removeClass("infot");
 
-            isProjectEdit = false;
-            $(".enginer input").attr("disabled", 'disabled');
-            $('.p-btn').hide();
+			isProjectEdit = false;
+			$(".enginer input").attr("disabled", 'disabled');
+			$('.p-btn').hide();
 
-            $('#in_enginer').data('status', 0);
-        }
-    });
+			$('#in_enginer').data('status', 0);
+		}
+	});
 
-    /**
-     * 确定密码验证
-     */
-    $('.en_confirm').on('click', function(){
-        var password = $('.p-password').val();
+	/**
+	 * 确定密码验证
+	 */
+	$('.en_confirm').on('click', function(){
+		var password = $('.p-password').val();
 
-        if (password == ''){
-            showMsg('请输入密码');
-            return false;
-        }
-
-        var res = verify_password(password);
-        if (res){
-            showSuccessMsg('验证成功');
-
-            $(".en_diak.config_frame,.en_dialog").fadeOut();
-            $(".p-password").val("");
-            $('.enginer .slider1').addClass("intro");
-            $('.enginer .slider1 span').addClass("infot");
-
-            isProjectEdit = true;
-            $(".enginer input").removeAttr("disabled");
-            $('.p-btn').show();
-
-            $('#in_enginer').data('status', 1);
-        } else {
-            showMsg('密码错误，请重新输入');
-        }
-    });
-
-    /**
-     * 取消密码验证
-     */
-    $('.en_cancel').on('click', function(){
-        $('.p-password').val('');
-		$('.en_dialog').click();
-    });
-
-
-    /**
-     * speed方案下拉
-     */
-    $(".plan_btn").click(function(){
-        if (!isEdit){
-            return false;
-        }
-        var status = $(this).data('status');
-        if (status == 0){
-            $(".plan_ul").slideDown();
-        } else {
-            $(".plan_ul").slideUp();
-        }
-        status = status == 1 ? 0 : 1;
-        $(this).data('status', status);
-    });
-
-    /**
-     * 监听speed方案
-     */
-    $('.speed').on('click', function(){
-        var index = $(this).data('index');
-        $(this).addClass('active').siblings().removeClass('active');
-        $('.plan_btn span').text($(this).text());
-        $(".plan_ul").slideUp();
-        selectSpeedTemplate(index);
-    });
-
-	
-	
-   /**
-     * wifi连接密码输入，确认
-     */
-    $('.wifi_pwd_put-btn').on('click', function(){
-        var password = $('.wifi_pwd_input_text').val();
-        if (password == ''){
-			
-        }else if(password.length<8){
-            showMsg('请输入密码(至少八位)');
+		if (password == ''){
+			showMsg('请输入密码');
 			return false;
 		}
-		WiFiConnect(choice_ssid,password);
-		document.body.removeEventListener('touchmove',bodyScroll,false);   
-		$('.en_dialog').click();
-    });
 
-    /**
-     * wifi密码输入，取消
-     */
-    $('.wifi_pwd_cancel-btn').on('click', function(){
-        $('.wifi_pwd_input_text').val('');
-		$(".en_diak.wifi_pwd_input_fram").fadeOut(50);
-		$('.wifi_scan_ret_list').fadeIn(100);
-    });
-	function ShowShandowBg(){
-		$(".en_dialog")[0].style.height =  document.body.scrollHeight+"px";
-    	$('.en_dialog').fadeIn(100);
-	}
+		var res = verify_password(password);
+		if (res){
+			showSuccessMsg('验证成功');
+
+			$(".en_diak.config_frame,.en_dialog").fadeOut();
+			$(".p-password").val("");
+			$('.enginer .slider1').addClass("intro");
+			$('.enginer .slider1 span').addClass("infot");
+
+			isProjectEdit = true;
+			$(".enginer input").removeAttr("disabled");
+			$('.p-btn').show();
+
+			$('#in_enginer').data('status', 1);
+		} else {
+			showMsg('密码错误，请重新输入');
+		}
+	});
+
+	/**
+	 * 取消密码验证
+	 */
+	$('.en_cancel').on('click', function(){
+		$('.p-password').val('');
+		$('.en_dialog').click();
+	});
+
+
+	/**
+	 * speed方案下拉
+	 */
+	$(".plan_btn").click(function(){
+		if (!isEdit){
+			return false;
+		}
+		var status = $(this).data('status');
+		if (status == 0){
+			$(".plan_ul").slideDown();
+		} else {
+			$(".plan_ul").slideUp();
+		}
+		status = status == 1 ? 0 : 1;
+		$(this).data('status', status);
+	});
+
+	/**
+	 * 监听speed方案
+	 */
+	$('.speed').on('click', function(){
+		var index = $(this).data('index');
+		$(this).addClass('active').siblings().removeClass('active');
+		$('.plan_btn span').text($(this).text());
+		$(".plan_ul").slideUp();
+		//handle  index
+	});
+
 	/**
 	 * 点击弹窗外的区域(遮蔽层)
 	 */
-    $('.en_dialog').on('click', function(){
+	$('.en_dialog').on('click', function(){
 		document.body.removeEventListener('touchmove',bodyScroll,false);
 		$("body").css({"position":"initial","height":"auto",'marginLeft':0});
 		document.body.style.overflow='';
 		document.documentElement.scrollTop = lastscrollHeight;
 		$('.en_diak,.wifi_scan_ret_list,.en_dialog').fadeOut(50);
-    });
-	 
+	});
 
-    /**
-     * 配置显示隐藏
-     */
-    $(".deploy_title").click(function(){
-       if(initOver){
-		$body.animate({scrollTop: $('.deploy_title').offset().top}, 500);
-	   }
-		   
-       $(this).siblings(".deploy_con").slideToggle("slow");
-       $(this).find(".dep_t_icon").toggleClass("depi_act");
-    });
 	/**
-     * 选择配置是否可写
-     */
-    $("#writer_ch").on('click', function(){
-        if ($("#writer_ch").is(":checked")){
-            isEdit = false;
-            $(".peiz input:not(#writer_ch)").attr("disabled","disabled");
-            $('.w-btn, .d-btn').hide();
-            $('.wifiscan-btn').hide();
-        } else {
-            isEdit = true;
-            $(".peiz input").removeAttr("disabled");
-            $('.w-btn, .d-btn').show();
-            $('.wifiscan-btn').show();
-        }
-    });
+	 * 保存配置
+	 */
+	$('.d-btn').on('click', function(){
+		setDoorConfig();
+	});
+
 	/**
-     * 点击Relay操作
-     */
-    $('.op-control-closed').on('click', function(){		
+	 * 保存配置
+	 */
+	$('.p-btn').on('click', function(){
+		setDoorConfig();
+	});
+
+	/**
+	 * 配置显示隐藏
+	 */
+	$(".deploy_title").click(function(){
+		$(this).siblings(".deploy_con").slideToggle("slow");
+		$(this).find(".dep_t_icon").toggleClass("depi_act");
+	});
+
+	///////////////////点击触发ajax事件
+	/**
+	 * 点击Relay操作
+	 */
+	$('.op-control-closed').on('click', function(){
+		var index = $(this).data('type');
+		control_open_operator(index);
+	});
+	$('.op-control-opened').on('click', function(){
+		var index = $(this).data('type');
+		control_close_operator(index);
+	});
+
+	function control_open_operator(index){
+		if(runStatus==RS.Error){
+
+			showMsg('无法连接设备');
+			return;
+		}
 		if(operatorLock){
 			console.log("to fast.");
 			return;
 		}
 		operatorLock=true;
-        console.log("click op-control-closed");
-        var type = $(this).data('type');
-        control(type,"open");
+		control(index,"open");
 		setTimeout(function(){
 			operatorLock=false;
 		},operatorWaitTime);
-    });
-    $('.op-control-opened').on('click', function(){
+	};
+	function control_close_operator(index){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
 		if(operatorLock){
 			console.log("to fast.");
 			return;
 		}
 		operatorLock=true;
-        console.log("click op-control-opened");
-        var type = $(this).data('type');
-        control(type,"close");
+		control(index,"close");
 		setTimeout(function(){
 			operatorLock=false;
 		},operatorWaitTime);
-    });
-	
+	};
+
 	/**
-     * 点击Motor操作
-     */
-    $('.op-motor').on('click', function(){
+	 * 点击Motor操作
+	 */
+	$('.op-motor').on('click', function(){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
 		if(operatorLock){
 			console.log("to fast.");
 			return;
 		}
 		operatorLock=true;
-        var type = $(this).data('type');
-        motorOperator(type);
+		var type = $(this).data('type');
+		motorOperator(type);
 		setTimeout(function(){
 			operatorLock=false;
 		},operatorWaitTime);
-    });
-	
+	});
 
-    /**
-     * 切换工作模式
-     */
-    $('.mode').on('click', function(){
-        if (!isEdit){
-            return false;
-        }
-        var work_mode = $(this).find('span').data('work_mode');
-        $('.mode .r01').removeClass('active');
-        $(this).find('span').addClass('active');
-        $('.w-mode').val(work_mode);
-    });
-    /**
-     * 保存安全配置
-     */
-    $('.s-btn').on('click', function(){
-        setSafeConfig();
-    });
+	/**
+	 * 保存无线配置
+	 */
+	$('.w-btn').on('click', function(){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
+		setWiFiApConfig();
+	});
 
-    /**
-     * 保存无线配置
-     */
-    $('.w-btn').on('click', function(){
-        setWiFiConfig();
-    });
-	
-    /**
-     * 扫描wifi
-     */
-    $('.wifiscan-btn').on('click', function(){
-        startScanfWiFi();
-    });
-    /**
-     * 保存配置
-     */
-    $('.d-btn').on('click', function(){
-        setDoorConfig();
-    });
+	/**
+	 * 扫描wifi
+	 */
+	$('.wifiscan-btn').on('click', function(){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
+		$('.w-progress').show();
+		startScanfWiFi();
+	});
 
-    /**
-     * 保存配置
-     */
-    $('.p-btn').on('click', function(){
-        setDoorConfig();
-    });
-	
+	$('.a-wifi').on('click',function () {
+		alert('dds');
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
+		$('.w-progress').show();
+		startScanfWiFi();
+	});
+	/**
+	 * 选择要连接的WiFi ssid（旧列表弹出框）
+	 */
+	$(".wifi-infro-item").click(function(){
+		choice_ssid= $(this).find(".wifi-infro-ssid").html();
+		console.log("wifi-infro-item choose_name : "+choice_ssid);
+		var windowHeight = $(window).height();
+		var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+		var posiTop = (windowHeight - popupHeight)/2;
+		lastscrollHeight = $(document).scrollTop();
+		$('.wifi_scan_ret_list').fadeOut();
+		$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+		$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
+		$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
+		$(".wifi_pwd_input_text").focus();
+	});
+
+	/**
+	 * 选择要连接的WiFi ssid
+	 */
+	$(document).on('click', '.s-wifi', function(){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
+		ShowShandowBg();
+		document.body.style.overflow='hidden';
+		document.addEventListener('touchmove',bodyScroll,false);
+		$("body").css({'marginLeft':windowWidth-$(window).width()});
+
+		var windowWidth = $(window).width();
+		choice_ssid = $(this).data('ssid');
+		console.log("wifi-infro-item choose_name : "+choice_ssid);
+		var windowHeight = $(window).height();
+		var popupHeight = $(".en_diak.wifi_pwd_input_fram").height();
+		var posiTop = (windowHeight - popupHeight)/2;
+		lastscrollHeight = $(document).scrollTop();
+		$('.wifi_scan_ret_list').fadeOut();
+		$(".en_diak.wifi_pwd_input_fram").css({'top':posiTop+lastscrollHeight});
+		$(".en_diak.wifi_pwd_input_fram").fadeIn(100);
+		$(".endi_title.wifi_pwd_input_frame_title").html(choice_ssid+"密码");
+
+		return;
+	});
+
+	/**
+	 * wifi连接密码输入，确认选项
+	 */
+	$('.wifi_pwd_put-btn').on('click', function(){
+		if(runStatus==RS.Error){
+			showMsg('无法连接设备');
+			return;
+		}
+		var password = $('.wifi_pwd_input_text').val();
+		if (password == ''){
+
+		}else if(password.length<8){
+			showMsg('请输入密码(至少八位)');
+			return false;
+		}
+		WiFiConnect(choice_ssid,password);
+		document.body.removeEventListener('touchmove',bodyScroll,false);
+		$('.en_dialog').click();
+	});
+
+	/**
+	 * wifi密码输入，取消选项
+	 */
+	$('.wifi_pwd_cancel-btn').on('click', function(){
+		$(".en_diak.wifi_pwd_input_fram").fadeOut(50);
+		$('.en_dialog').click();
+	});
+
     /**
      * 时间戳转
      */
     function getTime(t){
-        h = Math.floor(t / (60 * 60)) > 10 ? Math.floor(t / (60 * 60)) : '0' + Math.floor(t / (60 * 60));
+		h = Math.floor(t / (60 * 60)) > 10 ? Math.floor(t / (60 * 60)) : '0' + Math.floor(t / (60 * 60));
         m = Math.floor((t - h * 60 * 60) / 60) > 10 ? Math.floor((t - h * 60 * 60) / 60) : '0' + Math.floor((t - h * 60 * 60) / 60);
         s = (t - h * 60 * 60) - (m * 60) > 10 ? (t - h * 60 * 60) - (m * 60) : '0' + (t - h * 60 * 60) - (m * 60);
         return h + ':' + m + ':' + s;
@@ -961,13 +1052,14 @@ $(function(){
         }
         // Update value output
         $document.on('input', selector, function(e) {
+			if(!initOver)return;
 			if($(this).attr('id')=="lightDutyValue"){
 				var value=valueOutput(e.target);
 				lightDutyTouchValue=value;
 				if(lightDutyIsWriting==0){			
 					lightDutyIsWriting=1;
 					var $inputRange = $('#lightDutyValue', e.target.parentNode);					
-					var ret=SetLigthDuty(lightDutyTouchValue);
+					var ret=SetLightLuminance(lightDutyTouchValue);
 					if(ret==-1){
 						//failed							
 					}else{
@@ -985,7 +1077,7 @@ $(function(){
 				if(rayIsWriting==0){			
 					rayIsWriting=1;
 					var $inputRange = $('#rayAlarmValue', e.target.parentNode);					
-					var ret=SetRayAlarmValue(rayTouchValue);
+					var ret=SetLightLuxAlarmValue(rayTouchValue);
 					if(ret==-1){
 						//failed							
 					}else{
@@ -1008,7 +1100,26 @@ $(function(){
 
 
     });
-
+	
+	/**
+	 *格式化时间，便于调试
+	 */ 
+	Date.prototype.Format = function (fmt) { //author: meizz 
+		var o = {
+			"M+": this.getMonth() + 1, //月份 
+			"d+": this.getDate(), //日 
+			"h+": this.getHours(), //小时 
+			"m+": this.getMinutes(), //分 
+			"s+": this.getSeconds(), //秒 
+			"q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+			"S": this.getMilliseconds() //毫秒 
+		};
+		if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+		for (var k in o)
+			if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[
+				k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+		return fmt;
+	}	
 
 
 });

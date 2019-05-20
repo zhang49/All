@@ -15,7 +15,7 @@ extern int comm_positive;
 void 	ICACHE_FLASH_ATTR comm_wifi_connect_default_ap_api();
 int 	ICACHE_FLASH_ATTR comm_wifi_connect_ap_check_api();
 int 	ICACHE_FLASH_ATTR comm_wifi_start_connect_ap_api(char *ssid,char *password);
-int 	ICACHE_FLASH_ATTR comm_wifi_config_write_api(cJSON *root_data);
+int 	ICACHE_FLASH_ATTR comm_wifi_ap_config_write_api(cJSON *root_data);
 cJSON * ICACHE_FLASH_ATTR comm_wifi_config_read_api();
 cJSON *	ICACHE_FLASH_ATTR comm_wifi_scan_api();
 int 	ICACHE_FLASH_ATTR comm_wifi_scan_start_api();

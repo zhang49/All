@@ -16,8 +16,8 @@
 
 #define DEFAULT_AP_SSID "Esp8266-"DEVICE_NAME
 #define DEFAULT_AP_PWD ""
-#define DEFAULT_STA_SSID "Ares"
-#define DEFAULT_STA_PWD "460204415"
+#define DEFAULT_STA_SSID "H3C"
+#define DEFAULT_STA_PWD "12345678"
 
 /*
  * this is mqtt by personal

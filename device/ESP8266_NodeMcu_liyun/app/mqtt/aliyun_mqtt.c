@@ -15,7 +15,7 @@
 #include "md5.h"
 
 /****************************************************************/
-#define DEBUG	1
+#define DEBUG_CLOSE
 
 #ifdef DEBUG
 #define debug(fmt, args...) os_printf(fmt, ##args)

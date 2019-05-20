@@ -12,6 +12,7 @@ typedef struct {
 	uint8 ray_value;	//[0,100]
 	int temp;
 	int hum;
+	int soil_hum;
 }SensorUnio;
 
 typedef enum{

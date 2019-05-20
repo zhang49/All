@@ -271,8 +271,8 @@ cJSON *ICACHE_FLASH_ATTR comm_wifi_scan_api(){
 		//create json
 		cJSON *data,*array,*item;
 		cJSON *retroot=cJSON_CreateObject();
-		cJSON_AddNumberToObject(retroot,"ap_count",wifi_status.scan_result.ap_count);
-		cJSON_AddItemToObject(retroot, "ap", array = cJSON_CreateArray());
+		cJSON_AddNumberToObject(retroot,"ApCount",wifi_status.scan_result.ap_count);
+		cJSON_AddItemToObject(retroot, "ApInfo", array = cJSON_CreateArray());
 		/*
 		//check max count on query string
 		char *query=http_url_get_query_param(c,"max");
@@ -342,39 +342,35 @@ cJSON * ICACHE_FLASH_ATTR comm_wifi_config_read_api(){
 	if(ipConfig.ip.addr != 0){
 		char *ip_str = ipaddr_ntoa(&ipConfig.ip);
 		cJSON_AddStringToObject(retroot,"StationIp",ip_str);
+		wifi_station_set_config_current(&sta_config);
+		cJSON_AddStringToObject(retroot,"ConnectSSID",sta_config.ssid);
+	}else{
+		cJSON_AddStringToObject(retroot,"StationIp","");
+		cJSON_AddStringToObject(retroot,"ConnectSSID","");
 	}
 	return retroot;
 }
 
-int ICACHE_FLASH_ATTR comm_wifi_config_write_api(cJSON *root_data){
-	int work_mode=cJSON_GetObjectItem(root_data,"work_mode")->valueint;
-	//set station+ap mode for test
-	work_mode=0x03;
-	wifi_set_opmode(work_mode);
+int ICACHE_FLASH_ATTR comm_wifi_ap_config_write_api(cJSON *root_data){
 	cJSON *json_ap_ssid=cJSON_GetObjectItem(root_data,"wifi_ap_ssid");
-	cJSON *json_sta_ssid=cJSON_GetObjectItem(root_data,"wifi_station_ssid");
-	if(json_sta_ssid!=NULL){
-		/*
-			struct station_config sta_config;
-			os_strcpy(sta_config.bssid,json_ap_ssid->valuestring);
-			os_strcpy(sta_config.password,cJSON_GetObjectItem(root_data,"wifi_station_pwd")->valuestring);
-			wifi_station_set_config(&sta_config);
-		*/
-	}
 	if(json_ap_ssid!=NULL){
 		struct softap_config config;
 		wifi_softap_get_config(&config);
-		os_strcpy(config.ssid,json_ap_ssid->valuestring);
 		os_memset(config.password,0,64);
-		os_strcpy(config.password,cJSON_GetObjectItem(root_data,"wifi_ap_pwd")->valuestring);
+		os_strcpy(config.ssid,json_ap_ssid->valuestring);
+		cJSON *pwd_json;
+		if((pwd_json = cJSON_GetObjectItem(root_data,"wifi_ap_pwd"))!=NULL){
+			os_strcpy(config.password,pwd_json->valuestring);
+		}
 		config.ssid_len=strlen(json_ap_ssid->valuestring);
 		config.channel=11;
 		config.authmode=AUTH_OPEN;
 		config.max_connection=5;
 		config.ssid_hidden=0;
 		wifi_softap_set_config(&config);
+		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 int ICACHE_FLASH_ATTR comm_wifi_start_connect_ap_api(char *ssid,char *password){

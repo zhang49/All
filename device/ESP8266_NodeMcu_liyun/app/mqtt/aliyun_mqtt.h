@@ -33,8 +33,10 @@
 
 //Aliyun Iot topic
 #define BASE_TOPIC "/" PRODUCT_KEY "/" DEVICE_NAME
-#define REQ_TOPIC BASE_TOPIC "/user/req_dev"
-#define RES_TOPIC BASE_TOPIC "/user/res_dev"
+#define SUB_TOPIC BASE_TOPIC "/user/app/request"
+#define SUB_RRPC_TOPIC "/sys" BASE_TOPIC "/rrpc/request/+"
+
+#define PUB_TOPIC BASE_TOPIC "/user/wrieless/upload"
 
 #define DEVICE_PROPERTY_TOPIC "/sys" BASE_TOPIC "/thing/event/property/post"
 #define WIFI_SCAN_TOPIC "/sys" BASE_TOPIC "/thing/event/WiFiScan/post"

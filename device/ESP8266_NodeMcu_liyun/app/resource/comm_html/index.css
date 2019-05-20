@@ -80,7 +80,7 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 
 .motorCtl_btn{padding: 0.35rem 0.05rem 0.05rem 0.4rem;padding-right:0.5rem}
 
-.motorCtl_btn ul li{height:20px;line-height: 20px;border-radius:20px;box-shadow:0px 0px 10px #3366CC;text-align:center;color:#fff;background:#336699;}
+.motorCtl_btn ul li{width:150px;height:20px;line-height: 20px;border-radius:20px;box-shadow:0px 0px 10px #3366CC;text-align:center;color:#fff;background:#336699;}
 .motorCtl_btn ul li:hover{cursor:pointer;}
 /*-------------选择方案----------------*/
 .plan{padding:0.15rem 0.25rem 0.15rem 0.75rem;border-bottom: 2px solid #f8f8f8;font-size:0.3rem;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: space-between;justify-content: space-between;}
@@ -107,10 +107,32 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 .dt_input_btn button{padding: 0.15rem 0.3rem;border: none;background: #fff;width:49%;font-size: 0.28rem;}
 .pda{margin-bottom:0.3rem;}
 /*---------------WIFI配置----------------*/
+.deploy_wifi{background: #E5E5E5;margin: 0.5rem 0.3rem;color: #404040;}
+.wit{padding-bottom:0;}
+.dewf{padding:0.22rem 0.1rem;border-bottom:1px dashed #404040;display: -webkit-box;display: -webkit-flex;display: flex;}
+.dewf_title{font-weight: bold;padding-bottom: 0.3rem;}
+.dewf .s-wifi {cursor: pointer}
+.dewf .a-wifi {cursor: pointer}
+.dewf .o-wifi {cursor: pointer}
+.dewf .c-wifi {cursor: pointer}
+.dewf .d-wifi {cursor: pointer}
+.dewf .dewf_name{width:40%;}
+.dewf .dewf_status{width:40%;text-align:center;}
+.dewf .dewf_sign{width:20%;text-align:center;}
+.deploy_wifi .dewf_s{width:100%;background-color: #404040;color:#fff;padding:0.22rem 0;text-align:center;margin-top:0.35rem;}
+.dewf_s:hover{cursor:pointer}
+.deploy_bar p{font-size:0.28rem;}
+.deploy_bar{background: #E5E5E5;margin: 0.5rem 0.3rem;color: #404040;padding: .1rem}
+.stat_title{font-size:0.3rem;font-weight:bold;border-bottom:1px solid #404040;margin: 0.1rem 0 0.2rem;padding-bottom: 0.3rem;}
+.n-fount {padding-top: .25rem;font-size: .35rem;font-weight: bold}
+.scan_statu{background: #E5E5E5;margin: 0.3rem 0.3rem 0.2rem;color: #404040;padding: .1rem}
+.statu_con .statu_list{padding:0.2rem 0;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: space-between;justify-content: space-between;}
+
 .d_c_m{display: -webkit-box;display: -webkit-flex;display: flex;-webkit-justify-content: flex-start;justify-content: flex-start;}
 .d_c_m{margin-bottom: 0.3rem;}
 .deploy_con_m{padding: 0.3rem 0.2rem 0 0;border-bottom: 2px solid #f8f8f8;margin-left: 0.75rem;}
 .d_c_m input{flex:1;border: none;font-size: 0.28rem;}
+
 /*---------------配置----------------*/
 .deploy{padding:0.3rem 0 0.3rem 0;font-size:0.28rem;border-bottom: 2px solid #f8f8f8;}
 .deploy_title{padding: 0 0.25rem 0 0.25rem;font-size:0.3rem;}
@@ -181,9 +203,6 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
 }
 
 /*---------------MotorCtl_Btn border-radius兼容-----------------*/
-@media screen and (min-width:0px) and (max-width:450px){
-    .motorCtl_btn ul li{width:73px;height:38px;line-height:38px;}
-}
 @media screen and (min-width:400px) and (max-width:450px){
     .motorCtl_btn ul li{width:73px;height:38px;line-height:38px;}
 }
@@ -238,6 +257,47 @@ body{margin: 0 auto;min-width: 320px;font-family:"Microsoft YaHei";}
       }
 }
 
+/*----------------进度条------------------*/
+.progress-bar {height:25px;width:100%;box-sizing:border-box;margin: 0.4rem 0 0;}
+.progress-bar span {display:inline-block;height:100%;background-color:#AAAAAA;
+    -moz-box-shadow:0 0 10px rgba(170,170,170,.5);
+    -webkit-box-shadow:0 0 10px rgba(170,170,170,.5);
+    box-shadow:0 0 10px rgba(170,170,170,.5);
+    -webkit-transition:width .4s ease-in-out;
+    -moz-transition:width .4s ease-in-out;
+    -ms-transition:width .4s ease-in-out;
+    -o-transition:width .4s ease-in-out;
+    transition:width .4s ease-in-out;
+}
+.stripes span {
+    -webkit-background-size:30px 30px;
+    -moz-background-size:30px 30px;
+    background-size:30px 30px;
+    background-image:-webkit-gradient(linear,left top,right bottom,color-stop(.25,rgba(255,255,255,.32)),color-stop(.25,transparent),color-stop(.5,transparent),color-stop(.5,rgba(255,255,255,.32)),color-stop(.75,rgba(255,255,255,.32)),color-stop(.75,transparent),to(transparent));
+    background-image:-webkit-linear-gradient(135deg,rgba(255,255,255,.32) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.32) 50%,rgba(255,255,255,.32) 75%,transparent 75%,transparent);
+    background-image:-moz-linear-gradient(135deg,rgba(255,255,255,.32) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.32) 50%,rgba(255,255,255,.32) 75%,transparent 75%,transparent);
+    background-image:-ms-linear-gradient(135deg,rgba(255,255,255,.32) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.32) 50%,rgba(255,255,255,.32) 75%,transparent 75%,transparent);
+    background-image:-o-linear-gradient(135deg,rgba(255,255,255,.32) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.32) 50%,rgba(255,255,255,.32) 75%,transparent 75%,transparent);
+    background-image:linear-gradient(135deg,rgba(255,255,255,.32) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.32) 50%,rgba(255,255,255,.32) 75%,transparent 75%,transparent);
+    -webkit-animation:animate-stripes 3s linear infinite;
+    -moz-animation:animate-stripes 3s linear infinite;
+}
+@-webkit-keyframes animate-stripes {
+    0% {
+        background-position:0 0;
+    }
+    100% {
+        background-position:60px 0;
+    }
+}
+@-moz-keyframes animate-stripes {
+    0% {
+        background-position:0 0;
+    }
+    100% {
+        background-position:60px 0;
+    }
+}
 @font-face {font-family: "iconfont";
   src: url('./iconfont.eot?t=1552379166712'); /* IE9 */
   src: url('./iconfont.eot?t=1552379166712#iefix') format('embedded-opentype'), /* IE6-IE8 */

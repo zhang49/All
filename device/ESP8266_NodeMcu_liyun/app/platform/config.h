@@ -7,7 +7,7 @@
 #define CONFIG_SECTOR (FLASH_SEC_NUM - 6) //last sector
 #define CONFIG_ADDRESS (INTERNAL_FLASH_START_ADDRESS+CONFIG_SECTOR*SPI_FLASH_SEC_SIZE)
 
-#define CONFIG_MAGIC 0x66666663
+#define CONFIG_MAGIC 0x66666666
 
 
 
@@ -26,8 +26,8 @@ typedef struct {
 	uint32_t magic;//for remark
 	uint32_t fill_4byte;//for remark
 	uint8_t fillbyte[2];
-	uint8_t light_duty;
-	uint8_t alarm_ray_value;
+	uint8_t LightLuminance;
+	uint8_t LightLuxAlarmValue;
 } config_data;
 
 void config_save(config_data * data);

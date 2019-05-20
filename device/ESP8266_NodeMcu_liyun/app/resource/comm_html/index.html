@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
     <title>控制台</title>
     <link rel="stylesheet" type="text/css" href="./index.css">
@@ -100,10 +101,10 @@
             </div>
             <div class="side_btn">
                 <ul>
-                    <li class="op-control-closed left relay" data-type="0">Rely1</li>
-                    <li class="op-control-closed relay" data-type="1">Rely2</li>
-                    <li class="op-control-closed relay" data-type="2">Rely3</li>
-                    <li class="op-control-closed relay" data-type="3">Rely4</li>
+                    <li class="op-control-closed left" data-type="0">Rely1</li>
+                    <li class="op-control-closed" data-type="1">Rely2</li>
+                    <li class="op-control-closed" data-type="2">Rely3</li>
+                    <li class="op-control-closed" data-type="3">Rely4</li>
                 </ul>
             </div>
 			</br>
@@ -124,7 +125,7 @@
 			</div>
 			<section style="margin-top:30px;margin-bottom:30px">
 			<div class="rayAlarmValueCt">
-			   <input id="rayAlarmValue" type="range" min="0" max="100" value="1" data-rangeslider>
+			   <input id="rayAlarmValue" type="range" min="0" max="100" value="1" data-rangeslider />
 			</div>
 			</section>
 			<div class="side_c">
@@ -148,7 +149,7 @@
                 <div class="deploy_title">
                     <div class="wr_tit">
                         <i class="iconfont">&#xe619;</i>
-                        <span>锁定配置</span>
+                        <span>配置可写</span>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="writer_ch">
@@ -201,16 +202,8 @@
                         <input type="hidden" value="1" class="w-mode">
                         <div class="i01_l">
                             <i class="iconfont">&#xe6cf;</i>
-                            <span>工作模式</span>
-                        </div>
-                        <div class="i02_r">
-                            <div class="i02_r01 mode">
-                                <span class="r01 active" data-work_mode="1"></span>本地
-                            </div>
-                            <div class="i02_r02 mode">
-                                <span class="r01" data-work_mode="0"></span>云端
-                            </div>
-                            <div class="clearfix"></div>
+                            <span>连接上的WiFi名称：</span>
+							  <span id='con-s-ssid'>SSID</span>
                         </div>
                     </div>
                     <div class="deploy_con_m">
@@ -233,7 +226,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="deploy_con_m">
+                   <!-- <div class="deploy_con_m">
                         <div class="d_c_m">
                             <div>
                                 <i class="iconfont">&#xe605;</i>
@@ -253,6 +246,42 @@
                             </div>
                         </div>
                     </div>
+					-->
+					<!-- 选项 -->
+                    <div class="deploy_wifi w-list">
+                    </div>
+					<!-- 进度条 -->
+                    <div class="deploy_bar w-progress" style="display: none;">
+                        <p>等待扫描wifi网络...</p>
+                        <div class="progress-bar stripes">
+                            <span style="width: 80%"></span>
+                        </div>
+                    </div>
+
+                    <!-- 扫描后状态 -->
+                    <div class="scan_statu w-status" style="display: none;">
+                        <!--<p class="stat_title">网络状态  >></p>-->
+                        <div class="statu_con">
+                            <!-- <div class="statu_list">
+                                 <p>状态</p>
+                                 <p id="status-status">Ap Not Found</p>
+                             </div>-->
+                            <div class="statu_list">
+                                <p>wifi</p>
+                                <p id="status-ssid">Ares</p>
+                            </div>
+                            <!--<div class="statu_list">
+                                <p>IP</p>
+                                <p id="status-ip"></p>
+                            </div>
+                            <div class="statu_list">
+                                <p>Internet?</p>
+                                <p id="status-internet'"></p>
+                            </div>-->
+                            <div class="dewf_s a-wifi">重新扫描</div>
+                        </div>
+                    </div>
+					
                     <div class="ds">
                         <div class="deploy_save wifiscan-btn">扫描</div>
                     </div>
@@ -296,17 +325,11 @@
                         </div>
                         <div class="plan_sel">
                             <div class="plan_btn" data-status="0">
-                                <span>不使用</span>
+                                <span>test</span>
                                 <i class="iconfont">&#xe671;</i>
                             </div>
                             <ul class="plan_ul" style="display: none;">
-                                <li class="speed" data-index="-1">不使用</li>
-                                <li class="speed" data-index="0">10kg以内</li>
-                                <li class="speed" data-index="1">15kg - 35kg</li>
-                                <li class="speed" data-index="2">40kg - 60kg</li>
-                                <li class="speed" data-index="3">65kg - 85kg</li>
-                                <li class="speed" data-index="4">90kg - 110kg</li>
-                                <li class="speed" data-index="5">115kg - 125kg</li>
+                                <li class="speed" data-index="-1">Undefine</li>
                             </ul>
                         </div>
                     </div>

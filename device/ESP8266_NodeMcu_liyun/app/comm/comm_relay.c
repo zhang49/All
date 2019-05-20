@@ -70,7 +70,9 @@ void ICACHE_FLASH_ATTR comm_relay_status_set_inner_api(u8 mac_index,u8 status){
 int ICACHE_FLASH_ATTR comm_relay_status_get_api(int index){
 	return relay[index].status;
 }
-
+void ICACHE_FLASH_ATTR comm_relay_status_set_api(int index,int status){
+	relay[index].status=status;
+}
 
 int ICACHE_FLASH_ATTR comm_relay_refresh_status_get(int index){
 	return relay[index].refreshStatus;

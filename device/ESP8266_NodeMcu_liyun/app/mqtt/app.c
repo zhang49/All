@@ -32,19 +32,8 @@ typedef struct mqtt_relay{
 
 mqtt_relay relays[RELAY_COUNT];
 
-typedef struct{
-	char *sub_topic;
-	uint8 sub_qos;
-	char *pub_topic;
-	uint8 pub_qos;
-}mqtt_topic_pair;
-
-static mqtt_topic_pair topics_pair[]={
-		//
-		{REQ_TOPIC,			0, 		RES_TOPIC,		0},
-		{REQ_TOPIC,			0, 		WIFI_SCAN_TOPIC,		0},
-		{REQ_TOPIC,			0, 		WIFI_CONNECT_TOPIC,		0},
-		{NULL,				0,		NULL,				0}
+static char *ali_sub_topics[]={
+		SUB_TOPIC,SUB_RRPC_TOPIC,NULL
 };
 
 typedef void(*mqtt_topic_callback)(MQTT_Client *client);
@@ -82,8 +71,9 @@ static void mqttConnectedCb(uint32_t *args)
 	MQTT_Client* client = (MQTT_Client*)args;
 	MQTT_DBG("MQTT: Connected");
 	int i;
-	for(i=0;topics_pair[i].sub_topic!=NULL;i++){
-		MQTT_Subscribe(client, topics_pair[i].sub_topic, topics_pair[i].sub_qos);
+	for(i=0;ali_sub_topics[i]!=NULL;i++){
+		MQTT_Subscribe(client, ali_sub_topics[i],0);
+		os_printf("sub:%s\r\n",ali_sub_topics[i]);
 	}
 	char data[]="Wireless Connected.";
 	MQTT_DBG("MQTT: Publish:%s,length:%d",data,os_strlen(data));
@@ -115,17 +105,27 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 	os_memcpy(dataBuf, data, data_len);
 	dataBuf[data_len] = 0;
 
-	MQTT_DBG("Receive topic: %s, data: %s ", topicBuf, dataBuf);
+	//MQTT_DBG("Receive topic: %s, data: %s ", topicBuf, dataBuf);
+	os_printf("Receive topic: %s, data: %s\r\n", topicBuf, dataBuf);
+
+	//undecision
 	os_free(topicBuf);
 	os_free(dataBuf);
-	//undecision
-	
+
 	int i;
-	for(i=0;topics_pair[i].sub_topic!=NULL;i++){
-		mqtt_topic_pair *md = &topics_pair[i];
-		//compare topic
-		if(os_strncmp(topic,md->sub_topic,strlen(md->sub_topic))==0){
-			mqtt_operator_api(data,data_len,md->pub_topic,md->pub_qos);
+//	char *rrpc_topic_head="/sys/a16U9ZZ9jb5/NWOYa1LR2HNPV8hVyXeW/rrpc/request/";
+	if(os_strncmp(topic,SUB_RRPC_TOPIC,os_strlen(SUB_RRPC_TOPIC)-1)==0){
+		char msg_id[50];
+		os_strncpy(msg_id,topic+os_strlen(SUB_RRPC_TOPIC)-1,topic_len-os_strlen(SUB_RRPC_TOPIC)+1);
+		char response_tp[100]="/sys/a16U9ZZ9jb5/NWOYa1LR2HNPV8hVyXeW/rrpc/response/";
+		os_strcat(response_tp,msg_id);
+		mqtt_operator_api(response_tp,data,data_len);
+		return;
+	}
+	for(i=0;ali_sub_topics[i]!=NULL;i++){
+		if(os_strncmp(topic,ali_sub_topics[i],topic_len)==0){
+			mqtt_operator_api(NULL,data,data_len);
+			break;
 		}
 	}
 }
