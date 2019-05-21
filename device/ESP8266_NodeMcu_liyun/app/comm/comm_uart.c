@@ -98,14 +98,14 @@ void ICACHE_FLASH_ATTR uart_recv_passcheck()
 		comm_temperature_value_write_api(temp);
 		comm_humidity_value_write_api(hum);
 		static int counttest=0;
-		os_printf("uart:%d_ReplyDht22 Temp :%3d,Hum :%d\r\n",counttest++,temp,hum);
+		//os_printf("uart:%d_ReplyDht22 Temp :%3d,Hum :%d\r\n",counttest++,temp,hum);
 		break;
 	case ReplyRelay:
-		os_printf("URPC: ReplyRelay\r\n");
+		//os_printf("URPC: ReplyRelay\r\n");
 		comm_relay_status_set_inner_api(uart_recv_buf.mac_index,uart_recv_buf.data[0]);
 		break;
 	case ReplyRay:
-		os_printf("uart:ReplyRay\r\n");
+		//os_printf("uart:ReplyRay\r\n");
 		comm_ray_value_write_api(uart_recv_buf.data[0]);
 		break;
 	}

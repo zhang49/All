@@ -19,7 +19,7 @@ $(function(){
 	var choice_ssid = "";
 	var lightDutyIsWriting=0;
 	var lightDutyTouchValue=0;
-	var getStatusFlag = false;
+	var getStatusFlag = true;
 	
 	var rayIsWriting=0;
 	var rayTouchValue=0;
@@ -56,10 +56,10 @@ $(function(){
 		$(".wifi_scan_ret_list").niceScroll({cursorcolor:"#cccccc",cursoropacitymax: 0});
 		
 
+		if(!getStatusFlag)return;
 		setTimeout(
 			function(){
 				GetConnectSynData();
-				getStatus();
 		},500);
 		var initInterval = setInterval(function(){
 		if(hasSynConnectData){
@@ -87,24 +87,15 @@ $(function(){
 					clearInterval(getStatusTimer);
 				break;
 			}
-			// getStatusErrorCount++;
-			// if(getStatusErrorCount>=3){
-			// 	runStatus=RS.Error;
-			// 	showMsg('无法与设备建立通信');
-			// }else if(getStatusErrorCount>=2){
-			// 	runStatus=RS.Waiting;
-			// }
-            // getStatus();
-        }, 2000);
-		if(!getStatusFlag)return;
-		//获取配置
-		setTimeout(
-			function(){
-				GetConnectSynData();
-				getWiFiConfig();
-				//getNormalConfigCount();
-		},500);
-        //获取状态（心跳包）
+			 getStatusErrorCount++;
+			 if(getStatusErrorCount>=3){
+			 	runStatus=RS.Error;
+			 	showMsg('无法与设备建立通信');
+			 }else if(getStatusErrorCount>=2){
+			 	runStatus=RS.Waiting;
+			 }
+             getStatus();
+        }, 3000);
     }
 	
 	 

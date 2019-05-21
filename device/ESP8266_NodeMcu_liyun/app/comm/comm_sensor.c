@@ -19,7 +19,7 @@
 
 SensorUnio comm_sensors;
 
-uint8_t ray_alarm_value=35;
+uint8_t ray_alarm_value;
 void ICACHE_FLASH_ATTR comm_sensor_init(){
 	//esp_now_add_peer(DHT22MacAddr, ESP_NOW_ROLE_SLAVE, EspNowChannel, NULL, 0);
 	//esp_now_add_peer(RayMacAddr, ESP_NOW_ROLE_SLAVE, EspNowChannel, NULL, 0);

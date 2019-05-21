@@ -99,6 +99,9 @@ int op=0;
 	PIN_PULLDWN_EN(PERIPHS_IO_MUX_GPIO5_U);
 
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14);//选择GPIO14
+
+	//PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, RELAY_PIN);//选择GPIO0
+	GPIO_OUTPUT_SET(GPIO_ID_PIN(16), 0);
 	os_memset(&motor_timer,0,sizeof(os_timer_t));
 	os_timer_disarm(&motor_timer);
 	os_timer_setfn(&motor_timer, motor_turn_process, NULL);

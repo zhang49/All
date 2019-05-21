@@ -106,8 +106,6 @@ static void mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, co
 	dataBuf[data_len] = 0;
 
 	//MQTT_DBG("Receive topic: %s, data: %s ", topicBuf, dataBuf);
-	os_printf("Receive topic: %s, data: %s\r\n", topicBuf, dataBuf);
-
 	//undecision
 	os_free(topicBuf);
 	os_free(dataBuf);

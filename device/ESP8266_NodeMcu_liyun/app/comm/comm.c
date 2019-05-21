@@ -82,7 +82,7 @@ static comm_def comm_operator[]={
 
 os_timer_t statusTimer;
 int mqtt_syn_flag=0;
-
+int motor_turn_flag=0;
 static config_data *cfg_data=NULL;
 uint8_t cfg_save_flag=0;
 typedef int(*door_http_send)(http_connection *);
@@ -97,9 +97,17 @@ static void statusTimerCb(void *arg){
 	syn_state.temperature=comm_temperature_value_read_api();
 	syn_state.humidity=comm_humidity_value_read_api();
 	if(comm_ray_value_api_get()<ray_alarm_value){
-		light_alarm_close();	//set hight
+		light_alarm_open();	//set hight
+		if(motor_turn_flag==0){
+			motor_move_espnow_write(3,5000,1);
+			motor_turn_flag=1;
+		}
 	}else{
-		light_alarm_open();		//set low
+		light_alarm_close();		//set low
+		if(motor_turn_flag==1){
+			motor_move_espnow_write(3,5000,2);
+			motor_turn_flag=0;
+		}
 	}
 	if(cfg_save_flag){
 		config_save(NULL);
@@ -213,12 +221,19 @@ char *ICACHE_FLASH_ATTR replace_str_for_mqtt_transmit(char *destStr,char *headSt
 
 void ICACHE_FLASH_ATTR comm_init(){
 	//for test!
-	comm_relay_status_set_api(0,1);
-	comm_relay_status_set_api(1,1);
-	comm_temperature_value_write_api(1111);
-	comm_humidity_value_write_api(2222);
-	comm_SoilMoisture_value_write_api(3333);
-	comm_ray_value_write_api(255);
+	//comm_relay_status_set_api(0,1);
+	//comm_relay_status_set_api(1,1);
+	//comm_temperature_value_write_api(1111);
+	//comm_humidity_value_write_api(2222);
+	//comm_SoilMoisture_value_write_api(3333);
+	//comm_ray_value_write_api(255);
+	comm_uart_init();
+	//ds18b20_init(1);
+	comm_pwm_init();
+	comm_relay_init();
+	comm_sensor_init();
+	comm_light_init();
+
 	int ret = config_init();
 	cfg_data=config_read();
 	if(!ret){
@@ -257,13 +272,7 @@ void ICACHE_FLASH_ATTR comm_init(){
 	comm_led_pwm_duty_api_set(cfg_data->LightLuminance);
 	ray_alarm_value=cfg_data->LightLuxAlarmValue;
 
-	comm_uart_init();
 
-    //ds18b20_init(1);
-    comm_pwm_init();
-    comm_relay_init();
-    comm_sensor_init();
-    comm_light_init();
 
 
     os_memset(&statusTimer,0,sizeof(os_timer_t));
@@ -392,7 +401,6 @@ int ICACHE_FLASH_ATTR comm_connect_syn(void *client){
 	cJSON_AddStringToObject(data,"MACAddress",cJSON_GetObjectItem(wifi_cfg
 			,"MACAddress")->valuestring);
 	cJSON_AddNumberToObject(data,"E_Craft_Speed_Motor_Punch",255);
-	cJSON_AddNumberToObject(data,"LightLuxAlarmValue",ray_alarm_value);
 	//free
 	cJSON_Delete(wifi_cfg);
 	if(client==NULL){
@@ -425,6 +433,7 @@ int ICACHE_FLASH_ATTR comm_syn_status_read(void *client){
 	cJSON_AddNumberToObject(data,"SoilMoisture",comm_SoilMoisture_value_read_api());
 	cJSON_AddNumberToObject(data,"LightLuminance",comm_led_pwm_duty_api_get());
 	cJSON_AddNumberToObject(data,"LightLux",comm_ray_value_api_get());
+	cJSON_AddNumberToObject(data,"LightLuxAlarmValue",ray_alarm_value);
 	cJSON *relay_arr;
 	cJSON_AddItemToObject(data,"Relay",relay_arr=cJSON_CreateArray());
 	int i;
@@ -770,12 +779,12 @@ int ICACHE_FLASH_ATTR comm_expect_ret(void *client){
 			cJSON *root=cJSON_Parse(data);
 			cJSON *r_data=cJSON_GetObjectItem(root,"data");
 			uint8 index=cJSON_GetObjectItem(r_data,"index")->valueint;
-			{
+			/*{
 				//target for test
 				uint8 status=cJSON_GetObjectItem(r_data,"status")->valueint;
 				comm_relay_status_set_api(index,status);
 				comm_relay_refresh_set(index,COMM_REFRESHED);
-			}
+			}*/
 			if(comm_relay_refresh_status_get(index)==COMM_REFRESHED || sion_buf->tickcount>COMM_TIMER_TIMEOUT){
 				os_timer_disarm(&sion_buf->timer);
 				cJSON *retroot=cJSON_CreateObject();

@@ -27,7 +27,7 @@
 #define DHT_DBG
 #endif
 
-#define DHT_PIN 3
+#define DHT_PIN 2
 
 #define delay_ms(ms) os_delay_us(1000*ms)
 
@@ -186,7 +186,10 @@ int ICACHE_FLASH_ATTR dht22_read(dht_data *read){
 void ICACHE_FLASH_ATTR dht22_init(){
 
     DHT_DBG("dht22_init");
-
+    platform_gpio_mode(1,PLATFORM_GPIO_OUTPUT,PLATFORM_GPIO_HIGH);
+    platform_gpio_mode(3,PLATFORM_GPIO_OUTPUT,PLATFORM_GPIO_LOW);
+    platform_gpio_write(1,1);
+    platform_gpio_write(3,0);
     //nothing to do actually
    
 

@@ -9,7 +9,7 @@
 #define COMM_LIGHT_H_
 
 //D2 GPIO4
-#define ALARM_NORMAL_LIGHT_GPIO_ID GPIO_ID_PIN(4)	//GPIO4	D2
+#define ALARM_NORMAL_LIGHT_GPIO_ID GPIO_ID_PIN(0)	//GPIO0
 
 void ICACHE_FLASH_ATTR light_alarm_open();
 void ICACHE_FLASH_ATTR light_alarm_close();
