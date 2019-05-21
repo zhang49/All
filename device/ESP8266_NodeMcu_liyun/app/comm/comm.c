@@ -96,7 +96,7 @@ static void statusTimerCb(void *arg){
 	}
 	syn_state.temperature=comm_temperature_value_read_api();
 	syn_state.humidity=comm_humidity_value_read_api();
-	if(comm_ray_value_api_get()<ray_alarm_value){
+	if(ray_alarm_value>comm_ray_value_api_get()){
 		light_alarm_open();	//set hight
 		if(motor_turn_flag==0){
 			motor_move_espnow_write(3,5000,1);
@@ -566,7 +566,7 @@ int ICACHE_FLASH_ATTR comm_ray_value_read(void *client){
 	cJSON *retroot=cJSON_CreateObject();
 	cJSON *data;
 	cJSON_AddItemToObject(retroot, "data",data=cJSON_CreateObject() );
-	cJSON_AddNumberToObject(data, "LightLuxAlarmValue",comm_ray_value_api_get() );
+	cJSON_AddNumberToObject(data, "LightLux",comm_ray_value_api_get() );
 	return send_ret_json(client,retroot,EC_Normal);
 
 }
